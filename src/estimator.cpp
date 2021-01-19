@@ -16,7 +16,7 @@
 #include <ibex.h>
 #include <tubex.h>
 #include <tubex-rob.h>
-#include <tubex-3rd.h>
+//#include <tubex-3rd.h>
 
 using namespace cv;
 using namespace std;
@@ -54,7 +54,7 @@ float median(std::vector<float> scores){
     {
       return (scores[size / 2 - 1] + scores[size / 2]) / 2;
     }
-    else 
+    else
     {
       return scores[size / 2];
     }
@@ -133,7 +133,7 @@ void calc_new_pos(std::vector<Vec4i> lines){
 	cout << "alpha_median : " << alpha_median*180/M_PI << endl;
 
 
-	//à la limite, on a le quart qui fluctue donc on veut éviter ça 
+	//à la limite, on a le quart qui fluctue donc on veut éviter ça
 	if(nn ==0){
 		if(abs(abs(alpha_median)-M_PI/4.)<0.1){
 			if(alpha_median >= 0 & last_alpha_median < 0){
@@ -156,7 +156,7 @@ void calc_new_pos(std::vector<Vec4i> lines){
 
 
 	Mat rot = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
-	
+
 	for(int i=0; i<lines.size(); i++) {
 		cv::Vec4i l = lines[i];
 		x1 = l[0], y1 = l[1], x2 = l[2], y2 = l[3];
@@ -176,13 +176,13 @@ void calc_new_pos(std::vector<Vec4i> lines){
 		double c = cos(-angle);
 
 		float x1b=x1, y1b=y1, x2b=x2, y2b=y2;
-		
-		x1 = x1b*c - y1b*s, 
+
+		x1 = x1b*c - y1b*s,
 		y1 = +x1b*s + y1b*c;
 
-		x2 = x2b*c - y2b*s, 
+		x2 = x2b*c - y2b*s,
 		y2 = x2b*s + y2b*c;
-		
+
 		//translation pour l'affichage
 		x1+=frame_width/2., y1+=frame_height/2., x2+=frame_width/2., y2+=frame_height/2.;
 
@@ -190,7 +190,7 @@ void calc_new_pos(std::vector<Vec4i> lines){
 		float x11=x1, y11=y1, x22=x2, y22=y2;
 
 		//calcul pour medx et medy
-		x1=((float)l[0]-frame_width/2.)*scale_pixel, y1=((float)l[1]-frame_height/2.)*scale_pixel; 
+		x1=((float)l[0]-frame_width/2.)*scale_pixel, y1=((float)l[1]-frame_height/2.)*scale_pixel;
 		x2=((float)l[2]-frame_width/2.)*scale_pixel, y2=((float)l[3]-frame_height/2.)*scale_pixel;
 
 	    float d = ((x2-x1)*(y1)-(x1)*(y2-y1)) / sqrt(pow(x2-x1, 2)+pow(y2-y1, 2));
@@ -207,7 +207,7 @@ void calc_new_pos(std::vector<Vec4i> lines){
 	    	Mew.push_back(val);
 
 	    }
-	} 
+	}
 
 	imshow("rot", rot);
 
@@ -218,7 +218,7 @@ void calc_new_pos(std::vector<Vec4i> lines){
 
     float medx = sign(cos(State[2].mid()))*median(Mew);
     float medy = sign(sin(State[2].mid()))*median(Msn);
-	
+
 	IntervalVector X(3, Interval::ALL_REALS);
 
 	X[0] = Interval(State[0].mid()).inflate(percent*size_carrelage_x/2.);
@@ -251,7 +251,7 @@ void calc_new_pos(std::vector<Vec4i> lines){
 
 	if(box[0].is_empty() or box[1].is_empty()){
 		cout << "X empty" << endl;
-	}else{	
+	}else{
 
 		State[0] = box[0];
 		State[1] = box[1];
@@ -275,7 +275,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
   {
     cv::Mat in = cv_bridge::toCvShare(msg, "bgr8")->image;
     cv::Mat out;
-    //transpose(matSRC, matROT);  
+    //transpose(matSRC, matROT);
 	//flip(matROT, matROT,1); //transpose+flip(1)=CW
     //out = in;
     cv::flip(in,out,1); //L'image doit être retournée en raison de l'utilisation de la caméra de VREP
@@ -286,7 +286,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
     }
 
 	cvtColor(out, grey, CV_BGR2GRAY);
-	
+
 	frame_width = out.size[1];
 	frame_height = out.size[0];
 	Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
@@ -313,7 +313,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 
     std::vector<line_struct> lines_points;
     std::vector<float> lines_angles;
-    
+
 	float x1,x2,y1,y2;
     for(int i=0; i<lines.size(); i++){
 
@@ -326,7 +326,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 		ln.p2 = cv::Point(l[2], l[3]);
 		ln.angle = angle_line;
 		lines_points.push_back(ln);
-		
+
 		float angle4 = modulo(angle_line+M_PI/4., M_PI/2.)-M_PI/4.;
 		lines_angles.push_back(angle4);
     }
@@ -359,7 +359,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
     }else{
     	cout << "Pas assez de lignes (" << lines_good.size() << ")" << endl;
     }
-    
+
 	imshow("grey",grey);
 
 	imshow("Sobel",grad);
@@ -367,7 +367,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 	imshow("view",src);
 
 
-	//envoi de la position estimé du robot 
+	//envoi de la position estimé du robot
 	geometry_msgs::PoseStamped msg;
 
 	msg.header.stamp = ros::Time::now();
@@ -392,7 +392,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 	msg.pose = pose;
 
 	chatter_state.publish(msg);
-    
+
 
   }
   catch (cv_bridge::Exception& e)

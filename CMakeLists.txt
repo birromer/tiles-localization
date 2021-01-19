@@ -51,6 +51,10 @@ find_package(catkin REQUIRED COMPONENTS
 )
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
+message(STATUS "OpenCV library status:")
+message(STATUS "    version: ${OpenCV_VERSION}")
+message(STATUS "    libraries: ${OpenCV_LIBS}")
+message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -190,14 +194,14 @@ add_executable(cmd src/command.cpp)
 add_executable(ctrl src/controller.cpp)
 add_executable(view src/viewer.cpp)
 
-target_link_libraries(view ${catkin_LIBRARIES} ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES})
+target_link_libraries(view ${catkin_LIBRARIES} ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES} ${catkin_LIBRARIES} ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES})
 target_compile_options(view PUBLIC ${TUBEX_CFLAGS})
 target_include_directories(view PUBLIC ${TUBEX_INCLUDE_DIRS})
 
 target_link_libraries(cmd ${catkin_LIBRARIES})
 target_link_libraries(ctrl ${catkin_LIBRARIES})
 
-target_link_libraries(estim ${catkin_LIBRARIES} ${OpenCV_LIBS} ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES})
+target_link_libraries(estim opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${TUBEX_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS})
 target_compile_options(estim PUBLIC ${TUBEX_CFLAGS})
 target_include_directories(estim PUBLIC ${TUBEX_INCLUDE_DIRS})
 
