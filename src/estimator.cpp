@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
-#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/highgui.hpp>
+//#include <opencv2/highgui/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <vector>
 #include <cmath>
@@ -209,7 +210,7 @@ void calc_new_pos(std::vector<Vec4i> lines){
 	    }
 	}
 
-	imshow("rot", rot);
+	cv::imshow("rot", rot);
 
 	alpha_median = alpha_median + quart*M_PI/2;
 	alpha_median = modulo(alpha_median, 2*M_PI);
@@ -360,11 +361,10 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
     	cout << "Pas assez de lignes (" << lines_good.size() << ")" << endl;
     }
 
-	imshow("grey",grey);
-
-	imshow("Sobel",grad);
-	imshow("Canny",edges);
-	imshow("view",src);
+	cv::imshow("grey",grey);
+	cv::imshow("Sobel",grad);
+	cv::imshow("Canny",edges);
+	cv::imshow("view",src);
 
 
 	//envoi de la position estimé du robot

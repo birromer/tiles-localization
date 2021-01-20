@@ -1,8 +1,10 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.2.0)
 project(tiles_loc)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
+
+set(CMAKE_PREFIX_PATH "/opt/opencv3;/opt/ros/melodic;/home/birromer/Documents/tubex-lib/build_install")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -49,6 +51,8 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   message_generation
 )
+
+set(OpenCV_DIR /opt/opencv3)
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 message(STATUS "OpenCV library status:")
@@ -58,6 +62,7 @@ message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
+
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -201,6 +206,7 @@ target_include_directories(view PUBLIC ${TUBEX_INCLUDE_DIRS})
 target_link_libraries(cmd ${catkin_LIBRARIES})
 target_link_libraries(ctrl ${catkin_LIBRARIES})
 
+#target_link_libraries(estim ${OpenCV_LIBS} ${catkin_LIBRARIES} ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES} ${catkin_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES})
 target_link_libraries(estim opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${TUBEX_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS})
 target_compile_options(estim PUBLIC ${TUBEX_CFLAGS})
 target_include_directories(estim PUBLIC ${TUBEX_INCLUDE_DIRS})
