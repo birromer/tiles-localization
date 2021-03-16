@@ -4,12 +4,14 @@ project(tiles_loc)
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
 
-set(CMAKE_PREFIX_PATH "/opt/opencv3;/opt/ros/melodic;/home/birromer/Documents/tubex-lib/build_install")
+#set(CMAKE_PREFIX_PATH "/opt/opencv3;/opt/ros/melodic;/home/birromer/Documents/tubex-lib/build_install")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 include(FindPkgConfig)
+
+set(image_transport_DIR /opt/ros/noetic/share/image_transport/cmake/image_transportConfig.cmake)
 
 # Adding Eigen3
 
