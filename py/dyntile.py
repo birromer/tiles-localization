@@ -8,16 +8,23 @@ dt = 0.05 #0.02
 iteration_dt = 3.0 #3.5
 tdomain = Interval(0,5)  # [t0,tf=15]
 x0 = (0, 0, 0)
+
 u = Trajectory(tdomain, TFunction("3*(sin(t)^2)+t/100"), dt)
-i_n = Interval(-0.02, 0.02)
-n_u = RandTrajectory(tdomain, dt, i_n)
-n_theta = RandTrajectory(tdomain, dt, i_n)
+
+i_n = Interval(-0.02, 0.02)  # range noise
+n_u = RandTrajectory(tdomain, dt, i_n)  # noise in u
+n_theta = RandTrajectory(tdomain, dt, i_n)  # noise in the heading
+
+# initialize truth
 v_truth = TrajectoryVector(3)
 x_truth = TrajectoryVector(3)
+
 v_truth[2] = u + n_u
 x_truth[2] = v_truth[2].primitive() + x0[2]
+
 v_truth[0] = 10 * cos(x_truth[2])
 v_truth[1] = 10 * sin(x_truth[2])
+
 x_truth[0] = v_truth[0].primitive() + x0[0]
 x_truth[1] = v_truth[1].primitive() + x0[1]
 

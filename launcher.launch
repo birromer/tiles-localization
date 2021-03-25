@@ -1,13 +1,13 @@
 <launch>
+  <arg name="display_windows" default="true" />
 
-<arg name="display_windows" default="true" />
+  <node name="estim" pkg="tiles_loc" type="estim">
+  <param name="display_window" type="bool" value="$(arg display_windows)"/>
+  </node>
 
-<node name="estim" pkg="tiles_loc" type="estim">
-<param name="display_window" type="bool" value="$(arg display_windows)"/>
-</node>
+  <node name="cmd" pkg="tiles_loc" type="cmd">
+  </node>
 
-<node name="cmd" pkg="tiles_loc" type="cmd">
-</node>
-<node name="ctrl" pkg="tiles_loc" type="ctrl" />
-<node name="view" pkg="tiles_loc" type="view" />
+  <node name="ctrl" pkg="tiles_loc" type="ctrl" />
+  <node name="view" pkg="tiles_loc" type="view" />
 </launch>

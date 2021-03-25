@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <vector>
 #include <cmath>
@@ -170,10 +171,10 @@ void calc_new_pos(std::vector<Vec4i> lines) {
     float x1b=x1, y1b=y1, x2b=x2, y2b=y2;
 
     x1 = x1b*c - y1b*s,
-      y1 = +x1b*s + y1b*c;
+    y1 = +x1b*s + y1b*c;
 
     x2 = x2b*c - y2b*s,
-      y2 = x2b*s + y2b*c;
+    y2 = x2b*s + y2b*c;
 
     //translation pour l'affichage
     x1+=frame_width/2., y1+=frame_height/2., x2+=frame_width/2., y2+=frame_height/2.;
@@ -267,23 +268,21 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
   {
     cv::Mat in = cv_bridge::toCvShare(msg, "bgr8")->image;
     cv::Mat out;
-    //transpose(matSRC, matROT);
-    //flip(matROT, matROT,1); //transpose+flip(1)=CW
-    //out = in;
     cv::flip(in,out,1); //L'image doit être retournée en raison de l'utilisation de la caméra de VREP
-    cv::Mat grey;
-    cv::Mat bin;
+
     if(display_window){
       cv::imshow("View base", out);
     }
 
-    cvtColor(out, grey, CV_BGR2GRAY);
+    cv::Mat grey;
+    cv::Mat bin;
+    cvtColor(out, grey, CV_BGR2GRAY);  // put in grayscale
 
     frame_width = out.size[1];
     frame_height = out.size[0];
     Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
 
-     // Generate grad_x and grad_y
+    // Generate grad_x and grad_y
     Mat grad_x, grad_y;
     Mat abs_grad_x, abs_grad_y;
 
@@ -300,6 +299,15 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 
     Mat edges;
     Canny(grad, edges, 50, 255,3);
+
+//    dilate(edges, edges, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
+    int morph_elem = 0;
+    int morph_size = 0;
+    Mat element = getStructuringElement( morph_elem, Size( 2*morph_size + 1, 2*morph_size+1 ), cv::Point( morph_size, morph_size ) );
+    morphologyEx(edges, edges, MORPH_CLOSE, element);
+
+    dilate(edges, edges, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
+
     std::vector<Vec4i> lines;
     HoughLinesP(edges, lines, 1, CV_PI/180., 60, 120, 50);
 
@@ -355,7 +363,6 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
       cv::imshow("Sobel",grad);
       cv::imshow("Canny",edges);
       cv::imshow("view",src);
-
 
       //envoi de la position estimé du robot
       geometry_msgs::PoseStamped msg;
