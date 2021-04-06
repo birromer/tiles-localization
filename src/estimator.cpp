@@ -88,8 +88,7 @@ int sign(float x){
 }
 
 //variables
-IntervalVector State(3, Interval::ALL_REALS); // état estimé du robot
-
+IntervalVector state(3, Interval::ALL_REALS); // état estimé du robot
 
 const float pix = 103;//99.3;//107.; //pixels entre chaque lignes
 
@@ -118,7 +117,7 @@ Mat src, src_, src_gray;
 Mat grad;
 
 void calc_new_pos(std::vector<Vec4i> lines) {
-//cout << "state début : " << State << " | " << State[2]*180/M_PI << endl;
+//cout << "state début : " << state << " | " << state[2]*180/M_PI << endl;
 
   //conversion from cartesian to polar form :
   float x1,x2,y1,y2;
@@ -209,13 +208,13 @@ void calc_new_pos(std::vector<Vec4i> lines) {
 
   cout << "alpha_median : " << alpha_median*180/M_PI << " " << quart%2<< endl;
 
-  float medx = sign(cos(State[2].mid()))*median(Mew);
-  float medy = sign(sin(State[2].mid()))*median(Msn);
+  float medx = sign(cos(state[2].mid()))*median(Mew);
+  float medy = sign(sin(state[2].mid()))*median(Msn);
 
   IntervalVector X(3, Interval::ALL_REALS);
 
-  X[0] = Interval(State[0].mid()).inflate(percent*size_carrelage_x/2.);
-  X[1] = Interval(State[1].mid()).inflate(percent*size_carrelage_y/2.);
+  X[0] = Interval(state[0].mid()).inflate(percent*size_carrelage_x/2.);
+  X[1] = Interval(state[1].mid()).inflate(percent*size_carrelage_y/2.);
   X[2] = Interval(modulo(alpha_median, 2*M_PI)).inflate(0.1);
 
   //normalisation :
@@ -246,19 +245,19 @@ void calc_new_pos(std::vector<Vec4i> lines) {
     cout << "X empty" << endl;
   }else{
 
-    State[0] = box[0];
-    State[1] = box[1];
+    state[0] = box[0];
+    state[1] = box[1];
 
-    State[0] = State[0]*size_carrelage_x;
-    State[1] = State[1]*size_carrelage_y;
-    State[2] = box[2];
+    state[0] = state[0]*size_carrelage_x;
+    state[1] = state[1]*size_carrelage_y;
+    state[2] = box[2];
 
-    float a = (State[2].mid())*180./M_PI;
+    float a = (state[2].mid())*180./M_PI;
     cout << "angle robot : " << a << endl;
-    vibes::drawBox(State.subvector(0, 1), "pink");
-    vibes::drawVehicle(State[0].mid(), State[1].mid(), a, 0.4, "blue");
+    vibes::drawBox(state.subvector(0, 1), "pink");
+    vibes::drawVehicle(state[0].mid(), state[1].mid(), a, 0.4, "blue");
   }
-  cout << "state fin : " << State << endl;
+  cout << "state fin : " << state << endl;
   cout << endl;
 }
 
@@ -268,7 +267,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
   {
     cv::Mat in = cv_bridge::toCvShare(msg, "bgr8")->image;
     cv::Mat out;
-    cv::flip(in,out,1); //L'image doit être retournée en raison de l'utilisation de la caméra de VREP
+    cv::flip(in, out, 1); //L'image doit être retournée en raison de l'utilisation de la caméra de VREP
 
     if(display_window){
       cv::imshow("View base", out);
@@ -375,13 +374,13 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
       geometry_msgs::Point point;
 
       //position
-      point.x = State[0].mid();
-      point.y = State[1].mid();
+      point.x = state[0].mid();
+      point.y = state[1].mid();
       point.z = 0;
 
       //orientation
       tf::Quaternion q;
-      const double d = State[2].mid(); //d = cap
+      const double d = state[2].mid(); //d = cap
       q.setRPY(0, 0, d);
       tf::quaternionTFToMsg(q, pose.orientation);
 
@@ -399,16 +398,16 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 int main(int argc, char **argv)
 {
   //init pos
-  State[0] = Interval(0., 0.);
-  State[1] = Interval(0., 0.);
-  State[2] = Interval(0., 0.);
-//State[2] = Interval(M_PI/2., M_PI/2.);
-//State[2] = Interval(M_PI, M_PI);
-//State[2] = Interval(-M_PI/2., -M_PI/2.);
-//State[2] = Interval(20.*M_PI/180., 20.*M_PI/180.);
+  state[0] = Interval(0., 0.);
+  state[1] = Interval(0., 0.);
+  state[2] = Interval(0., 0.);
+//state[2] = Interval(M_PI/2., M_PI/2.);
+//state[2] = Interval(M_PI, M_PI);
+//state[2] = Interval(-M_PI/2., -M_PI/2.);
+//state[2] = Interval(20.*M_PI/180., 20.*M_PI/180.);
 
-  last_alpha_median = State[2].mid();
-  quart = floor(State[2].mid()/(M_PI/2.));
+  last_alpha_median = state[2].mid();
+  quart = floor(state[2].mid()/(M_PI/2.));
   cout << "quart start : " << quart << endl;
 
   ros::init(argc, argv, "image_listener");
