@@ -53,7 +53,7 @@ void stateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg){
   Y = msg->pose.position.y;
   C = tf::getYaw(msg->pose.orientation);
 
-  float L = cos(cons_cap)*(cons_x-X) + sin(cons_cap)*(cons_y-Y);
+  float L = cos(cons_cap)*(cons_x-X) + sin(cons_cap)*(cons_y-Y);  // to control speed in curves
   float dist = sqrt(pow(cons_x-X, 2) + pow(cons_y-Y, 2));
 
   //currentSpeed += sqrt(abs(L))*sign(L)/2.;

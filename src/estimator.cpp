@@ -28,7 +28,6 @@ using namespace tubex;
 ros::Publisher chatter_state;
 bool display_window;
 
-
 //fonctions utiles
 struct line_struct{
   Point2f p1;
@@ -117,7 +116,7 @@ Mat src, src_, src_gray;
 Mat grad;
 
 void calc_new_pos(std::vector<Vec4i> lines) {
-//cout << "state début : " << state << " | " << state[2]*180/M_PI << endl;
+  //cout << "state début : " << state << " | " << state[2]*180/M_PI << endl;
 
   //conversion from cartesian to polar form :
   float x1,x2,y1,y2;
