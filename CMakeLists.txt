@@ -97,9 +97,12 @@ message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-#add_message_files(
-#   FILES
-# )
+add_message_files(
+   FILES
+   State.msg
+   Observation.msg
+   Cmd.msg
+ )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -116,8 +119,8 @@ message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
 # )
 
 generate_messages(
-#   DEPENDENCIES
-#   std_msgs#   std_msgs
+  DEPENDENCIES
+  std_msgs
 )
 
 ################################################
@@ -152,7 +155,14 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES image
-  CATKIN_DEPENDS message_generation message_runtime cv_bridge image_transport roscpp rospy std_msgs
+  CATKIN_DEPENDS
+    message_generation
+    message_runtime
+    cv_bridge
+    image_transport
+    roscpp
+    rospy
+    std_msgs
 #  DEPENDS system_lib
 )
 
@@ -196,10 +206,22 @@ include_directories(
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
+
+add_executable(base src/robot.cpp)
+#add_executable(loc src/localization.cpp)
+
 add_executable(estim src/estimator.cpp)
 add_executable(cmd src/command.cpp)
 add_executable(ctrl src/controller.cpp)
 add_executable(view src/viewer.cpp)
+
+target_link_libraries(base opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${TUBEX_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS})
+target_compile_options(base PUBLIC ${TUBEX_CFLAGS})
+target_include_directories(base PUBLIC ${TUBEX_INCLUDE_DIRS})
+
+#target_link_libraries(loc opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${TUBEX_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS})
+#target_compile_options(loc PUBLIC ${TUBEX_CFLAGS})
+#target_include_directories(loc PUBLIC ${TUBEX_INCLUDE_DIRS})
 
 target_link_libraries(view ${catkin_LIBRARIES} ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES} ${catkin_LIBRARIES} ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES})
 target_compile_options(view PUBLIC ${TUBEX_CFLAGS})
