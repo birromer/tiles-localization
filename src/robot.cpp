@@ -5,13 +5,20 @@
 #include "geometry_msgs/Quaternion.h"
 #include "geometry_msgs/PoseStamped.h"
 
+#include "tf/tf.h"
+#include <tf2/LinearMath/Quaternion.h>
+
+
 #include "std_msgs/Float32.h"
 #include "std_msgs/Float32MultiArray.h"
 
 #include "tiles_loc/Observation.h"
 #include "tiles_loc/Cmd.h"
 
-#include "tf/tf.h"
+#include <image_transport/image_transport.h>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include <cv_bridge/cv_bridge.h>
 
 #include <math.h>
 
@@ -108,8 +115,31 @@ double sawtooth(double x){
   return 2.*atan(tan(x/2.));
 }
 
+float median(std::vector<float> scores) {
+  //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
+  size_t size = scores.size();
+
+  if (size == 0) {
+    return 0;  // Undefined, really.
+  } else {
+    sort(scores.begin(), scores.end());
+    if (size % 2 == 0) {
+      return (scores[size / 2 - 1] + scores[size / 2]) / 2;
+    } else {
+      return scores[size / 2];
+    }
+  }
+}
+
+void integration_euler(double &x1, double &x2, double &x3, double u1, double u2, double dt) {
+  x1 = x1 + dt * (u1*cos(x3));
+  x2 = x2 + dt * (u1*sin(x3));
+  x3 = x3 + dt * (u2);
+  ROS_INFO("Updated state -> x1: [%f] | x2: [%f] | x3: [%f] || u1: [%f] | u2: [%f]", x1, x2, x3, u1, u2);
+}
+
 // callbacks for each subscriber
-void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
+void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
   w_x = msg->pose.position.x;
   w_y = msg->pose.position.y;
   w_th = tf::getYaw(msg->pose.orientation);
@@ -122,9 +152,14 @@ void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg) {
   ROS_INFO("Received command: u1 [%f] u2 [%f]", cmd_1, cmd_2);
 }
 
-void integration_euler(double &x1, double &x2, double &x3, double u1, double u2, double dt) {
-  x1 = x1 + dt * (u1*cos(x3));
-  x2 = x2 + dt * (u1*sin(x3));
-  x3 = x3 + dt * (u2);
-  ROS_INFO("Updated state -> x1: [%f] | x2: [%f] | x3: [%f] || u1: [%f] | u2: [%f]", x1, x2, x3, u1, u2);
+void image_callback(const sensor_msgs::ImageConstPtr& msg) {
+  cv::Mat in;
+
+  try {
+    cv::Mat in = cv_bridge::toCvShare(msg, "bgr8")->image;
+  } catch (cv_bridge::Exception& e) {
+    ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+  }
+
+
 }
