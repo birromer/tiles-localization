@@ -22,6 +22,8 @@
 
 #include <math.h>
 
+using namespace cv;
+
 double sawtooth(double x);
 double median(std::vector<double> scores);
 void integration_euler(double &x1, double &x2, double &x3, double u1, double u2, double dt);
@@ -173,10 +175,12 @@ void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg) {
 void image_callback(const sensor_msgs::ImageConstPtr& msg) {
   double obs_1, obs_2, obs_3;
 
-  cv::Mat in;
+  Mat in;
 
   try {
-    cv::Mat in = cv::flip(cv_bridge::toCvShare(msg, "bgr8")->image, in, 1);  // convert message and flip as needed
+    Mat in = flip(cv_bridge::toCvShare(msg, "bgr8")->image, in, 1);  // convert message and flip as needed
+    frame_height = in.size[0];
+    frame_width = in.size[1];
   } catch (cv_bridge::Exception& e) {
     ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
     return;
@@ -186,32 +190,18 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     cv::imshow("View base", in);
   }
 
-  cv::Mat grey;
-  cvtColor(out, grey, CV_BGR2GRAY);  // convert to greyscale for later computing borders
+  Mat grey;
+  // convert to greyscale for later computing borders
+  cvtColor(in, grey, CV_BGR2GRAY);
 
-  frame_height = in.size[0];
-  frame_width = in.size[1];
+  Mat grad;
+  // compute the gradient image in x and y with the laplacian for the borders
+  Laplacian(grey, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
+
+  Mat edges;
+  // detect edges
+
+
 
   Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
-
-  // compute gradients in x and y with sobel for getting borders
-  Mat grad_x, grad_y;
-  Mat abs_grad_x, abs_grad_y;
-
-  // gradient X
-  Sobel(grey, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
-//  convertScaleAbs(grad_x, abs_grad_x);
-  absolute(grad_x, abs_grad_x);
-
-  // gradient Y
-  Sobel(grey, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT);
-//  convertScaleAbs(grad_y, abs_grad_y);
-  absolute(grad_y, abs_grad_y);
-
-  // total gradient (approximate)
-  addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad );
-
-
-
-
 }
