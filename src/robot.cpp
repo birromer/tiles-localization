@@ -23,16 +23,22 @@
 #include <math.h>
 
 double sawtooth(double x);
-
-void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg);
-
-void image_callback(const sensor_msgs::ImageConstPtr& msg);
-
-void state_loc_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
-
+double median(std::vector<double> scores);
 void integration_euler(double &x1, double &x2, double &x3, double u1, double u2, double dt);
 
-float cmd_1, cmd_2;
+void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg);
+void image_callback(const sensor_msgs::ImageConstPtr& msg);
+void state_loc_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
+
+// node communication related variables
+float xloc_1, xloc_2, xloc_3;  // robot state from the localization method
+float obs_1, obs_2, obs_3;     // observed parameters from the image
+float cmd_1, cmd_2;            // commands from controller
+
+// image processing related variables
+bool display_window;
+double frame_width, frame height;
+
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "robot_node");
@@ -49,6 +55,18 @@ int main(int argc, char **argv) {
   n.param<double>("pos_x_init", x1, 0);
   n.param<double>("pos_y_init", x2, 0);
   n.param<double>("pos_th_init", x3, 0);
+  display_window =  n.param<bool>("display_window", true);
+
+  // start visualization windows windows
+  if(display_window) {
+    cv::namedWindow("view");
+    cv::namedWindow("view base");
+    cv::namedWindow("grey");
+    cv::namedWindow("sobel");
+    cv::namedWindow("canny");
+    cv::namedWindow("rotated");
+    cv::startWindowThread();
+  }
 
   // --- subscribers --- //
   // subscriber to z inputs from control
@@ -71,7 +89,7 @@ int main(int argc, char **argv) {
   // ------------------ //
 
   while (ros::ok()) {
-    x1 = x_loc_1, x2 = x_loc_2, x3 = x_loc_3;  // start with the last state contracted from the localization
+    x1 = xloc_1, x2 = xloc_2, x3 = xloc_3;  // start with the last state contracted from the localization
     y1 = obs_1, y2 = obs_2, y3 = obs3;  // use last observed parameters from the image
     u1 = cmd_1, u2 = cmd_2;  // use last input from command
 
@@ -115,14 +133,14 @@ double sawtooth(double x){
   return 2.*atan(tan(x/2.));
 }
 
-float median(std::vector<float> scores) {
+double median(std::vector<double> scores) {
   //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
   size_t size = scores.size();
 
   if (size == 0) {
-    return 0;  // Undefined, really.
+    return 0;  // undefined
   } else {
-    sort(scores.begin(), scores.end());
+    sort(scores.begin(), scores.end());  // sort elements and take middle one
     if (size % 2 == 0) {
       return (scores[size / 2 - 1] + scores[size / 2]) / 2;
     } else {
@@ -153,13 +171,47 @@ void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg) {
 }
 
 void image_callback(const sensor_msgs::ImageConstPtr& msg) {
+  double obs_1, obs_2, obs_3;
+
   cv::Mat in;
 
   try {
-    cv::Mat in = cv_bridge::toCvShare(msg, "bgr8")->image;
+    cv::Mat in = cv::flip(cv_bridge::toCvShare(msg, "bgr8")->image, in, 1);  // convert message and flip as needed
   } catch (cv_bridge::Exception& e) {
     ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+    return;
   }
+
+  if(display_window){
+    cv::imshow("View base", in);
+  }
+
+  cv::Mat grey;
+  cvtColor(out, grey, CV_BGR2GRAY);  // convert to greyscale for later computing borders
+
+  frame_height = in.size[0];
+  frame_width = in.size[1];
+
+  Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
+
+  // compute gradients in x and y with sobel for getting borders
+  Mat grad_x, grad_y;
+  Mat abs_grad_x, abs_grad_y;
+
+  // gradient X
+  Sobel(grey, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
+//  convertScaleAbs(grad_x, abs_grad_x);
+  absolute(grad_x, abs_grad_x);
+
+  // gradient Y
+  Sobel(grey, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT);
+//  convertScaleAbs(grad_y, abs_grad_y);
+  absolute(grad_y, abs_grad_y);
+
+  // total gradient (approximate)
+  addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad );
+
+
 
 
 }
