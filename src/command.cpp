@@ -1,3 +1,14 @@
+/*
+** This node is responsible for creating the waypoint to be followed by the robot.
+** It may be replaced by an external command of the waypoint.
+**
+** Subscribers:
+**   - none
+**
+** Publishers:
+**   - geometry_msgs::PoseStamped waypoint // the target position
+ */
+
 #include "ros/ros.h"
 
 #include <cmath>
@@ -20,19 +31,19 @@ int main(int argc, char **argv)
   float omega = 0.01;
   double t = 0;
 
-  ros::init(argc, argv, "Consigne_node");
+  ros::init(argc, argv, "waypoint_node");
   ros::NodeHandle n;
 
-  ros::Publisher pub_cons = n.advertise<geometry_msgs::PoseStamped>("consigne", 1000);
+  ros::Publisher pub_cons = n.advertise<geometry_msgs::PoseStamped>("waypoint", 1000);
   ros::Rate loop_rate(10);
   float t_start = ros::Time::now().toSec();
 
   while (ros::ok()){
-    //envoi de la position estimé du robot
+    // sends message with desired position
     geometry_msgs::PoseStamped msg;
 
     msg.header.stamp = ros::Time::now();
-    msg.header.frame_id = "robot consigne";
+    msg.header.frame_id = "robot waypoint";
 
     //écriture du message
     geometry_msgs::Pose pose;
