@@ -40,6 +40,7 @@ void integration_euler(double &x1, double &x2, double &x3, double u1, double u2,
 geometry_msgs::PoseStamped state_to_pose_stamped(double x1, double x2, double x3);
 tiles_loc::Observation y_to_observation(double y1, double y2, double y3);
 
+
 // callback functions
 void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg);
 void image_callback(const sensor_msgs::ImageConstPtr& msg);
@@ -54,6 +55,23 @@ float cmd_1, cmd_2;            // commands from controller
 // image processing related variables
 bool display_window;
 double frame_width, frame_height;
+
+const float pix = 103;//99.3;//107.; //pixels entre chaque lignes
+//taille du carrelage en mètre
+float size_carrelage_x = 2.025/12.;
+float size_carrelage_y = 2.025/12.;
+float percent = 0.9; //de combien max on estime qu'on aura bougé (là, de moins d'un carreau donc le calcul est possible)
+float alpha_median;
+int quart;
+float last_alpha_median = 0;
+int nn = 0;
+//variable sobel
+int scale = 1;
+int delta = 0;
+int ddepth = CV_16S;
+//traitement d'image pour détecter les lignes
+Mat src, src_, src_gray;
+Mat grad;
 
 
 int main(int argc, char **argv) {
@@ -215,32 +233,35 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     return;
   }
 
-  Mat grey;
   // convert to greyscale for later computing borders
+  Mat grey;
   cvtColor(in, grey, CV_BGR2GRAY);
 
-  Mat grad;
   // compute the gradient image in x and y with the laplacian for the borders
+  Mat grad;
   Laplacian(grey, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
 
-  Mat edges;
   // detect edges, 50 and 255 as thresholds 1 and 2
+  Mat edges;
   Canny(grad, edges, 50, 255, 3);
 
+  // close and dilate lines for some noise removal
   int morph_elem = 0;
   int morph_size = 0;
-  Mat element = getStructuringElement( morph_elem, Size( 2*morph_size + 1, 2*morph_size+1 ), cv::Point( morph_size, morph_size ) );
+  Mat element = getStructuringElement(morph_elem, Size(2*morph_size + 1, 2*morph_size+1), cv::Point(morph_size, morph_size));
   morphologyEx(edges, edges, MORPH_CLOSE, element);
   dilate(edges, edges, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
 
-  std::vector<Vec4i> lines;
   // detect lines using the hough transform
+  std::vector<Vec4i> lines;
   HoughLinesP(edges, lines, 1, CV_PI/180., 60, 120, 50);
 
+  // structures for storing the lines information
   std::vector<line_struct> lines_points;
-  std::vector<float> lines_angles;
+  std::vector<double> lines_angles;
   double x1, x2, y1, y2;
 
+  // extract the informations from the good detected lines
   for(int i=0; i<lines.size(); i++) {
     Vec4i l = lines[i];
     x1 = l[0];
@@ -254,8 +275,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     line(src, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), Scalar(255, 0, 0), 3, LINE_AA);
 
     line_struct ln = {
-      .p1 = cv::Point(l[0], l[1]),
-      .p2 = cv::Point(l[2], l[3]),
+      .p1 = cv::Point(x1, y1),
+      .p2 = cv::Point(x2, y2),
       .angle = angle_line
     };
     lines_points.push_back(ln);
@@ -264,36 +285,34 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     lines_angles.push_back(angle4);
   }
 
-  float median_angle = median(lines_angles);
+  float median_angle = median(lines_angles);  // get the angle from the tiles being seen
   alpha_median = median_angle;
   std::vector<Vec4i> lines_good;
 
-  float anglegle;
+  // filter lines with coherent orientation
   for (int i=0; i<lines_points.size(); i++) {
-
-    anglegle = lines_angles[i];
-    if(sawtooth(anglegle-median_angle) < 0.1) {
+    if(sawtooth(lines_angles[i]-median_angle) < 0.1) {
       line(src, lines_points[i].p1, lines_points[i].p2, Scalar(255, 0, 0), 3, LINE_AA);
       lines_good.push_back(lines[i]);
 
     } else {
-       cout << "prob lignes : " << lines_angles[i] << " | " << sawtooth(lines_angles[i]-median_angle) << endl;
+       std::cout << "line with bad angle" << lines_angles[i] << " | " << sawtooth(lines_angles[i]-median_angle) << endl;
        line(src, lines_points[i].p1, lines_points[i].p2, Scalar(0, 255, 0), 3, LINE_AA);
     }
   }
 
   if(lines_good.size() > 5) {
-    cout << "il y a : " << lines_good.size() << " lignes" << endl;
+    std::cout << "found " << lines_good.size() << " good lines" << std::endl;
 
     //conversion from cartesian to polar form :
-    float x1,x2,y1,y2;
-    vector<float> Msn, Mew;
+    float x1, x2, y1, y2;
+    vector<double> Msn, Mew;
 
     alpha_median = alpha_median;
-    cout << "alpha_median : " << alpha_median*180/M_PI << endl;
+    std::cout << "alpha_median : " << alpha_median*180/M_PI << std::endl;
 
     //à la limite, on a le quart qui fluctue donc on veut éviter ça
-    if(nn ==0) {
+    if(nn == 0) {
       if(abs(abs(alpha_median)-M_PI/4.)<0.1) {
         if(alpha_median >= 0 & last_alpha_median < 0) {
           quart -=1;
@@ -313,15 +332,15 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     last_alpha_median = alpha_median;
 
-    cout << "________quart : " << quart << " n : " << nn << " " << abs(abs(alpha_median)-M_PI/4.) << endl;
+    std::cout << "________quart : " << quart << " n : " << nn << " " << abs(abs(alpha_median)-M_PI/4.) << std::endl;
 
     Mat rot = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
 
     for(int i=0; i<lines.size(); i++) {
       cv::Vec4i l = lines[i];
       x1 = l[0], y1 = l[1], x2 = l[2], y2 = l[3];
-      //cout << x1 << " | " << y1<< " | " << x2 << " | " << y2 << endl;
-      //cout << frame_height << " | " << frame_width << endl;
+      //std::cout << x1 << " | " << y1<< " | " << x2 << " | " << y2 << std::endl;
+      //std::cout << frame_height << " | " << frame_width << std::endl;
 
       //translation pour centrer les points autour de 0
       x1-=frame_width/2., y1-=frame_height/2., x2-=frame_width/2., y2-=frame_height/2.;
@@ -374,23 +393,14 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     alpha_median = alpha_median + quart*M_PI/2;
     alpha_median = modulo(alpha_median, 2*M_PI);
 
-    cout << "alpha_median : " << alpha_median*180/M_PI << " " << quart%2<< endl;
+    std::cout << "alpha_median : " << alpha_median*180/M_PI << " " << quart%2<< std::endl;
 
     float medx = sign(cos(state[2].mid()))*median(Mew);
     float medy = sign(sin(state[2].mid()))*median(Msn);
 
-    IntervalVector X(3, Interval::ALL_REALS);
-
-    X[0] = Interval(state[0].mid()).inflate(percent*size_carrelage_x/2.);
-    X[1] = Interval(state[1].mid()).inflate(percent*size_carrelage_y/2.);
-    X[2] = Interval(modulo(alpha_median, 2*M_PI)).inflate(0.1);
-
-    //normalisation :
-    X[0] = X[0]/size_carrelage_x;
-    X[1] = X[1]/size_carrelage_y;
 
   } else {
-    cout << "Pas assez de lignes (" << lines_good.size() << ")" << endl;
+    std::cout << "Pas assez de lignes (" << lines_good.size() << ")" << std::endl;
   }
 
 
