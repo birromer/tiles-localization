@@ -33,9 +33,12 @@ struct line_struct{
 
 // helper functions
 double sawtooth(double x);
+float modulo(float a, float b);
+int sign(float x);
 double median(std::vector<double> scores);
 void integration_euler(double &x1, double &x2, double &x3, double u1, double u2, double dt);
 geometry_msgs::PoseStamped state_to_pose_stamped(double x1, double x2, double x3);
+tiles_loc::Observation y_to_observation(double y1, double y2, double y3);
 
 // callback functions
 void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg);
@@ -103,7 +106,7 @@ int main(int argc, char **argv) {
 
   while (ros::ok()) {
     x1 = xloc_1, x2 = xloc_2, x3 = xloc_3;  // start with the last state contracted from the localization
-    y1 = obs_1, y2 = obs_2, y3 = obs3;      // use last observed parameters from the image
+    y1 = obs_1, y2 = obs_2, y3 = obs_3;      // use last observed parameters from the image
     u1 = cmd_1, u2 = cmd_2;                 // use last input from command
 
     // publish current, unevolved state to be used by the control and viewer nodes
@@ -111,13 +114,13 @@ int main(int argc, char **argv) {
     pub_state.publish(state_msg);
 
     // evolve state according to input and state equations
-    integration_euler(x1, x2, x3, x4, u1, u2, dt);
+    integration_euler(x1, x2, x3, u1, u2, dt);
 
     // publish evolved state and observation, to be used only by the localization node
     geometry_msgs::PoseStamped state_pred_msg = state_to_pose_stamped(x1, x2, x3);
     pub_state_pred.publish(state_pred_msg);
 
-    tiles_loc::Observation observation_msg = tiles_loc::Observation(y1, y2, y3);
+    tiles_loc::Observation observation_msg = y_to_observation(y1, y2, y3);
     pub_y.publish(observation_msg);
 
     ros::spinOnce();
@@ -147,6 +150,21 @@ double median(std::vector<double> scores) {
   }
 }
 
+float modulo(float a, float b) {
+  float r = a/b - floor(a/b);
+  if(r<0) {
+    r+=1;
+  }
+  return r*b;
+}
+
+int sign(float x) {
+  if(x < 0) {
+    return -1;
+  }
+  return 1;
+}
+
 void integration_euler(double &x1, double &x2, double &x3, double u1, double u2, double dt) {
   x1 = x1 + dt * (u1*cos(x3));
   x2 = x2 + dt * (u1*sin(x3));
@@ -156,21 +174,30 @@ void integration_euler(double &x1, double &x2, double &x3, double u1, double u2,
 
 // callbacks for each subscriber
 void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg) {
-  cmd_1 = msg->data.u1;
-  cmd_2 = msg->data.u2;
+  cmd_1 = msg->u1;
+  cmd_2 = msg->u2;
   ROS_INFO("Received command: u1 [%f] u2 [%f]", cmd_1, cmd_2);
 }
 
 geometry_msgs::PoseStamped state_to_pose_stamped(double x1, double x2, double x3) {
     geometry_msgs::PoseStamped msg;
-    msg->pose.position.x = x1;
-    msg->pose.position.y = x2;
-    msg->pose.position.z = 0;
+    msg.pose.position.x = x1;
+    msg.pose.position.y = x2;
+    msg.pose.position.z = 0;
     tf::Quaternion q;
     q.setRPY(0, 0, x3);  // roll, pitch, yaw
     tf::quaternionTFToMsg(q, msg.pose.orientation);
 
     return msg;
+}
+
+tiles_loc::Observation y_to_observation(double y1, double y2, double y3) {
+  tiles_loc::Observation msg;
+  msg.y1 = y1;
+  msg.y2 = y2;
+  msg.y3 = y3;
+
+  return msg;
 }
 
 void image_callback(const sensor_msgs::ImageConstPtr& msg) {
@@ -220,6 +247,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     y1 = l[1];
     x2 = l[2];
     y2 = l[3];
+
+    Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
 
     double angle_line = atan2(y2-y1, x2-x1);
     line(src, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), Scalar(255, 0, 0), 3, LINE_AA);
