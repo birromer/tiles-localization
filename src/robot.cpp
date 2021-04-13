@@ -241,7 +241,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
   try {
     // convert message and flip as needed
-    Mat in = flip(cv_bridge::toCvShare(msg, "bgr8")->image, in, 1);
+    Mat in = cv_bridge::toCvShare(msg, "bgr8")->image;
+    flip(in, in, 1);
     frame_height = in.size[0];
     frame_width = in.size[1];
 

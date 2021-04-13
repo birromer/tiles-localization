@@ -75,7 +75,7 @@ int main(int argc, char **argv)
     msg.pose = pose;
 
     pub_cons.publish(msg);
-    ROS_INFO("[COMMAND] Sent waypoint -> x1: [%f] | x2: [%f] | x3: [%]", point.x, point.y, d);
+    ROS_INFO("[COMMAND] Sent waypoint -> x1: [%f] | x2: [%f] | x3: [%f]", point.x, point.y, d);
 
     ros::spinOnce();
 

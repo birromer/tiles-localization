@@ -25,7 +25,6 @@ float max(float a, float b);
 float min(float a, float b);
 float sign(float a);
 
-
 // callback functions
 void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
 void state_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
