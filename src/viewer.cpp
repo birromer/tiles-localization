@@ -35,7 +35,7 @@ using namespace ibex;
 using namespace tubex;
 
 void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
-  float w_x, w_y, w_cap;
+  float w_x, w_y, w_th;
   w_x = msg->pose.position.x;
   w_y = msg->pose.position.y;
   w_th = tf::getYaw(msg->pose.orientation);

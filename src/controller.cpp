@@ -11,12 +11,12 @@
 
 #include "ros/ros.h"
 #include "std_msgs/Float32.h"
-
 #include "geometry_msgs/Pose.h"
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/Quaternion.h"
 #include "geometry_msgs/PoseStamped.h"
 #include "tf/tf.h"
+#include "tiles_loc/Cmd.h"
 
 
 // utils
@@ -31,7 +31,7 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
 void state_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
 
 
-ros::Publisher pub_cmd_l, pub_cmd_r;
+ros::Publisher pub_cmd;
 
 double current_speed = 150.;
 int max_speed = 300;
@@ -47,6 +47,7 @@ int main(int argc, char **argv)
 {
   ros::init(argc, argv, "control_node");
   ros::NodeHandle n;
+  ros::Rate loop_rate(25);  // 25Hz frequency
 
   // --- subscribers --- //
   // subscriber to waypoint from command
@@ -61,8 +62,6 @@ int main(int argc, char **argv)
   // ------------------ //
 
   while (ros::ok()) {
-    float cmd_r, cmd_l;
-
     float L = cos(w_th)*(w_x - x_x) + sin(w_th)*(w_y - x_y);  // to control speed in curves
     float dist = sqrt(pow(w_x - x_x, 2) + pow(w_y - x_y, 2));
 
@@ -98,10 +97,10 @@ int main(int argc, char **argv)
     cmd_r = max(min(cmd_r, max_speed), -0);
     cmd_l = max(min(cmd_l, max_speed), -0);
 
-    ROS_WARN("[CONTROL] L : %f | current_speed : %f | C : %f", L, current_speed, C*180/M_PI);
+    ROS_WARN("[CONTROL] L : %f | current_speed : %f | C : %f", L, current_speed, x_th*180/M_PI);
     ROS_WARN("[CONTROL] dist : %f", dist);
     ROS_WARN("[CONTROL] cmd_l : %f | cmd_r : %f ", cmd_l, cmd_r);
-    ROS_WARN("[CONTROL] cons_cap : %f | angle : %f | c2 : %f ", cons_cap*180/M_PI, angle_state_waypoint*180/M_PI, c2*180/M_PI);
+    ROS_WARN("[CONTROL] cons_cap : %f | angle : %f | c2 : %f ", w_th*180/M_PI, angle_state_waypoint*180/M_PI, c2*180/M_PI);
     ROS_WARN("[CONTROL] sawtooth : %f \n", sawtooth(x_th - c2)/M_PI);
 
     cmd_l /= 100;
