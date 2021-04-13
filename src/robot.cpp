@@ -281,7 +281,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     };
     lines_points.push_back(ln);
 
-    float angle4 = modulo(angle_line+M_PI/4., M_PI/2.)-M_PI/4.;
+    float angle4 = modulo(angle_line+M_PI/4., M_PI/2.)-M_PI/4.;  // TODO: why
     lines_angles.push_back(angle4);
   }
 
@@ -289,7 +289,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
   alpha_median = median_angle;
   std::vector<Vec4i> lines_good;
 
-  // filter lines with coherent orientation
+  // filter lines with coherent orientation into lines_good
   for (int i=0; i<lines_points.size(); i++) {
     if(sawtooth(lines_angles[i]-median_angle) < 0.1) {
       line(src, lines_points[i].p1, lines_points[i].p2, Scalar(255, 0, 0), 3, LINE_AA);
@@ -306,28 +306,28 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     //conversion from cartesian to polar form :
     float x1, x2, y1, y2;
-    vector<double> Msn, Mew;
+    vector<double> Msn, Mew;  // south/north, east/west
 
     alpha_median = alpha_median;
     std::cout << "alpha_median : " << alpha_median*180/M_PI << std::endl;
 
     //à la limite, on a le quart qui fluctue donc on veut éviter ça
     if(nn == 0) {
-      if(abs(abs(alpha_median)-M_PI/4.)<0.1) {
+      if(abs(abs(alpha_median)-M_PI/4.) < 0.1) {
         if(alpha_median >= 0 & last_alpha_median < 0) {
-          quart -=1;
+          quart -= 1;
           nn = 1;
         } else if (alpha_median <= 0 & last_alpha_median > 0) {
-          quart +=1;
+          quart += 1;
           nn = 1;
         }
       }
     } else {
-      nn+=1;
+      nn += 1;
     }
 
     if(nn == 100) {
-      nn =0;
+      nn = 0;
     }
 
     last_alpha_median = alpha_median;
