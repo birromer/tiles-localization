@@ -1,3 +1,18 @@
+/*
+** This node is responsible for centering all other node's operations.
+** It processes the image data in order to generate the observation vector and
+** evolves the robot position according to the state equations
+**
+** Subscribers:
+**   - tiles_loc::Cmd cmd                       // the input u1 and u2 for the robot
+**   - sensor_msgs::ImageConstPtr image         // the image from the robot's camera
+**   - geometry_msgs::PoseStamped state_loc     // the estimation of the robot's state
+**
+** Publishers:
+**   - geometry_msgs::PoseStamped state    // the current state
+**   - tiles_loc::Observation observation  // the observation vector, processed from the incoming image
+*/
+
 #include "ros/ros.h"
 
 #include "geometry_msgs/Pose.h"
@@ -7,7 +22,6 @@
 
 #include "tf/tf.h"
 #include <tf2/LinearMath/Quaternion.h>
-
 
 #include "std_msgs/Float32.h"
 #include "std_msgs/Float32MultiArray.h"
@@ -24,17 +38,18 @@
 
 using namespace cv;
 
+
 struct line_struct{
   Point2f p1;
   Point2f p2;
-  float angle;
+  double angle;
 };
 
 
 // helper functions
 double sawtooth(double x);
-float modulo(float a, float b);
-int sign(float x);
+double modulo(double a, double b);
+int sign(double x);
 double median(std::vector<double> scores);
 void integration_euler(double &x1, double &x2, double &x3, double u1, double u2, double dt);
 geometry_msgs::PoseStamped state_to_pose_stamped(double x1, double x2, double x3);
@@ -48,22 +63,23 @@ void state_loc_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
 
 
 // node communication related variables
-float xloc_1, xloc_2, xloc_3;  // robot state from the localization method
-float obs_1, obs_2, obs_3;     // observed parameters from the image
-float cmd_1, cmd_2;            // commands from controller
+double xloc_1, xloc_2, xloc_3;  // robot state from the localization method
+double obs_1, obs_2, obs_3;     // observed parameters from the image
+double cmd_1, cmd_2;            // commands from controller
 
 // image processing related variables
 bool display_window;
 double frame_width, frame_height;
 
-const float pix = 103;//99.3;//107.; //pixels entre chaque lignes
+const double pix = 103;//99.3;//107.; //pixels entre chaque lignes
+const double scale_pixel = 1./pix;
 //taille du carrelage en mètre
-float size_carrelage_x = 2.025/12.;
-float size_carrelage_y = 2.025/12.;
-float percent = 0.9; //de combien max on estime qu'on aura bougé (là, de moins d'un carreau donc le calcul est possible)
-float alpha_median;
+double size_carrelage_x = 2.025/12.;
+double size_carrelage_y = 2.025/12.;
+double percent = 0.9; //de combien max on estime qu'on aura bougé (là, de moins d'un carreau donc le calcul est possible)
+double alpha_median;
 int quart;
-float last_alpha_median = 0;
+double last_alpha_median = 0;
 int nn = 0;
 //variable sobel
 int scale = 1;
@@ -124,7 +140,7 @@ int main(int argc, char **argv) {
 
   while (ros::ok()) {
     x1 = xloc_1, x2 = xloc_2, x3 = xloc_3;  // start with the last state contracted from the localization
-    y1 = obs_1, y2 = obs_2, y3 = obs_3;      // use last observed parameters from the image
+    y1 = obs_1, y2 = obs_2, y3 = obs_3;     // use last observed parameters from the image
     u1 = cmd_1, u2 = cmd_2;                 // use last input from command
 
     // publish current, unevolved state to be used by the control and viewer nodes
@@ -168,15 +184,15 @@ double median(std::vector<double> scores) {
   }
 }
 
-float modulo(float a, float b) {
-  float r = a/b - floor(a/b);
+double modulo(double a, double b) {
+  double r = a/b - floor(a/b);
   if(r<0) {
     r+=1;
   }
   return r*b;
 }
 
-int sign(float x) {
+int sign(double x) {
   if(x < 0) {
     return -1;
   }
@@ -187,14 +203,14 @@ void integration_euler(double &x1, double &x2, double &x3, double u1, double u2,
   x1 = x1 + dt * (u1*cos(x3));
   x2 = x2 + dt * (u1*sin(x3));
   x3 = x3 + dt * (u2);
-  ROS_INFO("Updated state -> x1: [%f] | x2: [%f] | x3: [%f] || u1: [%f] | u2: [%f]", x1, x2, x3, u1, u2);
+  ROS_INFO("[ROBOT] Updated state -> x1: [%f] | x2: [%f] | x3: [%f] || u1: [%f] | u2: [%f]", x1, x2, x3, u1, u2);
 }
 
 // callbacks for each subscriber
 void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg) {
   cmd_1 = msg->u1;
   cmd_2 = msg->u2;
-  ROS_INFO("Received command: u1 [%f] u2 [%f]", cmd_1, cmd_2);
+  ROS_INFO("[ROBOT] Received command: u1 [%f] u2 [%f]", cmd_1, cmd_2);
 }
 
 geometry_msgs::PoseStamped state_to_pose_stamped(double x1, double x2, double x3) {
@@ -228,6 +244,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     Mat in = flip(cv_bridge::toCvShare(msg, "bgr8")->image, in, 1);
     frame_height = in.size[0];
     frame_width = in.size[1];
+
   } catch (cv_bridge::Exception& e) {
     ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
     return;
@@ -281,22 +298,22 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     };
     lines_points.push_back(ln);
 
-    float angle4 = modulo(angle_line+M_PI/4., M_PI/2.)-M_PI/4.;  // TODO: why
+    double angle4 = modulo(angle_line+M_PI/4., M_PI/2.)-M_PI/4.;  // TODO: why
     lines_angles.push_back(angle4);
   }
 
-  float median_angle = median(lines_angles);  // get the angle from the tiles being seen
+  double median_angle = median(lines_angles);  // get the median angle from the tiles being seen
   alpha_median = median_angle;
   std::vector<Vec4i> lines_good;
 
-  // filter lines with coherent orientation into lines_good
+  // filter lines with coherent orientation with the median into lines_good
   for (int i=0; i<lines_points.size(); i++) {
     if(sawtooth(lines_angles[i]-median_angle) < 0.1) {
       line(src, lines_points[i].p1, lines_points[i].p2, Scalar(255, 0, 0), 3, LINE_AA);
       lines_good.push_back(lines[i]);
 
     } else {
-       std::cout << "line with bad angle" << lines_angles[i] << " | " << sawtooth(lines_angles[i]-median_angle) << endl;
+       std::cout << "line with bad angle" << lines_angles[i] << " | " << sawtooth(lines_angles[i]-median_angle) << std::endl;
        line(src, lines_points[i].p1, lines_points[i].p2, Scalar(0, 255, 0), 3, LINE_AA);
     }
   }
@@ -305,8 +322,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     std::cout << "found " << lines_good.size() << " good lines" << std::endl;
 
     //conversion from cartesian to polar form :
-    float x1, x2, y1, y2;
-    vector<double> Msn, Mew;  // south/north, east/west
+    double x1, x2, y1, y2;
+    std::vector<double> Msn, Mew;  // south/north, east/west
 
     alpha_median = alpha_median;
     std::cout << "alpha_median : " << alpha_median*180/M_PI << std::endl;
@@ -336,25 +353,31 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     Mat rot = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
 
-    for(int i=0; i<lines.size(); i++) {
-      cv::Vec4i l = lines[i];
+    for(int i=0; i<lines_good.size(); i++) {
+      cv::Vec4i l = lines_good[i];
       x1 = l[0], y1 = l[1], x2 = l[2], y2 = l[3];
       //std::cout << x1 << " | " << y1<< " | " << x2 << " | " << y2 << std::endl;
       //std::cout << frame_height << " | " << frame_width << std::endl;
 
       //translation pour centrer les points autour de 0
-      x1-=frame_width/2., y1-=frame_height/2., x2-=frame_width/2., y2-=frame_height/2.;
+      x1 -= frame_width/2.0f;
+      y1 -= frame_height/2.0f;
+      x2 -= frame_width/2.0f;
+      y2 -= frame_height/2.0f;
 
       //rotation autour de 0
-      float alpha = atan2(y2-y1,x2-x1);
+      double alpha = atan2(y2-y1, x2-x1);
 
-      float angle = modulo(alpha+M_PI/4., M_PI/2)-M_PI/4.;
+      double angle = modulo(alpha+M_PI/4., M_PI/2)-M_PI/4.;
       angle += quart*M_PI/2.;
 
       double s = sin(-angle);
       double c = cos(-angle);
 
-      float x1b=x1, y1b=y1, x2b=x2, y2b=y2;
+      double x1b = x1;
+      double y1b = y1;
+      double x2b = x2;
+      double y2b = y2;
 
       x1 = x1b*c - y1b*s,
       y1 = +x1b*s + y1b*c;
@@ -363,18 +386,27 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       y2 = x2b*s + y2b*c;
 
       //translation pour l'affichage
-      x1+=frame_width/2., y1+=frame_height/2., x2+=frame_width/2., y2+=frame_height/2.;
+      x1 += frame_width/2.0f;
+      y1 += frame_height/2.0f;
+      x2 += frame_width/2.0f;
+      y2 += frame_height/2.0f;
 
-      float alpha2 = atan2(y2-y1,x2-x1);
-      float x11=x1, y11=y1, x22=x2, y22=y2;
+      double alpha2 = atan2(y2-y1,x2-x1);
+      double x11=x1;
+      double y11=y1;
+      double x22=x2;
+      double y22=y2;
 
       //calcul pour medx et medy
-      x1=((float)l[0]-frame_width/2.)*scale_pixel, y1=((float)l[1]-frame_height/2.)*scale_pixel;
-      x2=((float)l[2]-frame_width/2.)*scale_pixel, y2=((float)l[3]-frame_height/2.)*scale_pixel;
+      x1=((double)l[0]-frame_width/2.0f)*scale_pixel;
+      y1=((double)l[1]-frame_height/2.0f)*scale_pixel;
 
-      float d = ((x2-x1)*(y1)-(x1)*(y2-y1)) / sqrt(pow(x2-x1, 2)+pow(y2-y1, 2));
+      x2=((double)l[2]-frame_width/2.0f)*scale_pixel;
+      y2=((double)l[3]-frame_height/2.0f)*scale_pixel;
 
-      float val;
+      double d = ((x2-x1)*(y1)-(x1)*(y2-y1)) / sqrt(pow(x2-x1, 2)+pow(y2-y1, 2));
+
+      double val;
       val = (d+0.5)-floor(d+0.5)-0.5;
 
       if (abs(cos(alpha2)) < 0.2) {
@@ -395,8 +427,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     std::cout << "alpha_median : " << alpha_median*180/M_PI << " " << quart%2<< std::endl;
 
-    float medx = sign(cos(state[2].mid()))*median(Mew);
-    float medy = sign(sin(state[2].mid()))*median(Msn);
+    double medx = sign(cos(state[2].mid()))*median(Mew);
+    double medy = sign(sin(state[2].mid()))*median(Msn);
 
 
   } else {
