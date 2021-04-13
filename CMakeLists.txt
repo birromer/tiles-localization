@@ -99,7 +99,6 @@ message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
 ## Generate messages in the 'msg' folder
 add_message_files(
    FILES
-   State.msg
    Observation.msg
    Cmd.msg
  )
