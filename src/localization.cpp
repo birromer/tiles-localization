@@ -20,6 +20,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 
 #include "tiles_loc/Observation.h"
+#include "tiles_loc/State.h"
 
 #include <ibex.h>
 #include <tubex.h>

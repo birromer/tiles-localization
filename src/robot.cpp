@@ -26,6 +26,7 @@
 #include "std_msgs/Float32.h"
 #include "std_msgs/Float32MultiArray.h"
 
+#include "tiles_loc/State.h"
 #include "tiles_loc/Observation.h"
 #include "tiles_loc/Cmd.h"
 

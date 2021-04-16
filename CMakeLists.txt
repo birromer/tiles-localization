@@ -101,6 +101,7 @@ add_message_files(
    FILES
    Observation.msg
    Cmd.msg
+   State.msg
  )
 
 ## Generate services in the 'srv' folder
@@ -207,9 +208,9 @@ include_directories(
 # )
 
 add_executable(base src/robot.cpp)
-#add_executable(loc src/localization.cpp)
+add_executable(loc src/localization.cpp)
 
-add_executable(estim src/estimator.cpp)
+#add_executable(estim src/estimator.cpp)
 add_executable(cmd src/command.cpp)
 add_executable(ctrl src/controller.cpp)
 add_executable(view src/viewer.cpp)
@@ -218,9 +219,9 @@ target_link_libraries(base opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${T
 target_compile_options(base PUBLIC ${TUBEX_CFLAGS})
 target_include_directories(base PUBLIC ${TUBEX_INCLUDE_DIRS})
 
-#target_link_libraries(loc opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${TUBEX_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS})
-#target_compile_options(loc PUBLIC ${TUBEX_CFLAGS})
-#target_include_directories(loc PUBLIC ${TUBEX_INCLUDE_DIRS})
+target_link_libraries(loc opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${TUBEX_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS})
+target_compile_options(loc PUBLIC ${TUBEX_CFLAGS})
+target_include_directories(loc PUBLIC ${TUBEX_INCLUDE_DIRS})
 
 target_link_libraries(view ${catkin_LIBRARIES} ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES} ${catkin_LIBRARIES} ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES})
 target_compile_options(view PUBLIC ${TUBEX_CFLAGS})
@@ -229,10 +230,9 @@ target_include_directories(view PUBLIC ${TUBEX_INCLUDE_DIRS})
 target_link_libraries(cmd ${catkin_LIBRARIES})
 target_link_libraries(ctrl ${catkin_LIBRARIES})
 
-#target_link_libraries(estim ${OpenCV_LIBS} ${catkin_LIBRARIES} ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES} ${catkin_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES})
-target_link_libraries(estim opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${TUBEX_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS})
-target_compile_options(estim PUBLIC ${TUBEX_CFLAGS})
-target_include_directories(estim PUBLIC ${TUBEX_INCLUDE_DIRS})
+#target_link_libraries(estim opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${TUBEX_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS})
+#target_compile_options(estim PUBLIC ${TUBEX_CFLAGS})
+#target_include_directories(estim PUBLIC ${TUBEX_INCLUDE_DIRS})
 
 #############
 ## Install ##

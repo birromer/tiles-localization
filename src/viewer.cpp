@@ -4,7 +4,7 @@
 ** Subscribers:
 **   - geometry_msgs::PoseStamped waypoint  // the target state, waypoint
 **   - geometry_msgs::PoseStamped pose      // the current pose, ground truth
-**   - geometry_msgs::PoseStamped state     // the estimated state
+**   - tiles_loc::State state               // the estimated state
 **
 ** Publishers:
 **   - none
@@ -23,6 +23,8 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "tf/tf.h"
 
+#include "tiles_loc/State.h"
+
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <ibex.h>
@@ -34,6 +36,7 @@ using namespace std;
 using namespace ibex;
 using namespace tubex;
 
+
 void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
   float w_x, w_y, w_th;
   w_x = msg->pose.position.x;
@@ -43,13 +46,15 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
   vibes::drawVehicle(w_x, w_y, w_th*180./M_PI, 0.2, "green");
 }
 
-void state_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
-  float x_x, x_y, x_th;
-  x_x = msg->pose.position.x;
-  x_y = msg->pose.position.y;
-  x_th = tf::getYaw(msg->pose.orientation);
+void state_callback(const tiles_loc::State::ConstPtr& msg){
+  IntervalVector state(
+    {msg->x1_lb, msg->x1_ub},
+    {msg->x2_lb, msg->x2_ub},
+    {msg->x3_lb, msg->x1_ub}
+  );
 
-  vibes::drawVehicle(x_x, x_y, x_th*180./M_PI, 0.4, "blue");
+  vibes::drawBox(state.subvector(0, 1), "pink");
+  vibes::drawVehicle(state[0].mid(), state[1].mid(), (state[2].mid())*180./M_PI, 0.4, "blue");
 }
 
 void pose_callback(const geometry_msgs::Pose& msg){
@@ -66,7 +71,6 @@ int main(int argc, char **argv){
   VIBesFigMap fig_map("Map");
   vibes::setFigureProperties("Map",vibesParams("x", 10, "y", -10, "width", 100, "height", 100));
   vibes::axisLimits(-10, 10, -10, 10, "Map");
-
   fig_map.show();
 
   ros::init(argc, argv, "viewer_node");
