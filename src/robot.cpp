@@ -428,8 +428,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     std::cout << "alpha_median : " << alpha_median*180/M_PI << " " << quart%2<< std::endl;
 
-    double medx = sign(cos(state[2].mid()))*median(Mew);
-    double medy = sign(sin(state[2].mid()))*median(Msn);
+//    double medx = sign(cos(state[2].mid()))*median(Mew);
+//    double medy = sign(sin(state[2].mid()))*median(Msn);
 
 
   } else {

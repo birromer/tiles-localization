@@ -427,9 +427,9 @@ int main(int argc, char **argv)
   }
 
   vibes::beginDrawing();
-  VIBesFigMap fig_map("Map");
-  vibes::setFigureProperties("Map",vibesParams("x", 10, "y", -10, "width", 100, "height", 100));
-  vibes::axisLimits(-10, 10, -10, 10, "Map");
+  VIBesFigMap fig_map("MapIntervals");
+  vibes::setFigureProperties("MapIntervals",vibesParams("x", 10, "y", -10, "width", 100, "height", 100));
+  vibes::axisLimits(-10, 10, -10, 10, "MapIntervals");
 
   fig_map.show();
 
