@@ -10,7 +10,8 @@
 
 **
 ** Publishers:
-**   - tiles_loc::State state_pred         // the current state
+**   - tiles_loc::State state_pred    // the evolved state, predicted from the state equations
+**   - tiles_loc::State state         // the current state of the robot
 **   - tiles_loc::Observation observation  // the observation vector, processed from the incoming image
 */
 
@@ -56,7 +57,7 @@ double sawtooth(double x);
 double modulo(double a, double b);
 int sign(double x);
 double median(std::vector<double> scores);
-void integration_euler(double &x1, double &x2, double &x3, double u1, double u2, double dt);
+ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt);
 
 // message convertion functions
 tiles_loc::State state_to_msg(double x1, double x2, double x3);
@@ -140,10 +141,10 @@ int main(int argc, char **argv) {
 
   // --- publishers --- //
   // publisher of the state for control and viewer
-  ros::Publisher pub_state = n.advertise<tiles_loc::State::ConstPtr>("state", 1000);
+  ros::Publisher pub_state      = n.advertise<tiles_loc::State>("state", 1000);
 
   // publisher of the predicted state and observation for localization
-  ros::Publisher pub_state_pred = n.advertise<tiles_loc::State::ConstPtr>("state_pred", 1000);
+  ros::Publisher pub_state_pred = n.advertise<tiles_loc::State>("state_pred", 1000);
   ros::Publisher pub_y = n.advertise<tiles_loc::Observation>("observation", 1000);
   // ------------------ //
 
@@ -153,14 +154,14 @@ int main(int argc, char **argv) {
     u1 = cmd_1, u2 = cmd_2;              // use last input from command
 
     // publish current, unevolved state to be used by the control and viewer nodes
-    geometry_msgs::PoseStamped state_msg = state_to_msg(state);
+    tiles_loc::State state_msg = state_to_msg(state);
     pub_state.publish(state_msg);
 
     // evolve state according to input and state equations
     state = integration_euler(state, u1, u2, dt);
 
     // publish evolved state and observation, to be used only by the localization node
-    geometry_msgs::PoseStamped state_pred_msg = state_to_msg(state);
+    tiles_loc::State state_pred_msg = state_to_msg(state);
     pub_state_pred.publish(state_pred_msg);
 
     tiles_loc::Observation observation_msg = observation_to_msg(y1, y2, y3);

@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
 
   // --- publishers --- //
   // publisher of the estimated state back to base node
-  ros::Publisher pub_state_loc = n.advertise<geometry_msgs::PoseStamped::ConstPtr>("state_loc", 1000);
+  ros::Publisher pub_state_loc = n.advertise<tiles_loc::State>("state_loc", 1000);
   // ------------------ //
 
   while (ros::ok()) {

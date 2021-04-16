@@ -4,7 +4,7 @@
 ** Subscribers:
 **   - geometry_msgs::PoseStamped waypoint  // the target state, waypoint
 **   - geometry_msgs::PoseStamped pose      // the current pose, ground truth
-**   - tiles_loc::State state               // the estimated state
+**   - tiles_loc::State state_loc           // the estimated state
 **
 ** Publishers:
 **   - none
@@ -46,7 +46,7 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
   vibes::drawVehicle(w_x, w_y, w_th*180./M_PI, 0.2, "green");
 }
 
-void state_callback(const tiles_loc::State::ConstPtr& msg){
+void state_loc_callback(const tiles_loc::State::ConstPtr& msg){
   IntervalVector state({
     {msg->x1_lb, msg->x1_ub},
     {msg->x2_lb, msg->x2_ub},
@@ -78,7 +78,7 @@ int main(int argc, char **argv){
   ros::NodeHandle n;
 
   ros::Subscriber sub_waypoint = n.subscribe("waypoint", 1000, waypoint_callback);
-  ros::Subscriber sub_state = n.subscribe("state", 1000, state_callback);
+  ros::Subscriber sub_state_loc = n.subscribe("state_loc", 1000, state_loc_callback);
   ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
 
   ros::spin();
