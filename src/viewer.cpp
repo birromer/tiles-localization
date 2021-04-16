@@ -47,10 +47,10 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
 }
 
 void state_callback(const tiles_loc::State::ConstPtr& msg){
-  IntervalVector state(
+  IntervalVector state({
     {msg->x1_lb, msg->x1_ub},
     {msg->x2_lb, msg->x2_ub},
-    {msg->x3_lb, msg->x1_ub}
+    {msg->x3_lb, msg->x1_ub}}
   );
 
   vibes::drawBox(state.subvector(0, 1), "pink");

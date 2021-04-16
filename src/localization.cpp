@@ -30,6 +30,8 @@
 void state_pred_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
 void observation_callback(const tiles_loc::Observation::ConstPtr& msg);
 
+tiles_loc::State state_to_msg(ibex::IntervalVector state);
+
 
 double x_x, x_y, x_th;  // predicted state of the robot, from the base node
 double obs_1, obs_2, obs_3;
@@ -97,20 +99,36 @@ int main(int argc, char **argv) {
 
       float a = (state[2].mid())*180./M_PI;
       std::cout << "angle robot: " << a << std::endl;
-
-//      vibes::drawBox(state.subvector(0, 1), "pink");
-//      vibes::drawVehicle(state[0].mid(), state[1].mid(), a, 0.4, "blue");
     }
 
     std::cout << "contracted state: " << state << std::endl << std::endl;
 
     // publish evolved state and observation, to be used only by the localization node
-    geometry_msgs::PoseStamped state_loc_msg = state_to_pose_stamped(x1_loc, x2_loc, x3_loc);
-    pub_state_pred.publish(state_loc_msg);
+    tiles_loc::State state_loc_msg = state_to_msg(state);
+    pub_state_loc.publish(state_loc_msg);
 
     ros::spinOnce();
     loop_rate.sleep();
   }
 
   return 0;
+}
+
+tiles_loc::State state_to_msg(ibex::IntervalVector state) {
+    tiles_loc::State msg;
+    msg.x1_lb = state[0].lb();
+    msg.x1_ub = state[0].ub();
+    msg.x2_lb = state[1].lb();
+    msg.x2_ub = state[1].ub();
+    msg.x3_lb = state[2].lb();
+    msg.x3_ub = state[2].ub();
+    return msg;
+}
+
+void state_pred_callback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
+
+}
+
+void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
+
 }

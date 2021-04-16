@@ -4,12 +4,13 @@
 ** evolves the robot position according to the state equations
 **
 ** Subscribers:
-**   - tiles_loc::Cmd cmd                       // the input u1 and u2 for the robot
-**   - sensor_msgs::ImageConstPtr image         // the image from the robot's camera
-**   - geometry_msgs::PoseStamped state_loc     // the estimation of the robot's state
+**   - tiles_loc::State state_loc        // the estimation of the robot's state
+**   - tiles_loc::Cmd cmd                // the input u1 and u2 for the robot
+**   - sensor_msgs::ImageConstPtr image  // the image from the robot's camera
+
 **
 ** Publishers:
-**   - geometry_msgs::PoseStamped state    // the current state
+**   - tiles_loc::State state_pred         // the current state
 **   - tiles_loc::Observation observation  // the observation vector, processed from the incoming image
 */
 
@@ -35,6 +36,9 @@
 #include <opencv2/imgproc.hpp>
 #include <cv_bridge/cv_bridge.h>
 
+#include <ibex.h>
+#include <tubex.h>
+#include <tubex-rob.h>
 #include <math.h>
 
 using namespace cv;
@@ -53,20 +57,22 @@ double modulo(double a, double b);
 int sign(double x);
 double median(std::vector<double> scores);
 void integration_euler(double &x1, double &x2, double &x3, double u1, double u2, double dt);
-geometry_msgs::PoseStamped state_to_pose_stamped(double x1, double x2, double x3);
-tiles_loc::Observation y_to_observation(double y1, double y2, double y3);
 
+// message convertion functions
+tiles_loc::State state_to_msg(double x1, double x2, double x3);
+tiles_loc::State state_to_msg(ibex::IntervalVector state);
+tiles_loc::Observation observation_to_msg(double y1, double y2, double y3);
 
 // callback functions
+void state_loc_callback(const tiles_loc::State::ConstPtr& msg);
 void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg);
 void image_callback(const sensor_msgs::ImageConstPtr& msg);
-void state_loc_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
 
 
 // node communication related variables
-double xloc_1, xloc_2, xloc_3;  // robot state from the localization method
-double obs_1, obs_2, obs_3;     // observed parameters from the image
-double cmd_1, cmd_2;            // commands from controller
+ibex::IntervalVector state_loc(3, Interval::ALL_REALS);  // robot state from the localization method
+double obs_1, obs_2, obs_3;      // observed parameters from the image
+double cmd_1, cmd_2;             // commands from controller
 
 // image processing related variables
 bool display_window;
@@ -98,15 +104,17 @@ int main(int argc, char **argv) {
   ros::Rate loop_rate(25);  // 25Hz frequency
   double dt = 0.005;  // time step
 
-  double x1, x2, x3;  // current state of the robot
-  double y1, y2, y3;  // current observation of the robot
-  double u1, u2;      // current input received
-
   // read initial values from the launcher
+  double x1, x2, x3;  // temporary values to get the initial parameters
   n.param<double>("pos_x_init", x1, 0);
   n.param<double>("pos_y_init", x2, 0);
   n.param<double>("pos_th_init", x3, 0);
-  display_window =  n.param<bool>("display_window", true);
+
+  ibex::IntervalVector state({{x1,x1}, {x2,x2}, {x3,x3}});  // current state of the robot
+  double y1, y2, y3;                                        // current observation of the robot
+  double u1, u2;                                            // current input received
+
+  display_window = n.param<bool>("display_window", true);
 
   // start visualization windows windows
   if(display_window) {
@@ -132,30 +140,30 @@ int main(int argc, char **argv) {
 
   // --- publishers --- //
   // publisher of the state for control and viewer
-  ros::Publisher pub_state = n.advertise<geometry_msgs::PoseStamped::ConstPtr>("state", 1000);
+  ros::Publisher pub_state = n.advertise<tiles_loc::State::ConstPtr>("state", 1000);
 
   // publisher of the predicted state and observation for localization
-  ros::Publisher pub_state_pred = n.advertise<geometry_msgs::PoseStamped::ConstPtr>("state_pred", 1000);
+  ros::Publisher pub_state_pred = n.advertise<tiles_loc::State::ConstPtr>("state_pred", 1000);
   ros::Publisher pub_y = n.advertise<tiles_loc::Observation>("observation", 1000);
   // ------------------ //
 
   while (ros::ok()) {
-    x1 = xloc_1, x2 = xloc_2, x3 = xloc_3;  // start with the last state contracted from the localization
-    y1 = obs_1, y2 = obs_2, y3 = obs_3;     // use last observed parameters from the image
-    u1 = cmd_1, u2 = cmd_2;                 // use last input from command
+    state = state_loc;                   // start with the last state contracted from the localization
+    y1 = obs_1, y2 = obs_2, y3 = obs_3;  // use last observed parameters from the image
+    u1 = cmd_1, u2 = cmd_2;              // use last input from command
 
     // publish current, unevolved state to be used by the control and viewer nodes
-    geometry_msgs::PoseStamped state_msg = state_to_pose_stamped(x1, x2, x3);
+    geometry_msgs::PoseStamped state_msg = state_to_msg(state);
     pub_state.publish(state_msg);
 
     // evolve state according to input and state equations
-    integration_euler(x1, x2, x3, u1, u2, dt);
+    state = integration_euler(state, u1, u2, dt);
 
     // publish evolved state and observation, to be used only by the localization node
-    geometry_msgs::PoseStamped state_pred_msg = state_to_pose_stamped(x1, x2, x3);
+    geometry_msgs::PoseStamped state_pred_msg = state_to_msg(state);
     pub_state_pred.publish(state_pred_msg);
 
-    tiles_loc::Observation observation_msg = y_to_observation(y1, y2, y3);
+    tiles_loc::Observation observation_msg = observation_to_msg(y1, y2, y3);
     pub_y.publish(observation_msg);
 
     ros::spinOnce();
@@ -200,11 +208,24 @@ int sign(double x) {
   return 1;
 }
 
-void integration_euler(double &x1, double &x2, double &x3, double u1, double u2, double dt) {
-  x1 = x1 + dt * (u1*cos(x3));
-  x2 = x2 + dt * (u1*sin(x3));
-  x3 = x3 + dt * (u2);
-  ROS_INFO("[ROBOT] Updated state -> x1: [%f] | x2: [%f] | x3: [%f] || u1: [%f] | u2: [%f]", x1, x2, x3, u1, u2);
+ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt) {
+  ibex::IntervalVector state_new;
+  state_new[0] = state[0] + dt * (u1*cos(state[0]));
+  state_new[1] = state[1] + dt * (u1*sin(state[1]));
+  state_new[2] = state[2] + dt * (u2);
+
+  ROS_INFO("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
+           state[0].lb(), state[0].ub(), state[1].lb(), state[1].ub(), state[2].lb(), state[2].ub(), u1, u2);
+
+  return state_new;
+}
+
+void state_loc_callback(const tiles_loc::State::ConstPtr& msg) {
+  state_loc[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
+  state_loc[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
+  state_loc[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
+  ROS_INFO("[ROBOT] Received estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+           state_loc[0].lb(), state_loc[0].ub(), state_loc[1].lb(), state_loc[1].ub(), state_loc[2].lb(), state_loc[2].ub());
 }
 
 // callbacks for each subscriber
@@ -214,19 +235,30 @@ void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg) {
   ROS_INFO("[ROBOT] Received command: u1 [%f] u2 [%f]", cmd_1, cmd_2);
 }
 
-geometry_msgs::PoseStamped state_to_pose_stamped(double x1, double x2, double x3) {
-    geometry_msgs::PoseStamped msg;
-    msg.pose.position.x = x1;
-    msg.pose.position.y = x2;
-    msg.pose.position.z = 0;
-    tf::Quaternion q;
-    q.setRPY(0, 0, x3);  // roll, pitch, yaw
-    tf::quaternionTFToMsg(q, msg.pose.orientation);
+tiles_loc::State state_to_msg(double x1, double x2, double x3) {
+    tiles_loc::State msg;
+    msg.x1_lb = x1;
+    msg.x1_ub = x1;
+    msg.x2_lb = x2;
+    msg.x2_ub = x2;
+    msg.x3_lb = x3;
+    msg.x3_ub = x3;
 
     return msg;
 }
 
-tiles_loc::Observation y_to_observation(double y1, double y2, double y3) {
+tiles_loc::State state_to_msg(ibex::IntervalVector state) {
+    tiles_loc::State msg;
+    msg.x1_lb = state[0].lb();
+    msg.x1_ub = state[0].ub();
+    msg.x2_lb = state[1].lb();
+    msg.x2_ub = state[1].ub();
+    msg.x3_lb = state[2].lb();
+    msg.x3_ub = state[2].ub();
+    return msg;
+}
+
+tiles_loc::Observation observation_to_msg(double y1, double y2, double y3) {
   tiles_loc::Observation msg;
   msg.y1 = y1;
   msg.y2 = y2;

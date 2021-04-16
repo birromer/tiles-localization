@@ -3,7 +3,7 @@
 **
 ** Subscribers:
 **   - geometry_msgs::PoseStamped waypoint  // the target state
-**   - geometry_msgs::PoseStamped state     // the current state of the robot
+**   - tiles_loc::State           state     // the current state of the robot
 **
 ** Publishers:
 **   - tiles_loc::Cmd command  // the input u1 and u2 for the robot
@@ -17,6 +17,7 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "tf/tf.h"
 #include "tiles_loc/Cmd.h"
+#include "tiles_loc/State.h"
 
 
 // utils
@@ -27,7 +28,7 @@ float sign(float a);
 
 // callback functions
 void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
-void state_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
+void state_callback(const tiles_loc::State::ConstPtr& msg);
 
 
 ros::Publisher pub_cmd;
@@ -121,7 +122,6 @@ int main(int argc, char **argv)
   return 0;
 }
 
-
 double sawtooth(double x) {
   return 2.*atan(tan(x/2.));
 }
@@ -149,13 +149,11 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
   w_y  = msg->pose.position.y;
   w_th = tf::getYaw(msg->pose.orientation);
   ROS_INFO("[CONTROL] Received waypoint -> w_x: [%f] | w_y: [%f] | w_th: [%f]", w_x, w_y, w_th);
-
 }
 
-void state_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
-  x_x  = msg->pose.position.x;
-  x_y  = msg->pose.position.y;
-  x_th = tf::getYaw(msg->pose.orientation);
+void state_callback(const tiles_loc::State::ConstPtr& msg){
+  x_x = (msg->x1_lb + msg->x1_ub)/2.;
+  x_y = (msg->x2_lb + msg->x2_ub)/2.;
+  x_th = (msg->x3_lb + msg->x3_ub)/2. * 180./M_PI;  // NOTE: check if radians or degrees should be user later
   ROS_INFO("[CONTROL] Received state-> x1: [%f] | x2: [%f] | x3: [%f]", x_x, x_y, x_th);
-
 }
