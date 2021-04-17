@@ -464,13 +464,14 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     double medx = sign(cos(state[2].mid()))*median(Mew);
     double medy = sign(sin(state[2].mid()))*median(Msn);
 
-
+    obs_1 = medx;
+    obs_2 = medy;
+    obs_3 = alpha_median;
   } else {
+
     std::cout << "Pas assez de lignes (" << lines_good.size() << ")" << std::endl;
   }
 
-
-  Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
 
   if(display_window){
     cv::imshow("View base", in);

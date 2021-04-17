@@ -72,6 +72,7 @@ int main(int argc, char **argv) {
     IntervalVector box0(6, Interval::ALL_REALS);
     IntervalVector box1(6, Interval::ALL_REALS);
 
+    // TODO: test having angle from the state, such as if there were a compass
     box0[0] = X[0], box0[1] = X[1], box0[2] = X[2], box0[3] = y1, box0[4] = y2, box0[5] = y3; //X[2];
     box1[0] = X[0], box1[1] = X[1], box1[2] = X[2], box1[3] = y1, box1[4] = y2, box1[5] = y3; //X[2];
 
