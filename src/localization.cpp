@@ -72,8 +72,8 @@ int main(int argc, char **argv) {
     IntervalVector box0(6, Interval::ALL_REALS);
     IntervalVector box1(6, Interval::ALL_REALS);
 
-    box0[0] = X[0], box0[1] = X[1], box0[2] = X[2], box0[3] = Interval(medx).inflate(0.03), box0[4] = Interval(medy).inflate(0.03), box0[5] = Interval(alpha_median).inflate(0.1); //X[2];
-    box1[0] = X[0], box1[1] = X[1], box1[2] = X[2], box1[3] = Interval(medx).inflate(0.03), box1[4] = Interval(medy).inflate(0.03), box1[5] = Interval(alpha_median).inflate(0.1); //X[2];
+    box0[0] = X[0], box0[1] = X[1], box0[2] = X[2], box0[3] = y1, box0[4] = y2, box0[5] = y3; //X[2];
+    box1[0] = X[0], box1[1] = X[1], box1[2] = X[2], box1[3] = y1, box1[4] = y2, box1[5] = y3; //X[2];
 
     ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
     ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
