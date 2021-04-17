@@ -71,6 +71,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg);
 
 
 // node communication related variables
+ibex::IntervalVector state(3, Interval::ALL_REALS);  // current state of the robot
 ibex::IntervalVector state_loc(3, Interval::ALL_REALS);  // robot state from the localization method
 double obs_1, obs_2, obs_3;      // observed parameters from the image
 double cmd_1, cmd_2;             // commands from controller
@@ -111,7 +112,10 @@ int main(int argc, char **argv) {
   n.param<double>("pos_y_init", x2, 0);
   n.param<double>("pos_th_init", x3, 0);
 
-  ibex::IntervalVector state({{x1,x1}, {x2,x2}, {x3,x3}});  // current state of the robot
+//  ibex::IntervalVector state({{x1,x1}, {x2,x2}, {x3,x3}});  // current state of the robot
+  state[0] = ibex::Interval(x1,x1);
+  state[1] = ibex::Interval(x2,x2);
+  state[2] = ibex::Interval(x3,x3);
   double y1, y2, y3;                                        // current observation of the robot
   double u1, u2;                                            // current input received
 
@@ -216,7 +220,7 @@ ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, do
   state_new[2] = state[2] + dt * (u2);
 
   ROS_INFO("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
-           state[0].lb(), state[0].ub(), state[1].lb(), state[1].ub(), state[2].lb(), state[2].ub(), u1, u2);
+           state_new[0].lb(), state_new[0].ub(), state_new[1].lb(), state_new[1].ub(), state_new[2].lb(), state_new[2].ub(), u1, u2);
 
   return state_new;
 }
