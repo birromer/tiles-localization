@@ -120,7 +120,7 @@ void calc_new_pos(std::vector<Vec4i> lines) {
 
   //conversion from cartesian to polar form :
   float x1,x2,y1,y2;
-  vector<float> Msn, Mew;
+  vector<float> Msn, Mew;  // the bags?
 
   alpha_median = alpha_median;
   cout << "alpha_median : " << alpha_median*180/M_PI << endl;

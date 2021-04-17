@@ -113,6 +113,9 @@ int main(int argc, char **argv)
 
     pub_cmd.publish(cmd_msg);
 
+    // TODO: inflate control by [-0.03, 0.03]
+    // TODO: change Cmd message to be an interval
+
     ROS_INFO("[CONTROL] Sent commands -> u1: [%f] | u2: [%f]", cmd_l, cmd_r);
 
     ros::spinOnce();

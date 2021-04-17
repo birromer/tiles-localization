@@ -358,9 +358,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     //conversion from cartesian to polar form :
     double x1, x2, y1, y2;
-    std::vector<double> Msn, Mew;  // south/north, east/west
+    std::vector<double> Msn, Mew;  // median for south/north and east/west
 
-    alpha_median = alpha_median;
     std::cout << "alpha_median : " << alpha_median*180/M_PI << std::endl;
 
     //à la limite, on a le quart qui fluctue donc on veut éviter ça
@@ -394,13 +393,13 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       //std::cout << x1 << " | " << y1<< " | " << x2 << " | " << y2 << std::endl;
       //std::cout << frame_height << " | " << frame_width << std::endl;
 
-      //translation pour centrer les points autour de 0
+      //translation in order to center lines around 0
       x1 -= frame_width/2.0f;
       y1 -= frame_height/2.0f;
       x2 -= frame_width/2.0f;
       y2 -= frame_height/2.0f;
 
-      //rotation autour de 0
+      // rotation around 0, in order to have only horizontal and vetical lines
       double alpha = atan2(y2-y1, x2-x1);
 
       double angle = modulo(alpha+M_PI/4., M_PI/2)-M_PI/4.;
@@ -462,8 +461,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     std::cout << "alpha_median : " << alpha_median*180/M_PI << " " << quart%2<< std::endl;
 
-//    double medx = sign(cos(state[2].mid()))*median(Mew);
-//    double medy = sign(sin(state[2].mid()))*median(Msn);
+    double medx = sign(cos(state[2].mid()))*median(Mew);
+    double medy = sign(sin(state[2].mid()))*median(Msn);
 
 
   } else {
