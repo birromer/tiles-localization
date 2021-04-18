@@ -27,14 +27,14 @@
 #include <tubex-rob.h>
 
 
-void state_pred_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
+void state_pred_callback(const tiles_loc::State::ConstPtr& msg);
 void observation_callback(const tiles_loc::Observation::ConstPtr& msg);
 
 tiles_loc::State state_to_msg(ibex::IntervalVector state);
 
 
-double x_x, x_y, x_th;  // predicted state of the robot, from the base node
-double obs_1, obs_2, obs_3;
+ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);  // predicted state of the robot, from the base node callback
+double obs_1, obs_2, obs_3;  // observed parameters, from the base node callback
 
 
 int main(int argc, char **argv) {
@@ -43,11 +43,9 @@ int main(int argc, char **argv) {
 
   ros::Rate loop_rate(25);  // 25Hz frequency
 
-  IntervalVector state(3, Interval::ALL_REALS); // estimated state of the robot, from the contractors
-
-  double x1_pred, x2_pred, x3_pred;  // predicted state of the robot, from the equations
-  double x1_loc, x2_loc, x3_loc;     // estimated state of the robot, from the contracted intervals
-  double y1, y2, y3;                 // observed parameters
+  IntervalVector x_loc(3, Interval::ALL_REALS);   // estimated state of the robot, from the contractors
+  IntervalVector x_pred(3, Interval::ALL_REALS);  // predicted state of the robot, from the equations
+  double y1, y2, y3;                              // observed parameters
 
   // --- subscribers --- //
   // subscriber to predicted state and measured observation from base
@@ -61,20 +59,20 @@ int main(int argc, char **argv) {
   // ------------------ //
 
   while (ros::ok()) {
-    x1_pred = x_x, x2_pred = x_y, x3_pred = x_th;  // start with the last state contracted from the localization
-    y1 = obs_1, y2 = obs_2, y3 = obs_3;            // use last observed parameters from the image
+    // use last observed parameters from the image TODO: add intervals to observations
+    y1 = obs_1, y2 = obs_2, y3 = obs_3;
 
-    IntervalVector X(3, Interval::ALL_REALS);
-    X[0] = Interval(x1_pred).inflate(0.1);
-    X[1] = Interval(x2_pred).inflate(0.1);
-    X[2] = Interval(x3_pred).inflate(0.1);
+    // start with the last state contracted from the localization
+    x_pred[0] = state_pred[0];
+    x_pred[1] = state_pred[1];
+    x_pred[2] = state_pred[2];
 
-    IntervalVector box0(6, Interval::ALL_REALS);
-    IntervalVector box1(6, Interval::ALL_REALS);
+    ibex::IntervalVector box0(6, Interval::ALL_REALS);
+    ibex::IntervalVector box1(6, Interval::ALL_REALS);
 
     // TODO: test having angle from the state, such as if there were a compass
-    box0[0] = X[0], box0[1] = X[1], box0[2] = X[2], box0[3] = y1, box0[4] = y2, box0[5] = y3; //X[2];
-    box1[0] = X[0], box1[1] = X[1], box1[2] = X[2], box1[3] = y1, box1[4] = y2, box1[5] = y3; //X[2];
+    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = y1, box0[4] = y2, box0[5] = y3; //X[2];
+    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = y1, box1[4] = y2, box1[5] = y3; //X[2];
 
     ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
     ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
@@ -94,18 +92,18 @@ int main(int argc, char **argv) {
       std::cout << "X empty" << std::endl;
 
     } else {
-      state[0] = box[0];
-      state[1] = box[1];
-      state[2] = box[2];
+      x_loc[0] = box[0];
+      x_loc[1] = box[1];
+      x_loc[2] = box[2];
 
-      float a = (state[2].mid())*180./M_PI;
+      float a = (x_loc[2].mid())*180./M_PI;
       std::cout << "angle robot: " << a << std::endl;
     }
 
-    std::cout << "contracted state: " << state << std::endl << std::endl;
+    std::cout << "contracted state: " << x_loc << std::endl << std::endl;
 
     // publish evolved state and observation, to be used only by the localization node
-    tiles_loc::State state_loc_msg = state_to_msg(state);
+    tiles_loc::State state_loc_msg = state_to_msg(x_loc);
     pub_state_loc.publish(state_loc_msg);
 
     ros::spinOnce();
@@ -126,10 +124,21 @@ tiles_loc::State state_to_msg(ibex::IntervalVector state) {
     return msg;
 }
 
-void state_pred_callback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
+void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
 
+  state_pred[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
+  state_pred[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
+  state_pred[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
+
+  ROS_WARN("[LOCALIZATION] Received predicted state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
+           msg->x1_lb, msg->x1_ub, msg->x2_lb, msg->x2_ub, msg->x3_lb, msg->x3_ub);
 }
 
 void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
+  obs_1 = msg->y1;
+  obs_2 = msg->y2;
+  obs_3 = msg->y3;
 
+  ROS_WARN("[LOCALIZATION] Received observation -> y1: [%f] | y2: [%f] | y3: [%f]",
+           msg->y1, msg->y2, msg->y3);
 }

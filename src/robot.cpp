@@ -121,6 +121,8 @@ int main(int argc, char **argv) {
 
   display_window = n.param<bool>("display_window", true);
 
+  ROS_WARN("CHEGOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOU");
+
   // start visualization windows windows
   if(display_window) {
     cv::namedWindow("view");
@@ -131,6 +133,8 @@ int main(int argc, char **argv) {
     cv::namedWindow("rotated");
     cv::startWindowThread();
   }
+
+  std::cout << "check 4" << std::endl;
 
   // --- subscribers --- //
   // subscriber to z inputs from control
@@ -153,23 +157,29 @@ int main(int argc, char **argv) {
   // ------------------ //
 
   while (ros::ok()) {
+    std::cout << "[main] inicio loop ros" << std::endl;
     state = state_loc;                   // start with the last state contracted from the localization
     y1 = obs_1, y2 = obs_2, y3 = obs_3;  // use last observed parameters from the image
     u1 = cmd_1, u2 = cmd_2;              // use last input from command
+    std::cout << "[main] check 1" << std::endl;
 
     // publish current, unevolved state to be used by the control and viewer nodes
     tiles_loc::State state_msg = state_to_msg(state);
     pub_state.publish(state_msg);
+    std::cout << "[main] check 2" << std::endl;
 
     // evolve state according to input and state equations
     state = integration_euler(state, u1, u2, dt);
+    std::cout << "[main] check 3" << std::endl;
 
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_pred_msg = state_to_msg(state);
     pub_state_pred.publish(state_pred_msg);
+    std::cout << "[main] check 4" << std::endl;
 
     tiles_loc::Observation observation_msg = observation_to_msg(y1, y2, y3);
     pub_y.publish(observation_msg);
+    std::cout << "[main] check 5" << std::endl;
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -214,12 +224,13 @@ int sign(double x) {
 }
 
 ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt) {
-  ibex::IntervalVector state_new;
-  state_new[0] = state[0] + dt * (u1*cos(state[0]));
-  state_new[1] = state[1] + dt * (u1*sin(state[1]));
+  std::cout << "inicio integration" << std::endl;
+  ibex::IntervalVector state_new(3, Interval::ALL_REALS);
+  state_new[0] = state[0] + dt * (u1*ibex::cos(state[0]));
+  state_new[1] = state[1] + dt * (u1*ibex::sin(state[1]));
   state_new[2] = state[2] + dt * (u2);
 
-  ROS_INFO("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
+  ROS_WARN("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
            state_new[0].lb(), state_new[0].ub(), state_new[1].lb(), state_new[1].ub(), state_new[2].lb(), state_new[2].ub(), u1, u2);
 
   return state_new;
@@ -229,7 +240,7 @@ void state_loc_callback(const tiles_loc::State::ConstPtr& msg) {
   state_loc[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
   state_loc[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
   state_loc[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
-  ROS_INFO("[ROBOT] Received estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+  ROS_WARN("[ROBOT] Received estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
            state_loc[0].lb(), state_loc[0].ub(), state_loc[1].lb(), state_loc[1].ub(), state_loc[2].lb(), state_loc[2].ub());
 }
 
@@ -237,7 +248,7 @@ void state_loc_callback(const tiles_loc::State::ConstPtr& msg) {
 void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg) {
   cmd_1 = msg->u1;
   cmd_2 = msg->u2;
-  ROS_INFO("[ROBOT] Received command: u1 [%f] u2 [%f]", cmd_1, cmd_2);
+  ROS_WARN("[ROBOT] Received command: u1 [%f] u2 [%f]", cmd_1, cmd_2);
 }
 
 tiles_loc::State state_to_msg(double x1, double x2, double x3) {
