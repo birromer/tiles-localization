@@ -26,6 +26,8 @@
 #include <tubex.h>
 #include <tubex-rob.h>
 
+#define ERROR_OBS 0.06
+
 
 void state_pred_callback(const tiles_loc::State::ConstPtr& msg);
 void observation_callback(const tiles_loc::Observation::ConstPtr& msg);
@@ -34,7 +36,7 @@ tiles_loc::State state_to_msg(ibex::IntervalVector state);
 
 
 ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);  // predicted state of the robot, from the base node callback
-double obs_1, obs_2, obs_3;  // observed parameters, from the base node callback
+ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);  // observed parameters, from the base node callback
 
 
 int main(int argc, char **argv) {
@@ -45,7 +47,7 @@ int main(int argc, char **argv) {
 
   IntervalVector x_loc(3, Interval::ALL_REALS);   // estimated state of the robot, from the contractors
   IntervalVector x_pred(3, Interval::ALL_REALS);  // predicted state of the robot, from the equations
-  double y1, y2, y3;                              // observed parameters
+  IntervalVector y(3, Interval::ALL_REALS);       // observed parameters
 
   // --- subscribers --- //
   // subscriber to predicted state and measured observation from base
@@ -60,7 +62,9 @@ int main(int argc, char **argv) {
 
   while (ros::ok()) {
     // use last observed parameters from the image TODO: add intervals to observations
-    y1 = obs_1, y2 = obs_2, y3 = obs_3;
+    y[0] = observation[0];
+    y[1] = observation[1];
+    y[2] = observation[2];
 
     // start with the last state contracted from the localization
     x_pred[0] = state_pred[0];
@@ -71,8 +75,8 @@ int main(int argc, char **argv) {
     ibex::IntervalVector box1(6, Interval::ALL_REALS);
 
     // TODO: test having angle from the state, such as if there were a compass
-    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = y1, box0[4] = y2, box0[5] = y3; //X[2];
-    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = y1, box1[4] = y2, box1[5] = y3; //X[2];
+    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2]; //X[2];
+    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2]; //X[2];
 
     ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
     ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
@@ -89,7 +93,7 @@ int main(int argc, char **argv) {
     box[2] = box0[2] | box1[2];
 
     if(box[0].is_empty() or box[1].is_empty()) {
-      std::cout << "X empty" << std::endl;
+      ROS_WARN("[LOCALIZATION] X is empty");
 
     } else {
       x_loc[0] = box[0];
@@ -97,14 +101,16 @@ int main(int argc, char **argv) {
       x_loc[2] = box[2];
 
       float a = (x_loc[2].mid())*180./M_PI;
-      std::cout << "angle robot: " << a << std::endl;
+//      std::cout << "angle robot: " << a << std::endl;
     }
 
-    std::cout << "contracted state: " << x_loc << std::endl << std::endl;
+//    std::cout << "contracted state: " << x_loc << std::endl << std::endl;
 
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_loc_msg = state_to_msg(x_loc);
     pub_state_loc.publish(state_loc_msg);
+    ROS_INFO("Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+             x_loc[0].lb(), x_loc[0].ub(), x_loc[1].lb(), x_loc[1].ub(), x_loc[2].lb(), x_loc[2].ub());
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -135,10 +141,13 @@ void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
 }
 
 void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
-  obs_1 = msg->y1;
-  obs_2 = msg->y2;
-  obs_3 = msg->y3;
+  observation[0] = ibex::Interval(msg->y1, msg->y1).inflate(ERROR_OBS);
+  observation[1] = ibex::Interval(msg->y2, msg->y2).inflate(ERROR_OBS);
+  observation[2] = ibex::Interval(msg->y3, msg->y3).inflate(ERROR_OBS);
 
-  ROS_INFO("[LOCALIZATION] Received observation -> y1: [%f] | y2: [%f] | y3: [%f]",
-           msg->y1, msg->y2, msg->y3);
+  ROS_INFO("[LOCALIZATION] Received observation -> y1: [%f] | y2: [%f] | y3: [%f]", msg->y1, msg->y2, msg->y3);
+
+  if (msg->y1 == 0 && msg->y2 == 0) {
+    ROS_WARN("[LOCALIZATION] Observation is empty.");
+  }
 }
