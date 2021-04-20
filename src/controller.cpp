@@ -97,11 +97,11 @@ int main(int argc, char **argv)
     cmd_r = max(min(cmd_r, max_speed), -0);
     cmd_l = max(min(cmd_l, max_speed), -0);
 
-    ROS_WARN("[CONTROL] L : %f | current_speed : %f | C : %f", L, current_speed, x_th*180/M_PI);
-    ROS_WARN("[CONTROL] dist : %f", dist);
-    ROS_WARN("[CONTROL] cmd_l : %f | cmd_r : %f ", cmd_l, cmd_r);
-    ROS_WARN("[CONTROL] cons_cap : %f | angle : %f | c2 : %f ", w_th*180/M_PI, angle_state_waypoint*180/M_PI, c2*180/M_PI);
-    ROS_WARN("[CONTROL] sawtooth : %f \n", sawtooth(x_th - c2)/M_PI);
+//    ROS_INFO("[CONTROL] L : %f | current_speed : %f | C : %f", L, current_speed, x_th*180/M_PI);
+//    ROS_INFO("[CONTROL] dist : %f", dist);
+//    ROS_INFO("[CONTROL] cmd_l : %f | cmd_r : %f ", cmd_l, cmd_r);
+//    ROS_INFO("[CONTROL] cons_cap : %f | angle : %f | c2 : %f ", w_th*180/M_PI, angle_state_waypoint*180/M_PI, c2*180/M_PI);
+//    ROS_INFO("[CONTROL] sawtooth : %f \n", sawtooth(x_th - c2)/M_PI);
 
     cmd_l /= 100;
     cmd_r /= 100;
@@ -158,5 +158,5 @@ void state_callback(const tiles_loc::State::ConstPtr& msg){
   x_x = (msg->x1_lb + msg->x1_ub)/2.;
   x_y = (msg->x2_lb + msg->x2_ub)/2.;
   x_th = (msg->x3_lb + msg->x3_ub)/2. * 180./M_PI;  // NOTE: check if radians or degrees should be user later
-  ROS_INFO("[CONTROL] Received state-> x1: [%f] | x2: [%f] | x3: [%f]", x_x, x_y, x_th);
+//  ROS_INFO("[CONTROL] Received state-> x1: [%f] | x2: [%f] | x3: [%f]", x_x, x_y, x_th);
 }

@@ -1,18 +1,18 @@
 <launch>
   <arg name="display_windows" default="true" />
 
-  <node name="robot_node" pkg="tiles_loc" type="base">
+  <node name="robot_node" pkg="tiles_loc" type="base" output="screen" >
     <param name="display_window" type="bool" value="$(arg display_windows)"/>
     <param name="pos_x_init" type="double" value="10"/>
     <param name="pos_y_init" type="double" value="-20"/>
     <param name="pos_th_init" type="double" value="0"/>
   </node>
 
-  <node name="localization_node" pkg="tiles_loc" type="loc" />
+  <node name="localization_node" pkg="tiles_loc" type="loc" output="screen" />
 
-  <node name="waypoint_node" pkg="tiles_loc" type="cmd" />
+  <node name="waypoint_node" pkg="tiles_loc" type="cmd" output="screen" />
 
-  <node name="control_node" pkg="tiles_loc" type="ctrl" />
+  <node name="control_node" pkg="tiles_loc" type="ctrl" output="screen" />
 
-  <node name="viewer_node" pkg="tiles_loc" type="view" />
+  <node name="viewer_node" pkg="tiles_loc" type="view" output="screen" />
 </launch>

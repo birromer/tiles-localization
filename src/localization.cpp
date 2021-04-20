@@ -130,7 +130,7 @@ void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
   state_pred[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
   state_pred[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
 
-  ROS_WARN("[LOCALIZATION] Received predicted state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
+  ROS_INFO("[LOCALIZATION] Received predicted state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
            msg->x1_lb, msg->x1_ub, msg->x2_lb, msg->x2_ub, msg->x3_lb, msg->x3_ub);
 }
 
@@ -139,6 +139,6 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
   obs_2 = msg->y2;
   obs_3 = msg->y3;
 
-  ROS_WARN("[LOCALIZATION] Received observation -> y1: [%f] | y2: [%f] | y3: [%f]",
+  ROS_INFO("[LOCALIZATION] Received observation -> y1: [%f] | y2: [%f] | y3: [%f]",
            msg->y1, msg->y2, msg->y3);
 }

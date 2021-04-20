@@ -34,7 +34,7 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "waypoint_node");
   ros::NodeHandle n;
 
-  ros::Publisher pub_cons = n.advertise<geometry_msgs::PoseStamped>("waypoint", 1000);
+  ros::Publisher pub_waypoint = n.advertise<geometry_msgs::PoseStamped>("waypoint", 1000);
   ros::Rate loop_rate(10);
   float t_start = ros::Time::now().toSec();
 
@@ -74,8 +74,8 @@ int main(int argc, char **argv)
     pose.position = point;
     msg.pose = pose;
 
-    pub_cons.publish(msg);
-    ROS_INFO("[COMMAND] Sent waypoint -> x1: [%f] | x2: [%f] | x3: [%f]", point.x, point.y, d);
+    pub_waypoint.publish(msg);
+//    ROS_INFO("[COMMAND] Sent waypoint -> x1: [%f] | x2: [%f] | x3: [%f]", point.x, point.y, d);
 
     ros::spinOnce();
 
