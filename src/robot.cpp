@@ -95,7 +95,6 @@ int scale = 1;
 int delta = 0;
 int ddepth = CV_16S;
 //traitement d'image pour détecter les lignes
-Mat src, src_, src_gray;
 Mat grad;
 
 
@@ -286,6 +285,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     flip(in, in, 1);
     frame_height = in.size[0];
     frame_width = in.size[1];
+    Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
 
     // convert to greyscale for later computing borders
     Mat grey;
@@ -322,8 +322,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       y1 = l[1];
       x2 = l[2];
       y2 = l[3];
-
-      Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
 
       double angle_line = atan2(y2-y1, x2-x1);
       line(src, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), Scalar(255, 0, 0), 3, LINE_AA);
@@ -470,10 +468,10 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
       if(display_window){
         cv::imshow("View base", in);
-        cv::imshow("grey",grey);
-        cv::imshow("Sobel",grad);
-        cv::imshow("Canny",edges);
-//        cv::imshow("view", src);
+        cv::imshow("grey", grey);
+        cv::imshow("Sobel", grad);
+        cv::imshow("Canny", edges);
+        cv::imshow("view", src);
         cv::imshow("rot", rot);
       }
     } else {
