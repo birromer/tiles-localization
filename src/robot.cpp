@@ -217,7 +217,6 @@ int sign(double x) {
 }
 
 ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt) {
-  std::cout << "inicio integration" << std::endl;
   ibex::IntervalVector state_new(3, Interval::ALL_REALS);
   state_new[0] = state[0] + dt * (u1*ibex::cos(state[0]));
   state_new[1] = state[1] + dt * (u1*ibex::sin(state[1]));
@@ -351,19 +350,19 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         lines_good.push_back(lines[i]);
 
       } else {
-         std::cout << "line with bad angle" << lines_angles[i] << " | " << sawtooth(lines_angles[i]-median_angle) << std::endl;
+//         std::cout << "line with bad angle" << lines_angles[i] << " | " << sawtooth(lines_angles[i]-median_angle) << std::endl;
          line(src, lines_points[i].p1, lines_points[i].p2, Scalar(0, 255, 0), 3, LINE_AA);
       }
     }
 
     if(lines_good.size() > 5) {
-      std::cout << "found " << lines_good.size() << " good lines" << std::endl;
+//      std::cout << "found " << lines_good.size() << " good lines" << std::endl;
 
       //conversion from cartesian to polar form :
       double x1, x2, y1, y2;
       std::vector<double> Msn, Mew;  // median for south/north and east/west
 
-      std::cout << "alpha_median : " << alpha_median*180/M_PI << std::endl;
+//      std::cout << "alpha_median : " << alpha_median*180/M_PI << std::endl;
 
       //à la limite, on a le quart qui fluctue donc on veut éviter ça
       if(nn == 0) {
@@ -460,7 +459,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       alpha_median = alpha_median + quart*M_PI/2;
       alpha_median = modulo(alpha_median, 2*M_PI);
 
-      std::cout << "alpha_median : " << alpha_median*180/M_PI << " " << quart%2<< std::endl;
+//      std::cout << "alpha_median : " << alpha_median*180/M_PI << " " << quart%2<< std::endl;
 
       double medx = sign(cos(state[2].mid()))*median(Mew);
       double medy = sign(sin(state[2].mid()))*median(Msn);
@@ -470,7 +469,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       obs_3 = alpha_median;
 
       if(display_window){
-        std::cout << "entrou display window" << std::endl;
         cv::imshow("View base", in);
         cv::imshow("grey",grey);
         cv::imshow("Sobel",grad);
@@ -479,7 +477,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         cv::imshow("rot", rot);
       }
     } else {
-      std::cout << "Pas assez de lignes (" << lines_good.size() << ")" << std::endl;
+      ROS_WARN("Not enought good lines ([%ld])", lines_good.size());
     }
 
   } catch (cv_bridge::Exception& e) {
