@@ -26,7 +26,7 @@
 #include <tubex.h>
 #include <tubex-rob.h>
 
-#define ERROR_OBS 0.06
+#define ERROR_OBS 0.05
 
 ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);  // predicted state of the robot, from the base node callback
 ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);  // observed parameters, from the base node callback
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
     tiles_loc::State state_loc_msg = state_to_msg(x_loc);
     pub_state_loc.publish(state_loc_msg);
 
-    ROS_INFO("Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+    ROS_WARN("Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
              x_loc[0].lb(), x_loc[0].ub(), x_loc[1].lb(), x_loc[1].ub(), x_loc[2].lb(), x_loc[2].ub());
 
     ros::spinOnce();

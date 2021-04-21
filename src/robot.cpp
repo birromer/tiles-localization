@@ -44,6 +44,7 @@
 
 using namespace cv;
 
+#define MIN_GOOD_LINES 5
 
 struct line_struct{
   Point2f p1;
@@ -153,8 +154,9 @@ int main(int argc, char **argv) {
 
   while (ros::ok()) {
     std::cout << " =================================================================== " << std::endl;
-    std::cout << "---------------------- [main] inicio loop ros ----------------------  " << std::endl;
+    std::cout << "--------------------- [ROBOT] beggining ros loop ------------------- " << std::endl;
     std::cout << " =================================================================== " << std::endl;
+
     state = state_loc;                   // start with the last state contracted from the localization
     y1 = obs_1, y2 = obs_2, y3 = obs_3;  // use last observed parameters from the image
     u1 = cmd_1, u2 = cmd_2;              // use last input from command
@@ -172,6 +174,8 @@ int main(int argc, char **argv) {
 
     tiles_loc::Observation observation_msg = observation_to_msg(y1, y2, y3);
     pub_y.publish(observation_msg);
+
+    ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y1, y2, y3);
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -262,6 +266,7 @@ tiles_loc::State state_to_msg(ibex::IntervalVector state) {
     msg.x2_ub = state[1].ub();
     msg.x3_lb = state[2].lb();
     msg.x3_ub = state[2].ub();
+
     return msg;
 }
 
@@ -275,8 +280,6 @@ tiles_loc::Observation observation_to_msg(double y1, double y2, double y3) {
 }
 
 void image_callback(const sensor_msgs::ImageConstPtr& msg) {
-  double obs_1, obs_2, obs_3;
-
   Mat in;
 
   try {
@@ -313,17 +316,18 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     // structures for storing the lines information
     std::vector<line_struct> lines_points;
     std::vector<double> lines_angles;
-    double x1, x2, y1, y2;
+    double x1, x2, y1, y2;  // line goes from (x1,y1) to (x2,y2)
 
     // extract the informations from the good detected lines
     for(int i=0; i<lines.size(); i++) {
+      // save the line info for quick access
       Vec4i l = lines[i];
       x1 = l[0];
       y1 = l[1];
       x2 = l[2];
       y2 = l[3];
 
-      double angle_line = atan2(y2-y1, x2-x1);
+      double angle_line = atan2(y2-y1, x2-x1);  // get the angle of the line from the existing points
       line(src, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), Scalar(255, 0, 0), 3, LINE_AA);
 
       line_struct ln = {
@@ -331,14 +335,17 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         .p2 = cv::Point(x2, y2),
         .angle = angle_line
       };
-      lines_points.push_back(ln);
+      lines_points.push_back(ln);  // save the extracted information
 
-      double angle4 = modulo(angle_line+M_PI/4., M_PI/2.)-M_PI/4.;  // TODO: why
+      double angle4 = modulo(angle_line+M_PI/4., M_PI/2.)-M_PI/4.;  // compress image between [-pi/4, pi/4]
       lines_angles.push_back(angle4);
     }
 
-    double median_angle = median(lines_angles);  // get the median angle from the tiles being seen
+    // get the median angle from the tiles being seen,
+    // will be used to filder bad lines and get the orientation of the tiles
+    double median_angle = median(lines_angles);
     alpha_median = median_angle;
+
     std::vector<Vec4i> lines_good;
 
     // filter lines with coherent orientation with the median into lines_good
@@ -353,17 +360,21 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       }
     }
 
-    if(lines_good.size() > 5) {
-//      std::cout << "found " << lines_good.size() << " good lines" << std::endl;
+    if(lines_good.size() > MIN_GOOD_LINES) {
+      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
 
       //conversion from cartesian to polar form :
       double x1, x2, y1, y2;
-      std::vector<double> Msn, Mew;  // median for south/north and east/west
+      std::vector<double> median_h, median_v;  // median for horizontal and vertical lines
 
 //      std::cout << "alpha_median : " << alpha_median*180/M_PI << std::endl;
 
-      //à la limite, on a le quart qui fluctue donc on veut éviter ça
+      // counts how many times 90 degrees it has turned to retorate that afterwards
+      // think about the mabiguity of the 90° rotations on the tiles
+      //à la limite, on a le quart qui fluctue donc on veut éviter ça  -> wat
       if(nn == 0) {
+        // detects if angle between 45 and -45 (first abs takes both sides of zero
+        // and second lets only compare to < 0.1)
         if(abs(abs(alpha_median)-M_PI/4.) < 0.1) {
           if(alpha_median >= 0 & last_alpha_median < 0) {
             quart -= 1;
@@ -377,7 +388,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         nn += 1;
       }
 
-      if(nn == 100) {
+      if(nn == 100) {  // arbitraty number to verify 2 pi problem
         nn = 0;
       }
 
@@ -402,8 +413,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         // rotation around 0, in order to have only horizontal and vetical lines
         double alpha = atan2(y2-y1, x2-x1);
 
-        double angle = modulo(alpha+M_PI/4., M_PI/2)-M_PI/4.;
-        angle += quart*M_PI/2.;
+        double angle = modulo(alpha+M_PI/4., M_PI/2)-M_PI/4.;  // compress image between [-pi/4, pi/4]
+        angle += quart*M_PI/2.;  // undoes the 90° extra rotations that were performed by the movement of the robot
 
         double s = sin(-angle);
         double c = cos(-angle);
@@ -413,30 +424,31 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         double x2b = x2;
         double y2b = y2;
 
+        // applies the 2d rotation to the line, making it either horizontal or vertical
         x1 = x1b*c - y1b*s,
         y1 = +x1b*s + y1b*c;
 
         x2 = x2b*c - y2b*s,
         y2 = x2b*s + y2b*c;
 
-        //translation pour l'affichage
+        // translates the image back for the display
         x1 += frame_width/2.0f;
         y1 += frame_height/2.0f;
         x2 += frame_width/2.0f;
         y2 += frame_height/2.0f;
 
         double alpha2 = atan2(y2-y1,x2-x1);
-        double x11=x1;
-        double y11=y1;
-        double x22=x2;
-        double y22=y2;
+        double x11 = x1;
+        double y11 = y1;
+        double x22 = x2;
+        double y22 = y2;
 
         //calcul pour medx et medy
-        x1=((double)l[0]-frame_width/2.0f)*scale_pixel;
-        y1=((double)l[1]-frame_height/2.0f)*scale_pixel;
+        x1 = ((double)l[0]-frame_width/2.0f)*scale_pixel;
+        y1 = ((double)l[1]-frame_height/2.0f)*scale_pixel;
 
-        x2=((double)l[2]-frame_width/2.0f)*scale_pixel;
-        y2=((double)l[3]-frame_height/2.0f)*scale_pixel;
+        x2 = ((double)l[2]-frame_width/2.0f)*scale_pixel;
+        y2 = ((double)l[3]-frame_height/2.0f)*scale_pixel;
 
         double d = ((x2-x1)*(y1)-(x1)*(y2-y1)) / sqrt(pow(x2-x1, 2)+pow(y2-y1, 2));
 
@@ -445,11 +457,11 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
         if (abs(cos(alpha2)) < 0.2) {
           line(rot, cv::Point(x11, y11), cv::Point(x22, y22), Scalar(255, 255, 255), 1, LINE_AA);
-          Msn.push_back(val);
+          median_v.push_back(val);
 
         } else if (abs(sin(alpha2)) < 0.2) {
           line(rot, cv::Point(x11, y11), cv::Point(x22, y22), Scalar(0, 0, 255), 1, LINE_AA);
-          Mew.push_back(val);
+          median_h.push_back(val);
 
         }
       }
@@ -459,8 +471,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
 //      std::cout << "alpha_median : " << alpha_median*180/M_PI << " " << quart%2<< std::endl;
 
-      double medx = sign(cos(state[2].mid()))*median(Mew);
-      double medy = sign(sin(state[2].mid()))*median(Msn);
+      double medx = sign(cos(state[2].mid()))*median(median_h);
+      double medy = sign(sin(state[2].mid()))*median(median_v);
 
       obs_1 = medx;
       obs_2 = medy;
@@ -473,9 +485,11 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         cv::imshow("Canny", edges);
         cv::imshow("view", src);
         cv::imshow("rot", rot);
+
       }
     } else {
       ROS_WARN("Not enought good lines ([%ld])", lines_good.size());
+
     }
 
   } catch (cv_bridge::Exception& e) {
