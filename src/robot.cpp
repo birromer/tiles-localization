@@ -123,11 +123,12 @@ int main(int argc, char **argv) {
 
   // start visualization windows windows
   if(display_window) {
-    cv::namedWindow("view");
-    cv::namedWindow("view base");
+    cv::namedWindow("lines");
+    cv::namedWindow("camera");
     cv::namedWindow("grey");
     cv::namedWindow("sobel");
     cv::namedWindow("canny");
+    cv::namedWindow("morphology");
     cv::namedWindow("rotated");
     cv::startWindowThread();
   }
@@ -303,15 +304,16 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     Canny(grad, edges, 50, 255, 3);
 
     // close and dilate lines for some noise removal
+    Mat morph;
     int morph_elem = 0;
     int morph_size = 0;
     Mat element = getStructuringElement(morph_elem, Size(2*morph_size + 1, 2*morph_size+1), cv::Point(morph_size, morph_size));
     morphologyEx(edges, edges, MORPH_CLOSE, element);
-    dilate(edges, edges, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
+    dilate(edges, morph, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
 
     // detect lines using the hough transform
     std::vector<Vec4i> lines;
-    HoughLinesP(edges, lines, 1, CV_PI/180., 60, 120, 50);
+    HoughLinesP(morph, lines, 1, CV_PI/180., 60, 120, 50);
 
     // structures for storing the lines information
     std::vector<line_struct> lines_points;
@@ -479,12 +481,13 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       obs_3 = alpha_median;
 
       if(display_window){
-        cv::imshow("View base", in);
+        cv::imshow("camera", in);
         cv::imshow("grey", grey);
-        cv::imshow("Sobel", grad);
-        cv::imshow("Canny", edges);
-        cv::imshow("view", src);
-        cv::imshow("rot", rot);
+        cv::imshow("sobel", grad);
+        cv::imshow("canny", edges);
+        cv::imshow("morphology", morph);
+        cv::imshow("lines", src);
+        cv::imshow("rotated", rot);
 
       }
     } else {
