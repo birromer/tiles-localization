@@ -38,8 +38,8 @@
 #include <cv_bridge/cv_bridge.h>
 
 #include <ibex.h>
-#include <tubex.h>
-#include <tubex-rob.h>
+#include <codac.h>
+#include <codac-rob.h>
 #include <math.h>
 
 using namespace cv;
@@ -72,8 +72,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg);
 
 
 // node communication related variables
-ibex::IntervalVector state(3, Interval::ALL_REALS);  // current state of the robot
-ibex::IntervalVector state_loc(3, Interval::ALL_REALS);  // robot state from the localization method
+ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);  // current state of the robot
+ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);  // robot state from the localization method
 double obs_1, obs_2, obs_3;      // observed parameters from the image
 double cmd_1, cmd_2;             // commands from controller
 
@@ -221,7 +221,7 @@ int sign(double x) {
 }
 
 ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt) {
-  ibex::IntervalVector state_new(3, Interval::ALL_REALS);
+  ibex::IntervalVector state_new(3, ibex::Interval::ALL_REALS);
   state_new[0] = state[0] + dt * (u1*ibex::cos(state[0]));
   state_new[1] = state[1] + dt * (u1*ibex::sin(state[1]));
   state_new[2] = state[2] + dt * (u2);

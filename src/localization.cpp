@@ -23,8 +23,8 @@
 #include "tiles_loc/State.h"
 
 #include <ibex.h>
-#include <tubex.h>
-#include <tubex-rob.h>
+#include <codac.h>
+#include <codac-rob.h>
 
 #define ERROR_OBS 0.05
 
@@ -42,9 +42,9 @@ int main(int argc, char **argv) {
 
   ros::Rate loop_rate(25);  // 25Hz frequency
 
-  IntervalVector x_loc(3, Interval::ALL_REALS);   // estimated state of the robot, from the contractors
-  IntervalVector x_pred(3, Interval::ALL_REALS);  // predicted state of the robot, from the equations
-  IntervalVector y(3, Interval::ALL_REALS);       // observed parameters
+  ibex::IntervalVector x_loc(3, ibex::Interval::ALL_REALS);   // estimated state of the robot, from the contractors
+  ibex::IntervalVector x_pred(3, ibex::Interval::ALL_REALS);  // predicted state of the robot, from the equations
+  ibex::IntervalVector y(3, ibex::Interval::ALL_REALS);       // observed parameters
 
   // --- subscribers --- //
   // subscriber to predicted state and measured observation from base
@@ -68,8 +68,8 @@ int main(int argc, char **argv) {
     x_pred[1] = state_pred[1];
     x_pred[2] = state_pred[2];
 
-    ibex::IntervalVector box0(6, Interval::ALL_REALS);
-    ibex::IntervalVector box1(6, Interval::ALL_REALS);
+    ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
+    ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
 
     // TODO: test having angle from the state, such as if there were a compass
     box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2]; //X[2];
@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
     c1.contract(box0);
     c2.contract(box1);
 
-    IntervalVector box(3, Interval::ALL_REALS);
+    ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
     box[0] = box0[0] | box1[0];
     box[1] = box0[1] | box1[1];
     box[2] = box0[2] | box1[2];

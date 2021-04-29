@@ -27,11 +27,11 @@ set(image_transport_DIR /opt/ros/noetic/share/image_transport/cmake/image_transp
   # In case you installed Tubex in a local directory, you need
   # to specify its path with the CMAKE_PREFIX_PATH option.
   # set(CMAKE_PREFIX_PATH "~/tubex-lib/build_install")
-  #  set(TUBEX_FOUND 1)
+  #  set(CODAC_FOUND 1)
 
-  find_package(TUBEX REQUIRED)
-  #pkg_search_module(TUBEX REQUIRED tubex)
-  message(STATUS "Found Tubex version ${TUBEX_VERSION}")
+  find_package(CODAC REQUIRED)
+  #pkg_search_module(CODAC REQUIRED tubex)
+  message(STATUS "Found Tubex version ${CODAC_VERSION}")
 
 # Adding IBEX
 
@@ -215,24 +215,24 @@ add_executable(cmd src/command.cpp)
 add_executable(ctrl src/controller.cpp)
 add_executable(view src/viewer.cpp)
 
-target_link_libraries(base opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${TUBEX_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS})
-target_compile_options(base PUBLIC ${TUBEX_CFLAGS})
-target_include_directories(base PUBLIC ${TUBEX_INCLUDE_DIRS})
+target_link_libraries(base opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CODAC_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS})
+target_compile_options(base PUBLIC ${CODAC_CFLAGS})
+target_include_directories(base PUBLIC ${CODAC_INCLUDE_DIRS})
 
-target_link_libraries(loc opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${TUBEX_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS})
-target_compile_options(loc PUBLIC ${TUBEX_CFLAGS})
-target_include_directories(loc PUBLIC ${TUBEX_INCLUDE_DIRS})
+target_link_libraries(loc opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CODAC_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS})
+target_compile_options(loc PUBLIC ${CODAC_CFLAGS})
+target_include_directories(loc PUBLIC ${CODAC_INCLUDE_DIRS})
 
-target_link_libraries(view ${catkin_LIBRARIES} ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES} ${catkin_LIBRARIES} ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES})
-target_compile_options(view PUBLIC ${TUBEX_CFLAGS})
-target_include_directories(view PUBLIC ${TUBEX_INCLUDE_DIRS})
+target_link_libraries(view ${catkin_LIBRARIES} ${CODAC_LIBRARIES} Ibex::ibex ${CODAC_LIBRARIES} ${catkin_LIBRARIES} ${CODAC_LIBRARIES} Ibex::ibex ${CODAC_LIBRARIES})
+target_compile_options(view PUBLIC ${CODAC_CFLAGS})
+target_include_directories(view PUBLIC ${CODAC_INCLUDE_DIRS})
 
 target_link_libraries(cmd ${catkin_LIBRARIES})
 target_link_libraries(ctrl ${catkin_LIBRARIES})
 
-#target_link_libraries(estim opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${TUBEX_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${TUBEX_LIBRARIES} ${OpenCV_LIBS})
-#target_compile_options(estim PUBLIC ${TUBEX_CFLAGS})
-#target_include_directories(estim PUBLIC ${TUBEX_INCLUDE_DIRS})
+#target_link_libraries(estim opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CODAC_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS})
+#target_compile_options(estim PUBLIC ${CODAC_CFLAGS})
+#target_include_directories(estim PUBLIC ${CODAC_INCLUDE_DIRS})
 
 #############
 ## Install ##
