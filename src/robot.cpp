@@ -5,7 +5,8 @@
 **
 ** Subscribers:
 **   - tiles_loc::State state_loc        // the estimation of the robot's state
-**   - tiles_loc::Cmd cmd                // the input u1 and u2 for the robot
+**   - std_msgs::Float64 cmd_l           // the input u1 for the robot
+**   - std_msgs::Float64 cmd_r           // the input u2 for the robot
 **   - sensor_msgs::ImageConstPtr image  // the image from the robot's camera
 
 **
@@ -25,12 +26,10 @@
 #include "tf/tf.h"
 #include <tf2/LinearMath/Quaternion.h>
 
-#include "std_msgs/Float32.h"
-#include "std_msgs/Float32MultiArray.h"
+#include "std_msgs/Float64.h"
 
 #include "tiles_loc/State.h"
 #include "tiles_loc/Observation.h"
-#include "tiles_loc/Cmd.h"
 
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui.hpp>
@@ -67,7 +66,8 @@ tiles_loc::Observation observation_to_msg(double y1, double y2, double y3);
 
 // callback functions
 void state_loc_callback(const tiles_loc::State::ConstPtr& msg);
-void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg);
+void cmd_l_callback(const std_msgs::Float64::ConstPtr& msg);
+void cmd_r_callback(const std_msgs::Float64::ConstPtr& msg);
 void image_callback(const sensor_msgs::ImageConstPtr& msg);
 
 
@@ -135,7 +135,8 @@ int main(int argc, char **argv) {
 
   // --- subscribers --- //
   // subscriber to z inputs from control
-  ros::Subscriber sub_cmd = n.subscribe("cmd", 1000, cmd_callback);
+  ros::Subscriber sub_cmd_l = n.subscribe("cmd_l", 1000, cmd_l_callback);
+  ros::Subscriber sub_cmd_r = n.subscribe("cmd_r", 1000, cmd_r_callback);
 
   // subscriber to the image from the simulator
   ros::Subscriber sub_img = n.subscribe("image", 1000, image_callback);
@@ -241,10 +242,14 @@ void state_loc_callback(const tiles_loc::State::ConstPtr& msg) {
 }
 
 // callbacks for each subscriber
-void cmd_callback(const tiles_loc::Cmd::ConstPtr& msg) {
-  cmd_1 = msg->u1;
-  cmd_2 = msg->u2;
-  ROS_INFO("[ROBOT] Received command: u1 [%f] u2 [%f]", cmd_1, cmd_2);
+void cmd_l_callback(const std_msgs::Float64::ConstPtr& msg) {
+  cmd_1 = msg->data;
+  ROS_INFO("[ROBOT] Received command: u1 [%f] ", cmd_1);
+}
+
+void cmd_r_callback(const std_msgs::Float64::ConstPtr& msg) {
+  cmd_2 = msg->data;
+  ROS_INFO("[ROBOT] Received command: u2 [%f]", cmd_2);
 }
 
 tiles_loc::State state_to_msg(double x1, double x2, double x3) {

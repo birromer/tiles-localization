@@ -26,18 +26,21 @@
 --   sim.setJointTargetVelocity(backMotorRight, spdMotor)
 --   sim.addStatusbarMessage('cmd_u1 subscriber receiver : wheels speed ='..spdMotor)
 -- end
---
-function subscriber_cmd_callback(msg)
-  u1 = msg["u1"]
-  u2 = msg["u2"]
 
-  sim.setJointTargetVelocity(backMotorLeft, u1)
-  sim.setJointTargetVelocity(frontMotorLeft, u1)
+function subscriber_cmd_ul_callback(msg)
+  spdMotor = msg["data"]
+  sim.setJointTargetVelocity(backMotorLeft, spdMotor)
+  sim.setJointTargetVelocity(frontMotorLeft, spdMotor)
 
-  sim.setJointTargetVelocity(backMotorRight, u2)
-  sim.setJointTargetVelocity(frontMotorRight, u2)
+  sim.addStatusbarMessage('cmd_u1 subscriber receiver : wheels speed ='..spdMotor)
+end
 
-  sim.addStatusbarMessage('cmd subscriber receiver: u1 = '..spdMotor..' | u2 = '..u2)
+function subscriber_cmd_ur_callback(msg)
+  spdMotor = msg["data"]
+  sim.setJointTargetVelocity(backMotorRight, spdMotor)
+  sim.setJointTargetVelocity(frontMotorRight, spdMotor)
+
+  sim.addStatusbarMessage('cmd_u1 subscriber receiver : wheels speed ='..spdMotor)
 end
 
 function getPose(objectName)
@@ -90,7 +93,13 @@ function sysCall_init()
     publisher1 = simROS.advertise('/simulationTime','std_msgs/Float32')
     publisher2 = simROS.advertise('/pose','geometry_msgs/Pose')
 
-    subscriber3 = simROS.subscribe('/cmd','tiles_loc/Cmd','subscriber_cmd_callback')
+    --subscriber1=simROS.subscribe('/cmd_u1','std_msgs/Float32','subscriber_cmd_u1_callback')
+    --subscriber2=simROS.subscribe('/cmd_u2','std_msgs/Float32','subscriber_cmd_u2_callback')
+    --subscriber3=simROS.subscribe('/cmd_u3','std_msgs/Float32','subscriber_cmd_u3_callback')
+    --subscriber4=simROS.subscribe('/cmd_u4','std_msgs/Float32','subscriber_cmd_u4_callback')
+
+    subscriber3 = simROS.subscribe('/cmd_l','std_msgs/Float64','subscriber_cmd_ul_callback')
+    subscriber4 = simROS.subscribe('/cmd_r','std_msgs/Float64','subscriber_cmd_ur_callback')
   end
 
   -- Get some handles (as usual !):
@@ -114,7 +123,6 @@ function sysCall_sensing()
     d['data'] = data
     simROS.publish(pub,d)
 end
- 
 
 function sysCall_actuation()
    -- Send an updated simulation time message, and send the transform of the object attached to this script:
@@ -137,6 +145,7 @@ function sysCall_cleanup()
     --simROS.shutdownSubscriber(subscriber1)
     --simROS.shutdownSubscriber(subscriber2)
     simROS.shutdownSubscriber(subscriber3)
+    simROS.shutdownSubscriber(subscriber4)
 
     simROS.shutdownPublisher(pub)
   end

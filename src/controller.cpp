@@ -6,19 +6,18 @@
 **   - tiles_loc::State           state     // the current state of the robot
 **
 ** Publishers:
-**   - tiles_loc::Cmd command  // the input u1 and u2 for the robot
+**   - std_msgs::Float64 command_l  // the input u1 and u2 for the robot
+**   - std_msgs::Float64 command_r  // the input u1 and u2 for the robot
  */
 
 #include "ros/ros.h"
-#include "std_msgs/Float32.h"
+#include "std_msgs/Float64.h"
 #include "geometry_msgs/Pose.h"
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/Quaternion.h"
 #include "geometry_msgs/PoseStamped.h"
 #include "tf/tf.h"
-#include "tiles_loc/Cmd.h"
 #include "tiles_loc/State.h"
-
 
 // utils
 double sawtooth(double x);
@@ -31,7 +30,8 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
 void state_callback(const tiles_loc::State::ConstPtr& msg);
 
 
-ros::Publisher pub_cmd;
+ros::Publisher pub_cmd_l;
+ros::Publisher pub_cmd_r;
 
 double current_speed = 150.;
 int max_speed = 300;
@@ -58,7 +58,8 @@ int main(int argc, char **argv)
 
   // --- publishers --- //
   // publisher of command u for the robot
-  pub_cmd = n.advertise<tiles_loc::Cmd>("cmd", 1000);
+  pub_cmd_l = n.advertise<std_msgs::Float64>("cmd_l", 1000);
+  pub_cmd_r = n.advertise<std_msgs::Float64>("cmd_r", 1000);
   // ------------------ //
 
   while (ros::ok()) {
@@ -106,12 +107,14 @@ int main(int argc, char **argv)
     cmd_l /= 100;
     cmd_r /= 100;
 
-    tiles_loc::Cmd cmd_msg;
+    std_msgs::Float64 cmd_msg_l;
+    std_msgs::Float64 cmd_msg_r;
 
-    cmd_msg.u1 = cmd_l;
-    cmd_msg.u2 = cmd_r;
+    cmd_msg_l.data = cmd_l;
+    cmd_msg_r.data = cmd_r;
 
-    pub_cmd.publish(cmd_msg);
+    pub_cmd_l.publish(cmd_msg_l);
+    pub_cmd_r.publish(cmd_msg_r);
 
     // TODO: inflate control by [-0.03, 0.03]
     // TODO: change Cmd message to be an interval
