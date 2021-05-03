@@ -119,7 +119,7 @@ int main(int argc, char **argv)
     // TODO: inflate control by [-0.03, 0.03]
     // TODO: change Cmd message to be an interval
 
-    ROS_INFO("[CONTROL] Sent commands -> u1: [%f] | u2: [%f]", cmd_l, cmd_r);
+//    ROS_INFO("[CONTROL] Sent commands -> u1: [%f] | u2: [%f]", cmd_l, cmd_r);
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -154,7 +154,7 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
   w_x  = msg->pose.position.x;
   w_y  = msg->pose.position.y;
   w_th = tf::getYaw(msg->pose.orientation);
-  ROS_INFO("[CONTROL] Received waypoint -> w_x: [%f] | w_y: [%f] | w_th: [%f]", w_x, w_y, w_th);
+//  ROS_INFO("[CONTROL] Received waypoint -> w_x: [%f] | w_y: [%f] | w_th: [%f]", w_x, w_y, w_th);
 }
 
 void state_callback(const tiles_loc::State::ConstPtr& msg){

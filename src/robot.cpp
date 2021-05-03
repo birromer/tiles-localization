@@ -70,12 +70,15 @@ void cmd_l_callback(const std_msgs::Float64::ConstPtr& msg);
 void cmd_r_callback(const std_msgs::Float64::ConstPtr& msg);
 void image_callback(const sensor_msgs::ImageConstPtr& msg);
 
+void pose_callback(const geometry_msgs::Pose::ConstPtr& msg);
 
 // node communication related variables
 ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);  // current state of the robot
 ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);  // robot state from the localization method
 double obs_1, obs_2, obs_3;      // observed parameters from the image
 double cmd_1, cmd_2;             // commands from controller
+
+double pose_1, pose_2, pose_3;      // true pose
 
 // image processing related variables
 bool display_window;
@@ -123,13 +126,13 @@ int main(int argc, char **argv) {
 
   // start visualization windows windows
   if(display_window) {
-    cv::namedWindow("lines");
+//    cv::namedWindow("lines");
     cv::namedWindow("camera");
-    cv::namedWindow("grey");
-    cv::namedWindow("sobel");
-    cv::namedWindow("canny");
-    cv::namedWindow("morphology");
-    cv::namedWindow("rotated");
+//    cv::namedWindow("grey");
+//    cv::namedWindow("sobel");
+//    cv::namedWindow("canny");
+//    cv::namedWindow("morphology");
+//    cv::namedWindow("rotated");
     cv::startWindowThread();
   }
 
@@ -143,6 +146,8 @@ int main(int argc, char **argv) {
 
   // subscriber to the updated state from the localization subsystem
   ros::Subscriber sub_loc = n.subscribe("state_loc", 1000, state_loc_callback);
+
+  ros::Subscriber sub_pose= n.subscribe("pose", 1000, pose_callback);
   // ------------------ //
 
   // --- publishers --- //
@@ -178,6 +183,10 @@ int main(int argc, char **argv) {
     pub_y.publish(observation_msg);
 
     ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y1, y2, y3);
+    ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
+
+    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
+    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-pose_2)), sin(M_PI*(y2-pose_1)), cos(y3-pose_3));
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -227,8 +236,8 @@ ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, do
   state_new[1] = state[1] + dt * (u1*ibex::sin(state[1]));
   state_new[2] = state[2] + dt * (u2);
 
-  ROS_INFO("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
-           state_new[0].lb(), state_new[0].ub(), state_new[1].lb(), state_new[1].ub(), state_new[2].lb(), state_new[2].ub(), u1, u2);
+  //ROS_INFO("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
+//           state_new[0].lb(), state_new[0].ub(), state_new[1].lb(), state_new[1].ub(), state_new[2].lb(), state_new[2].ub(), u1, u2);
 
   return state_new;
 }
@@ -237,19 +246,19 @@ void state_loc_callback(const tiles_loc::State::ConstPtr& msg) {
   state_loc[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
   state_loc[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
   state_loc[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
-  ROS_INFO("[ROBOT] Received estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
-           state_loc[0].lb(), state_loc[0].ub(), state_loc[1].lb(), state_loc[1].ub(), state_loc[2].lb(), state_loc[2].ub());
+//  ROS_INFO("[ROBOT] Received estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+//           state_loc[0].lb(), state_loc[0].ub(), state_loc[1].lb(), state_loc[1].ub(), state_loc[2].lb(), state_loc[2].ub());
 }
 
 // callbacks for each subscriber
 void cmd_l_callback(const std_msgs::Float64::ConstPtr& msg) {
   cmd_1 = msg->data;
-  ROS_INFO("[ROBOT] Received command: u1 [%f] ", cmd_1);
+//  ROS_INFO("[ROBOT] Received command: u1 [%f] ", cmd_1);
 }
 
 void cmd_r_callback(const std_msgs::Float64::ConstPtr& msg) {
   cmd_2 = msg->data;
-  ROS_INFO("[ROBOT] Received command: u2 [%f]", cmd_2);
+//  ROS_INFO("[ROBOT] Received command: u2 [%f]", cmd_2);
 }
 
 tiles_loc::State state_to_msg(double x1, double x2, double x3) {
@@ -368,7 +377,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     }
 
     if(lines_good.size() > MIN_GOOD_LINES) {
-      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
+//      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
 
       //conversion from cartesian to polar form :
       double x1, x2, y1, y2;
@@ -487,12 +496,12 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
       if(display_window){
         cv::imshow("camera", in);
-        cv::imshow("grey", grey);
-        cv::imshow("sobel", grad);
-        cv::imshow("canny", edges);
-        cv::imshow("morphology", morph);
-        cv::imshow("lines", src);
-        cv::imshow("rotated", rot);
+//        cv::imshow("grey", grey);
+//        cv::imshow("sobel", grad);
+//        cv::imshow("canny", edges);
+//        cv::imshow("morphology", morph);
+//        cv::imshow("lines", src);
+//        cv::imshow("rotated", rot);
 
       }
     } else {
@@ -505,5 +514,13 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     return;
   }
 
+
+}
+
+void pose_callback(const geometry_msgs::Pose::ConstPtr& msg) {
+    geometry_msgs::Pose pose;
+    pose_1 = msg->position.x;
+    pose_2 = msg->position.y;
+    pose_3 = tf::getYaw(msg->orientation);;
 
 }

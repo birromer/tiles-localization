@@ -134,8 +134,8 @@ void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
   state_pred[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
   state_pred[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
 
-  ROS_INFO("[LOCALIZATION] Received predicted state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
-           msg->x1_lb, msg->x1_ub, msg->x2_lb, msg->x2_ub, msg->x3_lb, msg->x3_ub);
+//  ROS_INFO("[LOCALIZATION] Received predicted state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
+//           msg->x1_lb, msg->x1_ub, msg->x2_lb, msg->x2_ub, msg->x3_lb, msg->x3_ub);
 }
 
 void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
@@ -143,7 +143,7 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
   observation[1] = ibex::Interval(msg->y2, msg->y2).inflate(ERROR_OBS);
   observation[2] = ibex::Interval(msg->y3, msg->y3).inflate(ERROR_OBS);
 
-  ROS_INFO("[LOCALIZATION] Received observation -> y1: [%f] | y2: [%f] | y3: [%f]", msg->y1, msg->y2, msg->y3);
+//  ROS_INFO("[LOCALIZATION] Received observation -> y1: [%f] | y2: [%f] | y3: [%f]", msg->y1, msg->y2, msg->y3);
 
   if (msg->y1 == 0 && msg->y2 == 0) {
     ROS_WARN("[LOCALIZATION] Observation is empty.");
