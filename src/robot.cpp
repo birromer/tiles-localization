@@ -130,6 +130,7 @@ int main(int argc, char **argv) {
     cv::namedWindow("canny");
     cv::namedWindow("morphology");
     cv::namedWindow("rotated");
+    cv::namedWindow("rot+trans");
     cv::startWindowThread();
   }
 
@@ -404,6 +405,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       std::cout << "________quart : " << quart << " n : " << nn << " " << abs(abs(alpha_median)-M_PI/4.) << std::endl;
 
       Mat rot = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
+      Mat rot_trans = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
 
       for(int i=0; i<lines_good.size(); i++) {
         cv::Vec4i l = lines_good[i];
@@ -481,6 +483,61 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       double medx = sign(cos(state[2].mid()))*median(median_h);
       double medy = sign(sin(state[2].mid()))*median(median_v);
 
+      for(int i=0; i<lines_good.size(); i++) {
+        cv::Vec4i l = lines_good[i];
+        x1 = l[0], y1 = l[1], x2 = l[2], y2 = l[3];
+        //std::cout << x1 << " | " << y1<< " | " << x2 << " | " << y2 << std::endl;
+        //std::cout << frame_height << " | " << frame_width << std::endl;
+
+        //translation in order to center lines around 0
+        x1 -= frame_width/2.0f;
+        y1 -= frame_height/2.0f;
+        x2 -= frame_width/2.0f;
+        y2 -= frame_height/2.0f;
+
+        // rotation around 0, in order to have only horizontal and vetical lines
+        double alpha = atan2(y2-y1, x2-x1);
+
+        double angle = modulo(alpha+M_PI/4., M_PI/2)-M_PI/4.;  // compress image between [-pi/4, pi/4]
+        angle += quart*M_PI/2.;  // undoes the 90° extra rotations that were performed by the movement of the robot
+
+        double s = sin(-angle);
+        double c = cos(-angle);
+
+        double x1b = x1;
+        double y1b = y1;
+        double x2b = x2;
+        double y2b = y2;
+
+        // applies the 2d rotation to the line, making it either horizontal or vertical
+        x1 = x1b*c - y1b*s,
+        y1 = +x1b*s + y1b*c;
+
+        x2 = x2b*c - y2b*s,
+        y2 = x2b*s + y2b*c;
+
+        // translates the image back for the display
+        x1 += frame_width/2.0f;
+        y1 += frame_height/2.0f;
+        x2 += frame_width/2.0f;
+        y2 += frame_height/2.0f;
+
+        double alpha2 = atan2(y2-y1,x2-x1);
+        double x11 = x1;
+        double y11 = y1;
+        double x22 = x2;
+        double y22 = y2;
+
+
+        if (abs(cos(alpha2)) < 0.2) {
+          line(rot_trans, cv::Point(x11+medx*scale_pixel, y11+medy*scale_pixel), cv::Point(x22+medx*scale_pixel, y22+medy*scale_pixel), Scalar(255, 255, 255), 1, LINE_AA);
+
+        } else if (abs(sin(alpha2)) < 0.2) {
+          line(rot_trans, cv::Point(x11+medx*scale_pixel, y11+medy*scale_pixel), cv::Point(x22+medx*scale_pixel, y22+medy*scale_pixel), Scalar(0, 0, 255), 1, LINE_AA);
+
+        }
+      }
+
       obs_1 = medx;
       obs_2 = medy;
       obs_3 = alpha_median;
@@ -493,6 +550,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         cv::imshow("morphology", morph);
         cv::imshow("lines", src);
         cv::imshow("rotated", rot);
+        cv::imshow("rot+trans", rot_trans);
 
       }
     } else {
