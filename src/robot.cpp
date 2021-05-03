@@ -128,14 +128,14 @@ int main(int argc, char **argv) {
 
   // start visualization windows windows
   if(display_window) {
-    cv::namedWindow("steps");
-//    cv::namedWindow("lines");
-//    cv::namedWindow("camera");
-//    cv::namedWindow("grey");
-//    cv::namedWindow("sobel");
-//    cv::namedWindow("canny");
-//    cv::namedWindow("morphology");
-//    cv::namedWindow("rotated");
+//    cv::namedWindow("steps");
+    cv::namedWindow("lines");
+    cv::namedWindow("camera");
+    cv::namedWindow("grey");
+    cv::namedWindow("sobel");
+    cv::namedWindow("canny");
+    cv::namedWindow("morphology");
+    cv::namedWindow("rotated");
     cv::startWindowThread();
   }
 
@@ -498,14 +498,17 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       obs_3 = alpha_median;
 
       if(display_window){
-        ShowManyImages("steps", 6, in, grey, grad, edges, src, rot);
-//        cv::imshow("camera", in);
-//        cv::imshow("grey", grey);
-//        cv::imshow("sobel", grad);
-//        cv::imshow("canny", edges);
-//        cv::imshow("morphology", morph);
-//        cv::imshow("lines", src);
-//        cv::imshow("rotated", rot);
+//        cvtColor(grey, grey, CV_GRAY2BGR);
+//        cvtColor(grad, grad, CV_GRAY2BGR);
+//        cvtColor(edges, edges, CV_GRAY2BGR);
+//        ShowManyImages("steps", 4, in, grey, grad, edges);//, morph, rot, src);
+        cv::imshow("camera", in);
+        cv::imshow("grey", grey);
+        cv::imshow("sobel", grad);
+        cv::imshow("canny", edges);
+        cv::imshow("morphology", morph);
+        cv::imshow("lines", src);
+        cv::imshow("rotated", rot);
 
       }
     } else {
