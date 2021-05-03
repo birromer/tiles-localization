@@ -389,7 +389,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //      std::cout << "alpha_median : " << alpha_median*180/M_PI << std::endl;
 
       // counts how many times 90 degrees it has turned to retorate that afterwards
-      // think about the mabiguity of the 90° rotations on the tiles
+      // think about the ambiguity of the 90° rotations on the tiles
       //à la limite, on a le quart qui fluctue donc on veut éviter ça  -> wat
       if(nn == 0) {
         // detects if angle between 45 and -45 (first abs takes both sides of zero
@@ -487,8 +487,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
       alpha_median = alpha_median + quart*M_PI/2;
       alpha_median = modulo(alpha_median, 2*M_PI);
-
-//      std::cout << "alpha_median : " << alpha_median*180/M_PI << " " << quart%2<< std::endl;
 
       double medx = sign(cos(state[2].mid()))*median(median_h);
       double medy = sign(sin(state[2].mid()))*median(median_v);

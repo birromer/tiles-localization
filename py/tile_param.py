@@ -1,7 +1,9 @@
 from pyibex import *
 from vibes import *
 
-y1,y2,y3=0.1,0.2,0.3
+y1 = -0.333979
+y2 = -0.3
+y3 = 0.1
 
 f = Function("a1", "a2",
              "sin(pi * (%f + a1*cos(%f) - a2*sin(%f))) * sin(pi * (%f + a1*sin(%f) + a2*cos(%f)))"  % (y1, y3, y3, y2 ,y3 ,y3))
