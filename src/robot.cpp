@@ -200,14 +200,14 @@ double sawtooth(double x){
   return 2.*atan(tan(x/2.));
 }
 
-/*
-** use op to select which field to be used for comparisson:
-** 1 = angle
-** 2 = angle4
-** 3 = m_x
-** 4 = m_y
-** 5 = d
- */
+/* use op to select which field to be used for comparisson:
+**   1 = angle
+**   2 = angle4
+**   3 = m_x
+**   4 = m_y
+**   5 = d
+*/
+
 double median(std::vector<line_t> lines, int op) {
   //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
   size_t size = scores.size();
@@ -398,8 +398,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     }
 
    // median of the components of the lines
-    x_hat = median(m_x);
-    y_hat = median(m_y);
+    x_hat = median(m_x, 3);
+    y_hat = median(m_y, 4);
 
     for (line_t l : lines) {
       if ( (abs(x_hat - m_x[i]) + abs(y_hat - m_y[i])) < 0.05) {
@@ -414,15 +414,83 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       }
     }
 
-    x_hat = median(filtered_m_x);
-    y_hat = median(filtered_m_y);
+    x_hat = median(filtered_m_x, 3);
+    y_hat = median(filtered_m_y, 4);
 
     a_hat = atan2(y_hat, h_hat) * 1/4;
+
+    if(lines_good.size() > MIN_GOOD_LINES) {
+//      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
+      Mat rot = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
+      std::vector<double> bag_h, bag_v;
+      double x1, y1, x2, y2;
+      double angle_new;
+
+      for (line_t l : lines) {
+        //translation in order to center lines around 0
+        x1 = l.p1[0] - frame_width/2.0f;
+        y1 = l.p1[1] - frame_height/2.0f;
+        x2 = l.p2[0] - frame_width/2.0f;
+        y2 = l.p2[1] - frame_height/2.0f;
+
+        // applies the 2d rotation to the line, making it either horizontal or vertical
+        x1 = x1 * cos(-a_hat) - y1 * sin(-a_hat),
+        y1 = x1 * sin(-a_hat) + y1 * cos(-a_hat);
+        x2 = x2 * cos(-a_hat) - y2 * sin(-a_hat),
+        y2 = x2 * sin(-a_hat) + y2 * cos(-a_hat);
+
+        // translates the image back
+        x1 += frame_width/2.0f;
+        y1 += frame_height/2.0f;
+        x2 += frame_width/2.0f;
+        y2 += frame_height/2.0f;
+
+        // compute the new angle of the rotated lines
+        angle_new = atan2(y2-y1, x2-x1);
+
+        // determine if the lines are horizontal or vertical
+        if (abs(cos(alpha_new)) < 0.2) {
+          line(rot, cv::Point(x11, y11), cv::Point(x22, y22), Scalar(255, 255, 255), 1, LINE_AA);
+          bag_v.push_back(val);
+
+        } else if (abs(sin(alpha_new)) < 0.2) {
+          line(rot, cv::Point(x11, y11), cv::Point(x22, y22), Scalar(0, 0, 255), 1, LINE_AA);
+          bag_h.push_back(val);
+
+        }
+
+      }
+//
+//        //calcul pour medx et medy
+//        x1 = ((double)l[0]-frame_width/2.0f)*scale_pixel;
+//        y1 = ((double)l[1]-frame_height/2.0f)*scale_pixel;
+//
+//        x2 = ((double)l[2]-frame_width/2.0f)*scale_pixel;
+//        y2 = ((double)l[3]-frame_height/2.0f)*scale_pixel;
+//
+//        double d = ((x2-x1)*(y1)-(x1)*(y2-y1)) / sqrt(pow(x2-x1, 2)+pow(y2-y1, 2));
+//
+//        double val;
+//        val = (d+0.5)-floor(d+0.5)-0.5;
+//
+//        if (abs(cos(alpha2)) < 0.2) {
+//          line(rot, cv::Point(x11, y11), cv::Point(x22, y22), Scalar(255, 255, 255), 1, LINE_AA);
+//          median_v.push_back(val);
+//
+//        } else if (abs(sin(alpha2)) < 0.2) {
+//          line(rot, cv::Point(x11, y11), cv::Point(x22, y22), Scalar(0, 0, 255), 1, LINE_AA);
+//          median_h.push_back(val);
+//
+//        }
+//      }
+//
+//      alpha_median = alpha_median + quart*M_PI/2;
+//      alpha_median = modulo(alpha_median, 2*M_PI);
 
 
 //    // get the median angle from the tiles being seen,
 //    // will be used to filder bad lines and get the orientation of the tiles
-//    double median_angle = median(lines_angles);
+//    double median_angle = median(lines_angles, 2);
 //
 //    std::vector<line_t> lines_good;
 //
@@ -434,9 +502,9 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //      } else {
 //        line(src, l.p1, l.p2, Scalar(0, 0, 255), 3, LINE_AA);
 //    }
-//
+
 //    if(lines_good.size() > MIN_GOOD_LINES) {
-////      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
+//      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
 //      Mat rot = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
 //      std::vector<double> median_h, median_v;  // median for horizontal and vertical lines
 //
