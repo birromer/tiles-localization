@@ -46,12 +46,12 @@ using namespace cv;
 
 #define MIN_GOOD_LINES 5
 
-struct line_struct{
-  Point2f p1;
-  Point2f p2;
-  double angle;
-};
-
+typedef struct line_struct{
+  Point2f p1;  // 1st point of the line
+  Point2f p2;  // 2nd point of the line
+  double angle;  // angle of the line
+  double angle4;  // angle of the line compressed between [-pi/4, pi/4]
+} line_t;
 
 // helper functions
 double sawtooth(double x);
@@ -72,15 +72,15 @@ void cmd_l_callback(const std_msgs::Float64::ConstPtr& msg);
 void cmd_r_callback(const std_msgs::Float64::ConstPtr& msg);
 void image_callback(const sensor_msgs::ImageConstPtr& msg);
 
-void pose_callback(const geometry_msgs::Pose::ConstPtr& msg);
-
 // node communication related variables
 ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);  // current state of the robot
 ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);  // robot state from the localization method
 double obs_1, obs_2, obs_3;      // observed parameters from the image
 double cmd_1, cmd_2;             // commands from controller
 
-double pose_1, pose_2, pose_3;      // true pose
+// NOTE: Pose is used for debugging only, to be removed afterwards
+void pose_callback(const geometry_msgs::Pose::ConstPtr& msg);
+double pose_1, pose_2, pose_3;
 
 // image processing related variables
 bool display_window;
@@ -331,90 +331,53 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     HoughLinesP(morph, lines, 1, CV_PI/180., 60, 120, 50);
 
     // structures for storing the lines information
-    std::vector<line_struct> lines_points;
+    std::vector<line_t> lines_points;
     std::vector<double> lines_angles;
     double x1, x2, y1, y2;  // line goes from (x1,y1) to (x2,y2)
 
     // extract the informations from the good detected lines
     for(int i=0; i<lines.size(); i++) {
-      // save the line info for quick access
       Vec4i l = lines[i];
-      x1 = l[0];
-      y1 = l[1];
-      x2 = l[2];
-      y2 = l[3];
+      p1_x = l[0], p1_y = l[1];
+      p2_x = l[2], p2_y = l[3];
 
-      double angle_line = atan2(y2-y1, x2-x1);  // get the angle of the line from the existing points
-      line(src, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), Scalar(255, 0, 0), 3, LINE_AA);
+      double line_angle = atan2(p2_y - p1_y, p2_x - p1_x);  // get the angle of the line from the existing points
 
-      line_struct ln = {
-        .p1 = cv::Point(x1, y1),
-        .p2 = cv::Point(x2, y2),
-        .angle = angle_line
+      double line_angle4 = modulo(line_angle+M_PI/4., M_PI/2.)-M_PI/4.;  // compress image between [-pi/4, pi/4]
+//      double line_angle4 = 1/4*line_angle;                               // compress image between [-pi/4, pi/4]
+
+      line_t ln = {
+        .p1 = cv::Point(p1_x, p1_y),
+        .p2 = cv::Point(p2_x, p2_y),
+        .angle = line_angle,
+        .angle4 = angle4
       };
-      lines_points.push_back(ln);  // save the extracted information
 
-      double angle4 = modulo(angle_line+M_PI/4., M_PI/2.)-M_PI/4.;  // compress image between [-pi/4, pi/4]
-      lines_angles.push_back(angle4);
+      lines_points.push_back(ln);  // save the extracted information
+      lines_angles.push_back(angle4);  // saved separatly for ease of computation
+
+//      line(src, cv::Point(p1_x, p1_y), cv::Point(p2_x, p2_y), Scalar(255, 0, 0), 3, LINE_AA);
     }
 
     // get the median angle from the tiles being seen,
     // will be used to filder bad lines and get the orientation of the tiles
     double median_angle = median(lines_angles);
-    alpha_median = median_angle;
 
-    std::vector<Vec4i> lines_good;
+    std::vector<line_t> lines_good;
 
     // filter lines with coherent orientation with the median into lines_good
-    for (int i=0; i<lines_points.size(); i++) {
-      if(sawtooth(lines_angles[i]-median_angle) < 0.1) {
-        line(src, lines_points[i].p1, lines_points[i].p2, Scalar(255, 0, 0), 3, LINE_AA);
-        lines_good.push_back(lines[i]);
-
+    for (line_t l : line_points) {
+      if (sawtooth(l.angle4 - median_angle) < 0.1) {
+        line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
+        lines_good.push_back(l);
       } else {
-//         std::cout << "line with bad angle" << lines_angles[i] << " | " << sawtooth(lines_angles[i]-median_angle) << std::endl;
-         line(src, lines_points[i].p1, lines_points[i].p2, Scalar(0, 255, 0), 3, LINE_AA);
-      }
+        line(src, l.p1, l.p2, Scalar(0, 255, 0), 3, LINE_AA);
     }
 
     if(lines_good.size() > MIN_GOOD_LINES) {
 //      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
-
-      //conversion from cartesian to polar form :
-      double x1, x2, y1, y2;
-      std::vector<double> median_h, median_v;  // median for horizontal and vertical lines
-
-//      std::cout << "alpha_median : " << alpha_median*180/M_PI << std::endl;
-
-      // counts how many times 90 degrees it has turned to retorate that afterwards
-      // think about the ambiguity of the 90° rotations on the tiles
-      //à la limite, on a le quart qui fluctue donc on veut éviter ça  -> wat
-      if(nn == 0) {
-        // detects if angle between 45 and -45 (first abs takes both sides of zero
-        // and second lets only compare to < 0.1)
-        if(abs(abs(alpha_median)-M_PI/4.) < 0.1) {
-          if(alpha_median >= 0 & last_alpha_median < 0) {
-            quart -= 1;
-            nn = 1;
-          } else if (alpha_median <= 0 & last_alpha_median > 0) {
-            quart += 1;
-            nn = 1;
-          }
-        }
-      } else {
-        nn += 1;
-      }
-
-      if(nn == 100) {  // arbitraty number to verify 2 pi problem
-        nn = 0;
-      }
-
-      last_alpha_median = alpha_median;
-
-      std::cout << "________quart : " << quart << " n : " << nn << " " << abs(abs(alpha_median)-M_PI/4.) << std::endl;
-
       Mat rot = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
-      Mat rot_trans = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
+      std::vector<double> median_h, median_v;  // median for horizontal and vertical lines
 
       for(int i=0; i<lines_good.size(); i++) {
         cv::Vec4i l = lines_good[i];
@@ -487,67 +450,9 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       alpha_median = alpha_median + quart*M_PI/2;
       alpha_median = modulo(alpha_median, 2*M_PI);
 
-      double medx = sign(cos(state[2].mid()))*median(median_h);
-      double medy = sign(sin(state[2].mid()))*median(median_v);
-
-      for(int i=0; i<lines_good.size(); i++) {
-        cv::Vec4i l = lines_good[i];
-        x1 = l[0], y1 = l[1], x2 = l[2], y2 = l[3];
-        //std::cout << x1 << " | " << y1<< " | " << x2 << " | " << y2 << std::endl;
-        //std::cout << frame_height << " | " << frame_width << std::endl;
-
-        //translation in order to center lines around 0
-        x1 -= frame_width/2.0f;
-        y1 -= frame_height/2.0f;
-        x2 -= frame_width/2.0f;
-        y2 -= frame_height/2.0f;
-
-        // rotation around 0, in order to have only horizontal and vetical lines
-        double alpha = atan2(y2-y1, x2-x1);
-
-        double angle = modulo(alpha+M_PI/4., M_PI/2)-M_PI/4.;  // compress image between [-pi/4, pi/4]
-        angle += quart*M_PI/2.;  // undoes the 90° extra rotations that were performed by the movement of the robot
-
-        double s = sin(-angle);
-        double c = cos(-angle);
-
-        double x1b = x1;
-        double y1b = y1;
-        double x2b = x2;
-        double y2b = y2;
-
-        // applies the 2d rotation to the line, making it either horizontal or vertical
-        x1 = x1b*c - y1b*s,
-        y1 = +x1b*s + y1b*c;
-
-        x2 = x2b*c - y2b*s,
-        y2 = x2b*s + y2b*c;
-
-        // translates the image back for the display
-        x1 += frame_width/2.0f;
-        y1 += frame_height/2.0f;
-        x2 += frame_width/2.0f;
-        y2 += frame_height/2.0f;
-
-        double alpha2 = atan2(y2-y1,x2-x1);
-        double x11 = x1;
-        double y11 = y1;
-        double x22 = x2;
-        double y22 = y2;
-
-
-        if (abs(cos(alpha2)) < 0.2) {
-          line(rot_trans, cv::Point(x11+medx*scale_pixel, y11+medy*scale_pixel), cv::Point(x22+medx*scale_pixel, y22+medy*scale_pixel), Scalar(255, 255, 255), 1, LINE_AA);
-
-        } else if (abs(sin(alpha2)) < 0.2) {
-          line(rot_trans, cv::Point(x11+medx*scale_pixel, y11+medy*scale_pixel), cv::Point(x22+medx*scale_pixel, y22+medy*scale_pixel), Scalar(0, 0, 255), 1, LINE_AA);
-
-        }
-      }
-
-      obs_1 = medx;
-      obs_2 = medy;
-      obs_3 = alpha_median;
+      obs_1 = median_x;
+      obs_2 = median_y;
+      obs_3 = median_th;
 
       if(display_window){
 //        cvtColor(grey, grey, CV_GRAY2BGR);
