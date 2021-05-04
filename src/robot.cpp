@@ -89,9 +89,6 @@ double frame_width, frame_height;
 const double pix = 103;//99.3;//107.; //pixels entre chaque lignes
 const double scale_pixel = 1./pix;
 //taille du carrelage en mètre
-double size_carrelage_x = 2.025/12.;
-double size_carrelage_y = 2.025/12.;
-double percent = 0.9; //de combien max on estime qu'on aura bougé (là, de moins d'un carreau donc le calcul est possible)
 double alpha_median;
 int quart;
 double last_alpha_median = 0;
@@ -611,20 +608,14 @@ void ShowManyImages(string title, int nArgs, ...) {
 
       // Set the image ROI to display the current image
       // Resize the input image and copy the it to the Single Big Image
-  std::cout << "REACHED HEEEEEEEEEEEEEEEEEEEEERE 1" << std::endl;
       Rect ROI(m, n, (int)( x/scale ), (int)( y/scale ));
-  std::cout << "REACHED HEEEEEEEEEEEEEEEEEEEEERE 2" << std::endl;
       Mat temp; resize(img, temp, Size(ROI.width, ROI.height));
-  std::cout << "REACHED HEEEEEEEEEEEEEEEEEEEEERE 3" << std::endl;
       temp.copyTo(DispImage(ROI));
-  std::cout << "REACHED HEEEEEEEEEEEEEEEEEEEEERE 4" << std::endl;
   }
 
   // Create a new window, and show the Single Big Image
 //  namedWindow( title, 1 );
-  std::cout << "REACHED HEEEEEEEEEEEEEEEEEEEEERE 5" << std::endl;
   imshow(title, DispImage);
-  std::cout << "REACHED HEEEEEEEEEEEEEEEEEEEEERE 6" << std::endl;
 //  waitKey();
 
   // End the number of arguments
