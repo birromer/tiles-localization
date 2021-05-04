@@ -40,6 +40,7 @@
 #include <codac.h>
 #include <codac-rob.h>
 #include <math.h>
+#include <stdarg.h>
 
 using namespace cv;
 
@@ -58,6 +59,7 @@ double modulo(double a, double b);
 int sign(double x);
 double median(std::vector<double> scores);
 ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt);
+void ShowManyImages(string title, int nArgs, ...);
 
 // message convertion functions
 tiles_loc::State state_to_msg(double x1, double x2, double x3);
@@ -70,12 +72,15 @@ void cmd_l_callback(const std_msgs::Float64::ConstPtr& msg);
 void cmd_r_callback(const std_msgs::Float64::ConstPtr& msg);
 void image_callback(const sensor_msgs::ImageConstPtr& msg);
 
+void pose_callback(const geometry_msgs::Pose::ConstPtr& msg);
 
 // node communication related variables
 ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);  // current state of the robot
 ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);  // robot state from the localization method
 double obs_1, obs_2, obs_3;      // observed parameters from the image
 double cmd_1, cmd_2;             // commands from controller
+
+double pose_1, pose_2, pose_3;      // true pose
 
 // image processing related variables
 bool display_window;
@@ -84,9 +89,6 @@ double frame_width, frame_height;
 const double pix = 103;//99.3;//107.; //pixels entre chaque lignes
 const double scale_pixel = 1./pix;
 //taille du carrelage en mètre
-double size_carrelage_x = 2.025/12.;
-double size_carrelage_y = 2.025/12.;
-double percent = 0.9; //de combien max on estime qu'on aura bougé (là, de moins d'un carreau donc le calcul est possible)
 double alpha_median;
 int quart;
 double last_alpha_median = 0;
@@ -123,6 +125,7 @@ int main(int argc, char **argv) {
 
   // start visualization windows windows
   if(display_window) {
+//    cv::namedWindow("steps");
     cv::namedWindow("lines");
     cv::namedWindow("camera");
     cv::namedWindow("grey");
@@ -144,6 +147,8 @@ int main(int argc, char **argv) {
 
   // subscriber to the updated state from the localization subsystem
   ros::Subscriber sub_loc = n.subscribe("state_loc", 1000, state_loc_callback);
+
+  ros::Subscriber sub_pose= n.subscribe("pose", 1000, pose_callback);
   // ------------------ //
 
   // --- publishers --- //
@@ -179,6 +184,10 @@ int main(int argc, char **argv) {
     pub_y.publish(observation_msg);
 
     ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y1, y2, y3);
+    ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
+
+    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
+    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-pose_2)), sin(M_PI*(y2-pose_1)), cos(y3-pose_3));
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -228,8 +237,8 @@ ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, do
   state_new[1] = state[1] + dt * (u1*ibex::sin(state[1]));
   state_new[2] = state[2] + dt * (u2);
 
-  ROS_INFO("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
-           state_new[0].lb(), state_new[0].ub(), state_new[1].lb(), state_new[1].ub(), state_new[2].lb(), state_new[2].ub(), u1, u2);
+  //ROS_INFO("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
+//           state_new[0].lb(), state_new[0].ub(), state_new[1].lb(), state_new[1].ub(), state_new[2].lb(), state_new[2].ub(), u1, u2);
 
   return state_new;
 }
@@ -238,19 +247,19 @@ void state_loc_callback(const tiles_loc::State::ConstPtr& msg) {
   state_loc[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
   state_loc[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
   state_loc[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
-  ROS_INFO("[ROBOT] Received estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
-           state_loc[0].lb(), state_loc[0].ub(), state_loc[1].lb(), state_loc[1].ub(), state_loc[2].lb(), state_loc[2].ub());
+//  ROS_INFO("[ROBOT] Received estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+//           state_loc[0].lb(), state_loc[0].ub(), state_loc[1].lb(), state_loc[1].ub(), state_loc[2].lb(), state_loc[2].ub());
 }
 
 // callbacks for each subscriber
 void cmd_l_callback(const std_msgs::Float64::ConstPtr& msg) {
   cmd_1 = msg->data;
-  ROS_INFO("[ROBOT] Received command: u1 [%f] ", cmd_1);
+//  ROS_INFO("[ROBOT] Received command: u1 [%f] ", cmd_1);
 }
 
 void cmd_r_callback(const std_msgs::Float64::ConstPtr& msg) {
   cmd_2 = msg->data;
-  ROS_INFO("[ROBOT] Received command: u2 [%f]", cmd_2);
+//  ROS_INFO("[ROBOT] Received command: u2 [%f]", cmd_2);
 }
 
 tiles_loc::State state_to_msg(double x1, double x2, double x3) {
@@ -369,7 +378,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     }
 
     if(lines_good.size() > MIN_GOOD_LINES) {
-      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
+//      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
 
       //conversion from cartesian to polar form :
       double x1, x2, y1, y2;
@@ -378,7 +387,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //      std::cout << "alpha_median : " << alpha_median*180/M_PI << std::endl;
 
       // counts how many times 90 degrees it has turned to retorate that afterwards
-      // think about the mabiguity of the 90° rotations on the tiles
+      // think about the ambiguity of the 90° rotations on the tiles
       //à la limite, on a le quart qui fluctue donc on veut éviter ça  -> wat
       if(nn == 0) {
         // detects if angle between 45 and -45 (first abs takes both sides of zero
@@ -478,8 +487,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       alpha_median = alpha_median + quart*M_PI/2;
       alpha_median = modulo(alpha_median, 2*M_PI);
 
-//      std::cout << "alpha_median : " << alpha_median*180/M_PI << " " << quart%2<< std::endl;
-
       double medx = sign(cos(state[2].mid()))*median(median_h);
       double medy = sign(sin(state[2].mid()))*median(median_v);
 
@@ -543,6 +550,10 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       obs_3 = alpha_median;
 
       if(display_window){
+//        cvtColor(grey, grey, CV_GRAY2BGR);
+//        cvtColor(grad, grad, CV_GRAY2BGR);
+//        cvtColor(edges, edges, CV_GRAY2BGR);
+//        ShowManyImages("steps", 4, in, grey, grad, edges);//, morph, rot, src);
         cv::imshow("camera", in);
         cv::imshow("grey", grey);
         cv::imshow("sobel", grad);
@@ -562,6 +573,117 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
     return;
   }
+}
 
+void ShowManyImages(string title, int nArgs, ...) {
+// from https://github.com/opencv/opencv/wiki/DisplayManyImages
+
+  int size;
+  int i;
+  int m, n;
+  int x, y;
+
+  // w - Maximum number of images in a row
+  // h - Maximum number of images in a column
+  int w, h;
+
+  // scale - How much we have to resize the image
+  float scale;
+  int max;
+
+  // If the number of arguments is lesser than 0 or greater than 12
+  // return without displaying
+  if(nArgs <= 0) {
+      printf("Number of arguments too small....\n");
+      return;
+  }
+  else if(nArgs > 14) {
+      printf("Number of arguments too large, can only handle maximally 12 images at a time ...\n");
+      return;
+  }
+  // Determine the size of the image,
+  // and the number of rows/cols
+  // from number of arguments
+  else if (nArgs == 1) {
+      w = h = 1;
+      size = 300;
+  }
+  else if (nArgs == 2) {
+    w = 2; h = 1;
+      size = 300;
+  }
+  else if (nArgs == 3 || nArgs == 4) {
+      w = 2; h = 2;
+      size = 300;
+  }
+  else if (nArgs == 5 || nArgs == 6) {
+      w = 3; h = 2;
+      size = 200;
+  }
+  else if (nArgs == 7 || nArgs == 8) {
+      w = 4; h = 2;
+      size = 200;
+  }
+  else {
+      w = 4; h = 3;
+      size = 150;
+  }
+
+  // Create a new 3 channel image
+  Mat DispImage = Mat::zeros(Size(100 + size*w, 60 + size*h), CV_8UC3);
+
+  // Used to get the arguments passed
+  va_list args;
+  va_start(args, nArgs);
+
+  // Loop for nArgs number of arguments
+  for (i = 0, m = 20, n = 20; i < nArgs; i++, m += (20 + size)) {
+      // Get the Pointer to the IplImage
+      Mat img = va_arg(args, Mat);
+
+      // Check whether it is NULL or not
+      // If it is NULL, release the image, and return
+      if(img.empty()) {
+          printf("Invalid arguments");
+          return;
+      }
+
+      // Find the width and height of the image
+      x = img.cols;
+      y = img.rows;
+
+      // Find whether height or width is greater in order to resize the image
+      max = (x > y)? x: y;
+
+      // Find the scaling factor to resize the image
+      scale = (float) ( (float) max / size );
+
+      // Used to Align the images
+      if( i % w == 0 && m!= 20) {
+          m = 20;
+          n+= 20 + size;
+      }
+
+      // Set the image ROI to display the current image
+      // Resize the input image and copy the it to the Single Big Image
+      Rect ROI(m, n, (int)( x/scale ), (int)( y/scale ));
+      Mat temp; resize(img, temp, Size(ROI.width, ROI.height));
+      temp.copyTo(DispImage(ROI));
+  }
+
+  // Create a new window, and show the Single Big Image
+//  namedWindow( title, 1 );
+  imshow(title, DispImage);
+//  waitKey();
+
+  // End the number of arguments
+  va_end(args);
+}
+
+void pose_callback(const geometry_msgs::Pose::ConstPtr& msg) {
+    geometry_msgs::Pose pose;
+    pose_1 = msg->position.x;
+    pose_2 = msg->position.y;
+    pose_3 = tf::getYaw(msg->orientation);;
 
 }
