@@ -54,6 +54,7 @@ typedef struct line_struct{
   double m_x;     // x coord of the point from the disambiguation function
   double m_y;     // y coord of the point from the disambiguation function
   double d;       // radius value in the polar coordinates of a line
+  double dd;      // displacement between tiles
 } line_t;
 
 // helper functions
@@ -210,6 +211,7 @@ double sawtooth(double x){
 **   3 = m_x
 **   4 = m_y
 **   5 = d
+**   6 = dd
 */
 
 double median(std::vector<line_t> lines, int op) {
@@ -219,24 +221,52 @@ double median(std::vector<line_t> lines, int op) {
   if (size == 0) {
     return 0;  // undefined
   } else {
-    sort(scores.begin(), scores.end(), [](line_t l1, line_t l2) -> bool {
+    sort(lines.begin(), lines.end(), [=](line_t l1, line_t l2) -> bool {
       if (op == 1)
         return l1.angle > l2.angle;
-      if (op == 2)
+      else if (op == 2)
         return l1.angle4 > l2.angle4;
-      if (op == 3)
+      else if (op == 3)
         return l1.m_x > l2.m_x;
-      if (op == 4)
+      else if (op == 4)
         return l1.m_y > l2.m_y;
-      if (op == 5)
+      else if (op == 5)
         return l1.d > l2.d;
+      else if (op == 6)
+        return l1.dd > l2.dd;
+      return false;  // if not an option, leave as is
     });  // sort elements and take middle one
 
     if (size % 2 == 0) {
-      return (scores[size / 2 - 1] + scores[size / 2]) / 2;
+      if (op == 1)
+        return (lines[size / 2 - 1].angle + lines[size / 2].angle) / 2;
+      else if (op == 2)
+        return (lines[size / 2 - 1].angle4 + lines[size / 2].angle4) / 2;
+      else if (op == 3)
+        return (lines[size / 2 - 1].m_x + lines[size / 2].m_x) / 2;
+      else if (op == 4)
+        return (lines[size / 2 - 1].m_y + lines[size / 2].m_y) / 2;
+      else if (op == 5)
+        return (lines[size / 2 - 1].d + lines[size / 2].d) / 2;
+      else if (op == 6)
+        return (lines[size / 2 - 1].dd + lines[size / 2].dd) / 2;
+
     } else {
-      return scores[size / 2];
+      if (op == 1)
+        return lines[size/2].angle;
+      else if (op == 2)
+        return lines[size/2].angle4;
+      else if (op == 3)
+        return lines[size/2].m_x;
+      else if (op == 4)
+        return lines[size/2].m_y;
+      else if (op == 5)
+        return lines[size/2].d;
+      else if (op == 6)
+        return lines[size/2].dd;
     }
+
+    return 0;
   }
 }
 
@@ -381,7 +411,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     std::vector<line_t> lines;  // stores the lines obtained from the hough transform
     std::vector<double> lines_angles;  // stores the angles of the lines from the hough transform with the image compressed between [-pi/4, pi/4]
 
-    double line_angle, line_angle4, d, m_x, m_y;
+    double line_angle, line_angle4, d, dd, m_x, m_y;
 
     // extract the informations from the good detected lines
     for(int i=0; i<detected_lines.size(); i++) {
@@ -396,7 +426,11 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       m_x = cos(4*line_angle);
       m_y = sin(4*line_angle);
 
+      // smallest radius of a circle with a point belonging to the line with origin in 0
       d = ((p2_x-p1_x)*(p1_y)-(p1_x)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x, 2)+pow(p2_y-p1_y, 2));
+
+      // decimal distance, displacement between the lines
+      dd = (d/scale_pixel - floor(d/scale_pixel));
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -405,7 +439,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         .angle4 = line_angle4,
         .m_x    = m_x,
         .m_y    = m_y,
-        .d      = d
+        .d      = d,
+        .dd     = dd
       };
 
       // save the extracted information
@@ -421,11 +456,15 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
    // median of the components of the lines
     x_hat = median(lines, 3);
     y_hat = median(lines, 4);
+//    median_angle = median(lines, 2);
+
+    std::vector<line_t> lines_good;
 
     for (line_t l : lines) {
       if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.05) {
-        filered_m_x.push_back(l.m_x);
-        filered_m_y.push_back(l.m_y);
+//      if (sawtooth(l.angle4 - median_angle) < 0.1) {
+        filtered_m_x.push_back(l.m_x);
+        filtered_m_y.push_back(l.m_y);
 
         line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
         lines_good.push_back(l);
@@ -449,10 +488,10 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
       for (line_t l : lines) {
         //translation in order to center lines around 0
-        x1 = l.p1[0] - frame_width/2.0f;
-        y1 = l.p1[1] - frame_height/2.0f;
-        x2 = l.p2[0] - frame_width/2.0f;
-        y2 = l.p2[1] - frame_height/2.0f;
+        x1 = l.p1.x - frame_width/2.0f;
+        y1 = l.p1.y - frame_height/2.0f;
+        x2 = l.p2.x - frame_width/2.0f;
+        y2 = l.p2.y - frame_height/2.0f;
 
         // applies the 2d rotation to the line, making it either horizontal or vertical
         x1 = x1 * cos(-a_hat) - y1 * sin(-a_hat),
@@ -474,14 +513,15 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           bag_v.push_back(l);
 
-        } else if (abs(sin(angle_new)) < 0.2) {
-          line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
+        } else if (abs(sin(angle_new)) < 0.2) {line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
           bag_h.push_back(l);
 
         }
       }
 
-//      double d_hat_h = l * median(bag_h, 5) * (?)
+      double d_hat_h = scale_pixel * median(bag_h, 6);
+
+      double d_hat_v = scale_pixel * median(bag_h, 6);
 
 //        //calcul pour medx et medy
 //        x1 = ((double)l[0]-frame_width/2.0f)*scale_pixel;
@@ -601,9 +641,9 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //      alpha_median = alpha_median + quart*M_PI/2;
 //      alpha_median = modulo(alpha_median, 2*M_PI);
 
-      obs_1 = median_x;
-      obs_2 = median_y;
-      obs_3 = median_th;
+      obs_1 = d_hat_v;
+      obs_2 = d_hat_h;
+      obs_3 = a_hat;
 
       if(display_window){
 //        cvtColor(grey, grey, CV_GRAY2BGR);
@@ -617,7 +657,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         cv::imshow("morphology", morph);
         cv::imshow("lines", src);
         cv::imshow("rotated", rot);
-        cv::imshow("rot+trans", rot_trans);
 
       }
     } else {

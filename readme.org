@@ -1,0 +1,14 @@
+#+title: Tiles Localization
+#+author: Bernardo Hummes Flores
+#+email: hummes@ieee.org
+#+language: en
+
+Robot localization algorithm based on single downwards facing camera on a floor with identical tiles.
+
+* Introduction
+
+* Quick Start Guide
+
+** Docker
+
+** Local installation
