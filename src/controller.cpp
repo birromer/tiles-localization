@@ -42,10 +42,6 @@ float x_x, x_y, x_th;
 float last_L = 0;
 float f = 0;
 
-// TODO: REMOVE THAT, ONLY DEBUGGING
-double pose_1, pose_2, pose_3;
-void pose_callback(const geometry_msgs::Pose::ConstPtr& msg);
-
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "control_node");
@@ -57,9 +53,6 @@ int main(int argc, char **argv)
   ros::Subscriber sub_waypoint = n.subscribe("waypoint", 1000, waypoint_callback);
   // subscriber to curret state from robot
   ros::Subscriber sub_state = n.subscribe("state", 1000, state_callback);
-
-  // TODO: REMOVE THAT, ONLY DEBUGGING
-  ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
   // ------------------ //
 
   // --- publishers --- //
@@ -69,10 +62,6 @@ int main(int argc, char **argv)
   // ------------------ //
 
   while (ros::ok()) {
-    x_x = pose_1;
-    x_y = pose_2;
-    x_th = pose_3;
-
     float L = cos(w_th)*(w_x - x_x) + sin(w_th)*(w_y - x_y);  // to control speed in curves
     float dist = sqrt(pow(w_x - x_x, 2) + pow(w_y - x_y, 2));
 
@@ -165,16 +154,8 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
 }
 
 void state_callback(const tiles_loc::State::ConstPtr& msg){
-//  x_x = (msg->x1_lb + msg->x1_ub)/2.;
-//  x_y = (msg->x2_lb + msg->x2_ub)/2.;
-//  x_th = (msg->x3_lb + msg->x3_ub)/2. * 180./M_PI;  // NOTE: check if radians or degrees should be user later
+  x_x = (msg->x1_lb + msg->x1_ub)/2.;
+  x_y = (msg->x2_lb + msg->x2_ub)/2.;
+  x_th = (msg->x3_lb + msg->x3_ub)/2. * 180./M_PI;  // NOTE: check if radians or degrees should be user later
 //  ROS_INFO("[CONTROL] Received state-> x1: [%f] | x2: [%f] | x3: [%f]", x_x, x_y, x_th);
-}
-
-// TODO: REMOVE THAT, ONLY DEBUGGING
-void pose_callback(const geometry_msgs::Pose::ConstPtr& msg) {
-    geometry_msgs::Pose pose;
-    pose_1 = msg->position.x;
-    pose_2 = msg->position.y;
-    pose_3 = tf::getYaw(msg->orientation);;
 }
