@@ -47,17 +47,21 @@ using namespace cv;
 #define MIN_GOOD_LINES 5
 
 typedef struct line_struct{
-  Point2f p1;  // 1st point of the line
-  Point2f p2;  // 2nd point of the line
-  double angle;  // angle of the line
+  Point2f p1;     // 1st point of the line
+  Point2f p2;     // 2nd point of the line
+  double angle;   // angle of the line
   double angle4;  // angle of the line compressed between [-pi/4, pi/4]
+  double m_x;     // x coord of the point from the disambiguation function
+  double m_y;     // y coord of the point from the disambiguation function
+  double d;       // radius value in the polar coordinates of a line
 } line_t;
 
 // helper functions
 double sawtooth(double x);
 double modulo(double a, double b);
 int sign(double x);
-double median(std::vector<double> scores, int op);
+double median(std::vector<line_t> lines, int op);
+double median(std::vector<double> scores);
 ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt);
 void ShowManyImages(string title, int nArgs, ...);
 
@@ -210,12 +214,12 @@ double sawtooth(double x){
 
 double median(std::vector<line_t> lines, int op) {
   //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
-  size_t size = scores.size();
+  size_t size = lines.size();
 
   if (size == 0) {
     return 0;  // undefined
   } else {
-    sort(scores.begin(), scores.end() [](line_t l1, line_t l2) -> bool {
+    sort(scores.begin(), scores.end(), [](line_t l1, line_t l2) -> bool {
       if (op == 1)
         return l1.angle > l2.angle;
       if (op == 2)
@@ -223,10 +227,27 @@ double median(std::vector<line_t> lines, int op) {
       if (op == 3)
         return l1.m_x > l2.m_x;
       if (op == 4)
-        return l1.m_y > l2.m_y
+        return l1.m_y > l2.m_y;
       if (op == 5)
         return l1.d > l2.d;
     });  // sort elements and take middle one
+
+    if (size % 2 == 0) {
+      return (scores[size / 2 - 1] + scores[size / 2]) / 2;
+    } else {
+      return scores[size / 2];
+    }
+  }
+}
+
+double median(std::vector<double> scores) {
+  //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
+  size_t size = scores.size();
+
+  if (size == 0) {
+    return 0;  // undefined
+  } else {
+    sort(scores.begin(), scores.end());  // sort elements and take middle one
 
     if (size % 2 == 0) {
       return (scores[size / 2 - 1] + scores[size / 2]) / 2;
@@ -347,12 +368,12 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     dilate(edges, morph, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
 
     // detect lines using the hough transform
-    std::vector<Vec4i> lines;
-    HoughLinesP(morph, lines, 1, CV_PI/180., 60, 120, 50);
+    std::vector<Vec4i> detected_lines;
+    HoughLinesP(morph, detected_lines, 1, CV_PI/180., 60, 120, 50);
 
     // from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ase of computation
-    std::vector<double> linex_m_x, lines_m_y, filtered_m_x, filtered_m_y;  // x and y components of the points in M
+    std::vector<double> lines_m_x, lines_m_y, filtered_m_x, filtered_m_y;  // x and y components of the points in M
 
     double x_hat, y_hat, a_hat;
 
@@ -363,10 +384,10 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     double line_angle, line_angle4, d, m_x, m_y;
 
     // extract the informations from the good detected lines
-    for(int i=0; i<lines.size(); i++) {
-      Vec4i l = lines[i];
-      p1_x = l[0], p1_y = l[1];
-      p2_x = l[2], p2_y = l[3];
+    for(int i=0; i<detected_lines.size(); i++) {
+      Vec4i l = detected_lines[i];
+      double p1_x = l[0], p1_y = l[1];
+      double p2_x = l[2], p2_y = l[3];
 
       line_angle = atan2(p2_y - p1_y, p2_x - p1_x);  // get the angle of the line from the existing points
       line_angle4 = modulo(line_angle+M_PI/4., M_PI/2.)-M_PI/4.;  // compress image between [-pi/4, pi/4]
@@ -375,13 +396,13 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       m_x = cos(4*line_angle);
       m_y = sin(4*line_angle);
 
-      d = ((x2-x1)*(y1)-(x1)*(y2-y1)) / sqrt(pow(x2-x1, 2)+pow(y2-y1, 2));
+      d = ((p2_x-p1_x)*(p1_y)-(p1_x)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x, 2)+pow(p2_y-p1_y, 2));
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
         .p2     = cv::Point(p2_x, p2_y),
         .angle  = line_angle,
-        .angle4 = angle4,
+        .angle4 = line_angle4,
         .m_x    = m_x,
         .m_y    = m_y,
         .d      = d
@@ -390,21 +411,21 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       // save the extracted information
       lines.push_back(ln);
       // saved separatly for ease of computation
-      lines_angles.push_back(angle4);
-      lines_m_x.push_back(m_x);
-      lines_m_y.push_back(m_y);
+//      lines_angles.push_back(angle4);
+//      lines_m_x.push_back(m_x);
+//      lines_m_y.push_back(m_y);
 
       line(src, cv::Point(p1_x, p1_y), cv::Point(p2_x, p2_y), Scalar(255, 0, 0), 3, LINE_AA);
     }
 
    // median of the components of the lines
-    x_hat = median(m_x, 3);
-    y_hat = median(m_y, 4);
+    x_hat = median(lines, 3);
+    y_hat = median(lines, 4);
 
     for (line_t l : lines) {
-      if ( (abs(x_hat - m_x[i]) + abs(y_hat - m_y[i])) < 0.05) {
-        filered_m_x.push_back(m_x[i]);
-        filered_m_y.push_back(m_y[i]);
+      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.05) {
+        filered_m_x.push_back(l.m_x);
+        filered_m_y.push_back(l.m_y);
 
         line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
         lines_good.push_back(l);
@@ -414,15 +435,15 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       }
     }
 
-    x_hat = median(filtered_m_x, 3);
-    y_hat = median(filtered_m_y, 4);
+    x_hat = median(filtered_m_x);
+    y_hat = median(filtered_m_y);
 
-    a_hat = atan2(y_hat, h_hat) * 1/4;
+    a_hat = atan2(y_hat, x_hat) * 1/4;
 
     if(lines_good.size() > MIN_GOOD_LINES) {
 //      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
       Mat rot = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
-      std::vector<double> bag_h, bag_v;
+      std::vector<line_t> bag_h, bag_v;
       double x1, y1, x2, y2;
       double angle_new;
 
@@ -449,18 +470,19 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         angle_new = atan2(y2-y1, x2-x1);
 
         // determine if the lines are horizontal or vertical
-        if (abs(cos(alpha_new)) < 0.2) {
-          line(rot, cv::Point(x11, y11), cv::Point(x22, y22), Scalar(255, 255, 255), 1, LINE_AA);
-          bag_v.push_back(val);
+        if (abs(cos(angle_new)) < 0.2) {
+          line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
+          bag_v.push_back(l);
 
-        } else if (abs(sin(alpha_new)) < 0.2) {
-          line(rot, cv::Point(x11, y11), cv::Point(x22, y22), Scalar(0, 0, 255), 1, LINE_AA);
-          bag_h.push_back(val);
+        } else if (abs(sin(angle_new)) < 0.2) {
+          line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
+          bag_h.push_back(l);
 
         }
-
       }
-//
+
+//      double d_hat_h = l * median(bag_h, 5) * (?)
+
 //        //calcul pour medx et medy
 //        x1 = ((double)l[0]-frame_width/2.0f)*scale_pixel;
 //        y1 = ((double)l[1]-frame_height/2.0f)*scale_pixel;
@@ -490,7 +512,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
 //    // get the median angle from the tiles being seen,
 //    // will be used to filder bad lines and get the orientation of the tiles
-//    double median_angle = median(lines_angles, 2);
+//    double median_angle = median(lines, 2);
 //
 //    std::vector<line_t> lines_good;
 //
@@ -719,5 +741,4 @@ void pose_callback(const geometry_msgs::Pose::ConstPtr& msg) {
     pose_1 = msg->position.x;
     pose_2 = msg->position.y;
     pose_3 = tf::getYaw(msg->orientation);;
-
 }
