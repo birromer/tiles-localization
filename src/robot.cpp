@@ -138,7 +138,6 @@ int main(int argc, char **argv) {
     cv::namedWindow("canny");
     cv::namedWindow("morphology");
     cv::namedWindow("rotated");
-    cv::namedWindow("rot+trans");
     cv::startWindowThread();
   }
 
@@ -428,6 +427,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
       // smallest radius of a circle with a point belonging to the line with origin in 0
       d = ((p2_x-p1_x)*(p1_y)-(p1_x)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x, 2)+pow(p2_y-p1_y, 2));
+//      d = (d+0.5)-floor(d+0.5)-0.5;
 
       // decimal distance, displacement between the lines
       dd = (d/scale_pixel - floor(d/scale_pixel));
@@ -456,12 +456,12 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
    // median of the components of the lines
     x_hat = median(lines, 3);
     y_hat = median(lines, 4);
-//    median_angle = median(lines, 2);
+//    double median_angle = median(lines, 2);
 
     std::vector<line_t> lines_good;
 
     for (line_t l : lines) {
-      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.05) {
+      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
 //      if (sawtooth(l.angle4 - median_angle) < 0.1) {
         filtered_m_x.push_back(l.m_x);
         filtered_m_y.push_back(l.m_y);
@@ -494,10 +494,16 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         y2 = l.p2.y - frame_height/2.0f;
 
         // applies the 2d rotation to the line, making it either horizontal or vertical
-        x1 = x1 * cos(-a_hat) - y1 * sin(-a_hat),
-        y1 = x1 * sin(-a_hat) + y1 * cos(-a_hat);
-        x2 = x2 * cos(-a_hat) - y2 * sin(-a_hat),
-        y2 = x2 * sin(-a_hat) + y2 * cos(-a_hat);
+        double x1_temp = x1 * cos(-a_hat) - y1 * sin(-a_hat);
+        double y1_temp = x1 * sin(-a_hat) + y1 * cos(-a_hat);
+
+        double x2_temp = x2 * cos(-a_hat) - y2 * sin(-a_hat);
+        double y2_temp = x2 * sin(-a_hat) + y2 * cos(-a_hat);
+
+        x1 = x1_temp;
+        x2 = x2_temp;
+        y1 = y1_temp;
+        y2 = y2_temp;
 
         // translates the image back
         x1 += frame_width/2.0f;
