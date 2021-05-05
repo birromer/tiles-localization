@@ -152,12 +152,12 @@ int main(int argc, char **argv) {
   // subscriber to the updated state from the localization subsystem
   ros::Subscriber sub_loc = n.subscribe("state_loc", 1000, state_loc_callback);
 
-  ros::Subscriber sub_pose= n.subscribe("pose", 1000, pose_callback);
+  ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
   // ------------------ //
 
   // --- publishers --- //
   // publisher of the state for control and viewer
-  ros::Publisher pub_state      = n.advertise<tiles_loc::State>("state", 1000);
+  ros::Publisher pub_state = n.advertise<tiles_loc::State>("state", 1000);
 
   // publisher of the predicted state and observation for localization
   ros::Publisher pub_state_pred = n.advertise<tiles_loc::State>("state_pred", 1000);
@@ -170,6 +170,7 @@ int main(int argc, char **argv) {
     std::cout << " =================================================================== " << std::endl;
 
     state = state_loc;                   // start with the last state contracted from the localization
+
     y1 = obs_1, y2 = obs_2, y3 = obs_3;  // use last observed parameters from the image
     u1 = cmd_1, u2 = cmd_2;              // use last input from command
 

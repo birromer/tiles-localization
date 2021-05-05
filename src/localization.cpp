@@ -97,12 +97,9 @@ int main(int argc, char **argv) {
       x_loc[0] = box[0];
       x_loc[1] = box[1];
       x_loc[2] = box[2];
-
-      float a = (x_loc[2].mid())*180./M_PI;
+//      float a = (x_loc[2].mid())*180./M_PI;
 //      std::cout << "angle robot: " << a << std::endl;
     }
-
-//    std::cout << "contracted state: " << x_loc << std::endl << std::endl;
 
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_loc_msg = state_to_msg(x_loc);
