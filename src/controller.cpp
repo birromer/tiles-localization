@@ -97,12 +97,6 @@ int main(int argc, char **argv)
     cmd_r = max(min(cmd_r, max_speed), -0);
     cmd_l = max(min(cmd_l, max_speed), -0);
 
-//    ROS_INFO("[CONTROL] L : %f | current_speed : %f | C : %f", L, current_speed, x_th*180/M_PI);
-//    ROS_INFO("[CONTROL] dist : %f", dist);
-//    ROS_INFO("[CONTROL] cmd_l : %f | cmd_r : %f ", cmd_l, cmd_r);
-//    ROS_INFO("[CONTROL] cons_cap : %f | angle : %f | c2 : %f ", w_th*180/M_PI, angle_state_waypoint*180/M_PI, c2*180/M_PI);
-//    ROS_INFO("[CONTROL] sawtooth : %f \n", sawtooth(x_th - c2)/M_PI);
-
     cmd_l /= 100;
     cmd_r /= 100;
 
@@ -115,7 +109,7 @@ int main(int argc, char **argv)
     pub_cmd_l.publish(cmd_msg_l);
     pub_cmd_r.publish(cmd_msg_r);
 
-//    ROS_INFO("[CONTROL] Sent commands -> u1: [%f] | u2: [%f]", cmd_l, cmd_r);
+    ROS_INFO("[CONTROL] Sent commands -> u1: [%f] | u2: [%f]", cmd_l, cmd_r);
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -150,12 +144,12 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
   w_x  = msg->pose.position.x;
   w_y  = msg->pose.position.y;
   w_th = tf::getYaw(msg->pose.orientation);
-//  ROS_INFO("[CONTROL] Received waypoint -> w_x: [%f] | w_y: [%f] | w_th: [%f]", w_x, w_y, w_th);
+  ROS_INFO("[CONTROL] Received waypoint -> w_x: [%f] | w_y: [%f] | w_th: [%f]", w_x, w_y, w_th);
 }
 
 void state_callback(const tiles_loc::State::ConstPtr& msg){
   x_x = (msg->x1_lb + msg->x1_ub)/2.;
   x_y = (msg->x2_lb + msg->x2_ub)/2.;
   x_th = (msg->x3_lb + msg->x3_ub)/2. * 180./M_PI;  // NOTE: check if radians or degrees should be user later
-//  ROS_INFO("[CONTROL] Received state-> x1: [%f] | x2: [%f] | x3: [%f]", x_x, x_y, x_th);
+  ROS_INFO("[CONTROL] Received state-> x1: [%f] | x2: [%f] | x3: [%f]", x_x, x_y, x_th);
 }
