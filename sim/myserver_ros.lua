@@ -27,6 +27,37 @@
 --   sim.addStatusbarMessage('cmd_u1 subscriber receiver : wheels speed ='..spdMotor)
 -- end
 
+function gaussian (mean, variance)
+    return  math.sqrt(-2 * variance * math.log(math.random())) *
+            math.cos(2 * math.pi * math.random()) + mean
+end
+
+function getCompass(objectName, statemotor)
+  -- This function get the value of the compass
+  objectHandle = sim.getObjectAssociatedWithScript(sim.handle_self)
+  relTo = -1
+  o = sim.getObjectOrientation(objectHandle, relTo)
+  if statemotor then -- if motor is ON
+    heading = -o[3] + gaussian(0,1)*math.pi  -- gaussian noise is added
+  else
+    heading = -o[3]   -- north along X > 0
+  end
+  return heading*180/math.pi -- in radians
+--  return heading*180/math.pi -- in degrees
+end
+
+function getSpeed(objectName)
+  -- This function get the object pose at ROS format geometry_msgs/Pose
+  objectHandle = sim.getObjectAssociatedWithScript(sim.handle_self)
+  relTo = -1
+  p, o =sim.getObjectVelocity(objectHandle)
+
+  return {
+    position={x=p[1],y=p[2],z=p[3]},
+    orientation={x=o[1],y=o[2],z=o[3],w=0}
+  }
+end
+
 function subscriber_cmd_ul_callback(msg)
   spdMotor = msg["data"]
   sim.setJointTargetVelocity(backMotorLeft, spdMotor)
@@ -90,16 +121,13 @@ function sysCall_init()
 
   -- Prepare the publishers and subscribers :
   if rosInterfacePresent then
-    publisher1 = simROS.advertise('/simulationTime','std_msgs/Float32')
-    publisher2 = simROS.advertise('/pose','geometry_msgs/Pose')
+    publisher_time    = simROS.advertise('/simulationTime','std_msgs/Float32')
+    publisher_pose    = simROS.advertise('/pose','geometry_msgs/Pose')
+    publisher_speed   = simROS.advertise('/speed','geometry_msgs/Pose')
+    publisher_compass = simROS.advertise('/compass','std_msgs/Float32')
 
-    --subscriber1=simROS.subscribe('/cmd_u1','std_msgs/Float32','subscriber_cmd_u1_callback')
-    --subscriber2=simROS.subscribe('/cmd_u2','std_msgs/Float32','subscriber_cmd_u2_callback')
-    --subscriber3=simROS.subscribe('/cmd_u3','std_msgs/Float32','subscriber_cmd_u3_callback')
-    --subscriber4=simROS.subscribe('/cmd_u4','std_msgs/Float32','subscriber_cmd_u4_callback')
-
-    subscriber3 = simROS.subscribe('/cmd_l','std_msgs/Float64','subscriber_cmd_ul_callback')
-    subscriber4 = simROS.subscribe('/cmd_r','std_msgs/Float64','subscriber_cmd_ur_callback')
+    subscriber_ul = simROS.subscribe('/cmd_l','std_msgs/Float64','subscriber_cmd_ul_callback')
+    subscriber_ur = simROS.subscribe('/cmd_r','std_msgs/Float64','subscriber_cmd_ur_callback')
   end
 
   -- Get some handles (as usual !):
@@ -122,14 +150,17 @@ function sysCall_sensing()
     d['step'] = w*3
     d['data'] = data
     simROS.publish(pub,d)
+
+    simROS.publish(publisher_compass, {data=getCompass(sim.handle_self, statemotor)})
 end
 
 function sysCall_actuation()
    -- Send an updated simulation time message, and send the transform of the object attached to this script:
    if rosInterfacePresent then
       -- publish time and pose topics
-      simROS.publish(publisher1, {data=sim.getSimulationTime()})
-      simROS.publish(publisher2, getPose("Chassis"))
+      simROS.publish(publisher_time, {data=sim.getSimulationTime()})
+      simROS.publish(publisher_pose, getPose("Chassis"))
+      simROS.publish(publisher_speed, getSpeed(sim.handle_self))
 
       -- send a TF
       -- To send several transforms at once, use simROS.sendTransforms instead
@@ -139,13 +170,13 @@ end
 function sysCall_cleanup()
     -- Following not really needed in a simulation script (i.e. automatically shut down at simulation end):
   if rosInterfacePresent then
-    simROS.shutdownPublisher(publisher1)
-    simROS.shutdownPublisher(publisher2)
+    simROS.shutdownPublisher(publisher_time)
+    simROS.shutdownPublisher(publisher_pose)
+    simROS.shutdownPublisher(publisher_speed)
+    simROS.shutdownPublisher(publisher_compass)
 
-    --simROS.shutdownSubscriber(subscriber1)
-    --simROS.shutdownSubscriber(subscriber2)
-    simROS.shutdownSubscriber(subscriber3)
-    simROS.shutdownSubscriber(subscriber4)
+    simROS.shutdownSubscriber(subscriber_ul)
+    simROS.shutdownSubscriber(subscriber_ur)
 
     simROS.shutdownPublisher(pub)
   end
