@@ -5,10 +5,9 @@
 **
 ** Subscribers:
 **   - tiles_loc::State state_loc        // the estimation of the robot's state
-**   - std_msgs::Float64 cmd_l           // the input u1 for the robot
-**   - std_msgs::Float64 cmd_r           // the input u2 for the robot
 **   - sensor_msgs::ImageConstPtr image  // the image from the robot's camera
-
+**   - geometry_msgs::Pose speed         //  the robot's velocity in translation and rotation in each dimension
+**   - std_msgs::Float64 compass         //  the robot's orientation
 **
 ** Publishers:
 **   - tiles_loc::State state_pred    // the evolved state, predicted from the state equations
@@ -91,20 +90,8 @@ double pose_1, pose_2, pose_3;
 bool display_window;
 double frame_width, frame_height;
 
-const double pix = 103;//99.3;//107.; //pixels entre chaque lignes
+const double PIX = 103.0;  //99.3;  //107.; //pixels between each pair of lines
 const double scale_pixel = 1./pix;
-//taille du carrelage en mètre
-double alpha_median;
-int quart;
-double last_alpha_median = 0;
-int nn = 0;
-//variable sobel
-int scale = 1;
-int delta = 0;
-int ddepth = CV_16S;
-//traitement d'image pour détecter les lignes
-Mat grad;
-
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "robot_node");
@@ -114,19 +101,19 @@ int main(int argc, char **argv) {
   double dt = 0.005;  // time step
 
   // read initial values from the launcher
-  double x1, x2, x3;  // temporary values to get the initial parameters
+  double x1, x2, x3;  // initial parameters for the state
   n.param<double>("pos_x_init", x1, 0);
   n.param<double>("pos_y_init", x2, 0);
   n.param<double>("pos_th_init", x3, 0);
+  display_window = n.param<bool>("display_window", true);
 
-//  ibex::IntervalVector state({{x1,x1}, {x2,x2}, {x3,x3}});  // current state of the robot
+  // starting state is known
   state[0] = ibex::Interval(x1,x1);
   state[1] = ibex::Interval(x2,x2);
   state[2] = ibex::Interval(x3,x3);
+
   double y1, y2, y3;                                        // current observation of the robot
   double u1, u2;                                            // current input received
-
-  display_window = n.param<bool>("display_window", true);
 
   // start visualization windows windows
   if(display_window) {
@@ -142,9 +129,9 @@ int main(int argc, char **argv) {
   }
 
   // --- subscribers --- //
-  // subscriber to z inputs from control
-  ros::Subscriber sub_cmd_l = n.subscribe("cmd_l", 1000, cmd_l_callback);
-  ros::Subscriber sub_cmd_r = n.subscribe("cmd_r", 1000, cmd_r_callback);
+  // subscriber to the estimated movement of the robot (speed and heading)
+  ros::Subscriber sub_speed = n.subscribe("speed", 1000, cmd_speed_callback);
+  ros::Subscriber sub_compass = n.subscribe("compass", 1000, cmd_compass_callback);
 
   // subscriber to the image from the simulator
   ros::Subscriber sub_img = n.subscribe("image", 1000, image_callback);
@@ -152,6 +139,7 @@ int main(int argc, char **argv) {
   // subscriber to the updated state from the localization subsystem
   ros::Subscriber sub_loc = n.subscribe("state_loc", 1000, state_loc_callback);
 
+  // NOTE: Pose only for debugging, remove later
   ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
   // ------------------ //
 
@@ -169,10 +157,10 @@ int main(int argc, char **argv) {
     std::cout << "--------------------- [ROBOT] beggining ros loop ------------------- " << std::endl;
     std::cout << " =================================================================== " << std::endl;
 
-    state = state_loc;                   // start with the last state contracted from the localization
-
-    y1 = obs_1, y2 = obs_2, y3 = obs_3;  // use last observed parameters from the image
-    u1 = cmd_1, u2 = cmd_2;              // use last input from command
+    state = state_loc;                             // start with the last state contracted from the localization
+    y1 = obs_1, y2 = obs_2, y3 = obs_3;            // use last observed parameters from the image
+    ul = sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
+    ur = compass;                                  // u2 as the heading comes from the compass
 
     // publish current, unevolved state to be used by the control and viewer nodes
     tiles_loc::State state_msg = state_to_msg(state);
@@ -191,8 +179,8 @@ int main(int argc, char **argv) {
     ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y1, y2, y3);
     ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
-    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
-    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-pose_2)), sin(M_PI*(y2-pose_1)), cos(y3-pose_3));
+    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-state[0].mid)), sin(M_PI*(y2-state[1].mid)), sin(y3-state[2].mid));
+    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-state[1].mid)), sin(M_PI*(y2-state[0].mid)), cos(y3-state[2].mid));
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -213,7 +201,6 @@ double sawtooth(double x){
 **   5 = d
 **   6 = dd
 */
-
 double median(std::vector<line_t> lines, int op) {
   //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
   size_t size = lines.size();
@@ -308,8 +295,19 @@ ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, do
   state_new[1] = state[1] + dt * (u1*ibex::sin(state[1]));
   state_new[2] = state[2] + dt * (u2);
 
-  //ROS_INFO("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
-//           state_new[0].lb(), state_new[0].ub(), state_new[1].lb(), state_new[1].ub(), state_new[2].lb(), state_new[2].ub(), u1, u2);
+//  double u1 = (ul + ur)/2;
+//  double u2 = (ul - ur)/2;
+//
+//  double d1 = 0.9, d2 = 0.6;
+//  double k1 = 0.25/2.;  // radius of the wheel
+//  double k2 = (2*d2*k1)/(d1*d1+d2*d2);
+//
+//  state_new[0] = state[0] + dt * (k1 * u1 * ibex::cos(state[0]));
+//  state_new[1] = state[1] + dt * (k1 * u1 * ibex::sin(state[1]));
+//  state_new[2] = state[2] + dt * k2 * u2;
+
+  ROS_INFO("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
+             state_new[0].lb(), state_new[0].ub(), state_new[1].lb(), state_new[1].ub(), state_new[2].lb(), state_new[2].ub(), u1, u2);
 
   return state_new;
 }
@@ -530,124 +528,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
       double d_hat_v = scale_pixel * median(bag_h, 6);
 
-//        //calcul pour medx et medy
-//        x1 = ((double)l[0]-frame_width/2.0f)*scale_pixel;
-//        y1 = ((double)l[1]-frame_height/2.0f)*scale_pixel;
-//
-//        x2 = ((double)l[2]-frame_width/2.0f)*scale_pixel;
-//        y2 = ((double)l[3]-frame_height/2.0f)*scale_pixel;
-//
-//        double d = ((x2-x1)*(y1)-(x1)*(y2-y1)) / sqrt(pow(x2-x1, 2)+pow(y2-y1, 2));
-//
-//        double val;
-//        val = (d+0.5)-floor(d+0.5)-0.5;
-//
-//        if (abs(cos(alpha2)) < 0.2) {
-//          line(rot, cv::Point(x11, y11), cv::Point(x22, y22), Scalar(255, 255, 255), 1, LINE_AA);
-//          median_v.push_back(val);
-//
-//        } else if (abs(sin(alpha2)) < 0.2) {
-//          line(rot, cv::Point(x11, y11), cv::Point(x22, y22), Scalar(0, 0, 255), 1, LINE_AA);
-//          median_h.push_back(val);
-//
-//        }
-//      }
-//
-//      alpha_median = alpha_median + quart*M_PI/2;
-//      alpha_median = modulo(alpha_median, 2*M_PI);
-
-
-//    // get the median angle from the tiles being seen,
-//    // will be used to filder bad lines and get the orientation of the tiles
-//    double median_angle = median(lines, 2);
-//
-//    std::vector<line_t> lines_good;
-//
-//    // filter lines with coherent orientation with the median into lines_good
-//    for (line_t l : line_points) {
-//      if (sawtooth(l.angle4 - median_angle) < 0.1) {  // maybe use if (abs(/))
-//        line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
-//        lines_good.push_back(l);
-//      } else {
-//        line(src, l.p1, l.p2, Scalar(0, 0, 255), 3, LINE_AA);
-//    }
-
-//    if(lines_good.size() > MIN_GOOD_LINES) {
-//      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
-//      Mat rot = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
-//      std::vector<double> median_h, median_v;  // median for horizontal and vertical lines
-//
-//      for(int i=0; i<lines_good.size(); i++) {
-//        cv::Vec4i l = lines_good[i];
-//        x1 = l[0], y1 = l[1], x2 = l[2], y2 = l[3];
-//        //std::cout << x1 << " | " << y1<< " | " << x2 << " | " << y2 << std::endl;
-//        //std::cout << frame_height << " | " << frame_width << std::endl;
-//
-//        //translation in order to center lines around 0
-//        x1 -= frame_width/2.0f;
-//        y1 -= frame_height/2.0f;
-//        x2 -= frame_width/2.0f;
-//        y2 -= frame_height/2.0f;
-//
-//        // rotation around 0, in order to have only horizontal and vetical lines
-//        double alpha = atan2(y2-y1, x2-x1);
-//
-//        double angle = modulo(alpha+M_PI/4., M_PI/2)-M_PI/4.;  // compress image between [-pi/4, pi/4]
-//        angle += quart*M_PI/2.;  // undoes the 90° extra rotations that were performed by the movement of the robot
-//
-//        double s = sin(-angle);
-//        double c = cos(-angle);
-//
-//        double x1b = x1;
-//        double y1b = y1;
-//        double x2b = x2;
-//        double y2b = y2;
-//
-//        // applies the 2d rotation to the line, making it either horizontal or vertical
-//        x1 = x1b*c - y1b*s,
-//        y1 = +x1b*s + y1b*c;
-//
-//        x2 = x2b*c - y2b*s,
-//        y2 = x2b*s + y2b*c;
-//
-//        // translates the image back for the display
-//        x1 += frame_width/2.0f;
-//        y1 += frame_height/2.0f;
-//        x2 += frame_width/2.0f;
-//        y2 += frame_height/2.0f;
-//
-//        double alpha2 = atan2(y2-y1,x2-x1);
-//        double x11 = x1;
-//        double y11 = y1;
-//        double x22 = x2;
-//        double y22 = y2;
-//
-//        //calcul pour medx et medy
-//        x1 = ((double)l[0]-frame_width/2.0f)*scale_pixel;
-//        y1 = ((double)l[1]-frame_height/2.0f)*scale_pixel;
-//
-//        x2 = ((double)l[2]-frame_width/2.0f)*scale_pixel;
-//        y2 = ((double)l[3]-frame_height/2.0f)*scale_pixel;
-//
-//        double d = ((x2-x1)*(y1)-(x1)*(y2-y1)) / sqrt(pow(x2-x1, 2)+pow(y2-y1, 2));
-//
-//        double val;
-//        val = (d+0.5)-floor(d+0.5)-0.5;
-//
-//        if (abs(cos(alpha2)) < 0.2) {
-//          line(rot, cv::Point(x11, y11), cv::Point(x22, y22), Scalar(255, 255, 255), 1, LINE_AA);
-//          median_v.push_back(val);
-//
-//        } else if (abs(sin(alpha2)) < 0.2) {
-//          line(rot, cv::Point(x11, y11), cv::Point(x22, y22), Scalar(0, 0, 255), 1, LINE_AA);
-//          median_h.push_back(val);
-//
-//        }
-//      }
-//
-//      alpha_median = alpha_median + quart*M_PI/2;
-//      alpha_median = modulo(alpha_median, 2*M_PI);
-
       obs_1 = d_hat_v;
       obs_2 = d_hat_h;
       obs_3 = a_hat;
@@ -787,4 +667,15 @@ void pose_callback(const geometry_msgs::Pose::ConstPtr& msg) {
     pose_1 = msg->position.x;
     pose_2 = msg->position.y;
     pose_3 = tf::getYaw(msg->orientation);;
+}
+
+void compass_callback(const std_msgs::Float32::ConstPtr& msg) {
+  compass = msg->data;
+  ROS_INFO("[ROBOT] received compass data: [%f]", compass);
+}
+
+void speed_callback(const geometry_msgs::Pose::ConstPtr& msg) {
+  speed_x = msg->pose.position.x;
+  speed_y = msg->pose.position.y;
+  ROS_INFO("[ROBOT] Received current speed in x and y: [%f] [%f]", speed_x, speed_y);
 }
