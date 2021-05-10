@@ -1,122 +1,155 @@
-#include "ros/ros.h"
-#include "std_msgs/Float32.h"
+/*
+** This node is responsible for generating the command inputs u1 and u2 for the robot.
+**
+** Subscribers:
+**   - geometry_msgs::PoseStamped waypoint  // the target state
+**   - tiles_loc::State           state     // the current state of the robot
+**
+** Publishers:
+**   - std_msgs::Float64 command_l  // the input u1 and u2 for the robot
+**   - std_msgs::Float64 command_r  // the input u1 and u2 for the robot
+ */
 
+#include "ros/ros.h"
+#include "std_msgs/Float64.h"
 #include "geometry_msgs/Pose.h"
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/Quaternion.h"
 #include "geometry_msgs/PoseStamped.h"
 #include "tf/tf.h"
+#include "tiles_loc/State.h"
 
-ros::Publisher pub_cmd_l, pub_cmd_r;
+// utils
+double sawtooth(double x);
+float max(float a, float b);
+float min(float a, float b);
+float sign(float a);
 
-float currentSpeed = 150.;
-int maxSpeed = 300; //on dis que consigne entre 0 et 255, que entier
+// callback functions
+void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg);
+void state_callback(const tiles_loc::State::ConstPtr& msg);
 
-float cons_x=0, cons_y=0, cons_cap=0;
+// global variables and constants
+ros::Publisher pub_cmd_l;
+ros::Publisher pub_cmd_r;
 
-double sawtooth(double x){
+double current_speed = 100.;
+int max_speed = 300;
+
+float w_x, w_y, w_th;
+float x_x, x_y, x_th;
+
+float last_L = 0;
+float f = 0;
+
+int main(int argc, char **argv)
+{
+  ros::init(argc, argv, "control_node");
+  ros::NodeHandle n;
+  ros::Rate loop_rate(25);  // 25Hz frequency
+
+  // --- subscribers --- //
+  // subscriber to waypoint from command
+  ros::Subscriber sub_waypoint = n.subscribe("waypoint", 1000, waypoint_callback);
+  // subscriber to curret state from robot
+  ros::Subscriber sub_state = n.subscribe("state", 1000, state_callback);
+  // ------------------ //
+
+  // --- publishers --- //
+  // publisher of command u for the robot
+  pub_cmd_l = n.advertise<std_msgs::Float64>("cmd_l", 1000);
+  pub_cmd_r = n.advertise<std_msgs::Float64>("cmd_r", 1000);
+  // ------------------ //
+
+  while (ros::ok()) {
+    float L = cos(w_th)*(w_x - x_x) + sin(w_th)*(w_y - x_y);  // to control speed in curves
+    float dist = sqrt(pow(w_x - x_x, 2) + pow(w_y - x_y, 2));
+
+    //current_speed += sqrt(abs(L))*sign(L)/2.;
+
+    if(dist > 1.) {
+      current_speed = max_speed*0.90;
+
+    } else {
+      current_speed = 20*dist;
+      current_speed = min(current_speed, 100);
+      f += 1.*(L - last_L);
+      current_speed += f;
+    }
+
+    last_L = L;
+
+    current_speed = max(min(current_speed, max_speed), 0);
+
+    float angle_state_waypoint = atan2(w_y - x_y, w_x - x_x);  // angle with the waypoint
+
+    float c2 = (0.1*w_th + 0.9*angle_state_waypoint);
+    //float c2 = atan2(Y-cons_y, X-cons_x);
+
+    //float cmd_r = (0.5 - sawtooth(C-c2)/M_PI)*round(current_speed);
+    //float cmd_l = (0.5 + sawtooth(C-c2)/M_PI)*round(current_speed);
+    float max_diff = 9.*current_speed/10.*2.;
+    float diff = sawtooth(c2 - x_th)/M_PI*max_diff;
+
+    float cmd_l = current_speed - diff;
+    float cmd_r = current_speed + diff;
+
+    cmd_r = max(min(cmd_r, max_speed), -0);
+    cmd_l = max(min(cmd_l, max_speed), -0);
+
+    cmd_l /= 100;
+    cmd_r /= 100;
+
+    std_msgs::Float64 cmd_msg_l;
+    std_msgs::Float64 cmd_msg_r;
+
+    cmd_msg_l.data = cmd_l;
+    cmd_msg_r.data = cmd_r;
+
+    pub_cmd_l.publish(cmd_msg_l);
+    pub_cmd_r.publish(cmd_msg_r);
+
+    ROS_INFO("[CONTROL] Sent commands -> u1: [%f] | u2: [%f]", cmd_l, cmd_r);
+
+    ros::spinOnce();
+    loop_rate.sleep();
+  }
+
+  return 0;
+}
+
+double sawtooth(double x) {
   return 2.*atan(tan(x/2.));
 }
 
-float max(float a, float b){
-  if(a > b){
+float max(float a, float b) {
+  if(a > b) {
     return a;
   }
   return b;
 }
 
-float min(float a, float b){
+float min(float a, float b) {
   return -max(-a, -b);
 }
 
-float sign(float a){
-  if(a < 0){
+float sign(float a) {
+  if(a < 0) {
     return -1;
   }
   return 1;
 }
 
-void consigneCallback(const geometry_msgs::PoseStamped::ConstPtr& msg){
-  cons_x = msg->pose.position.x;
-  cons_y = msg->pose.position.y;
-  cons_cap = tf::getYaw(msg->pose.orientation);
+void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
+  w_x  = msg->pose.position.x;
+  w_y  = msg->pose.position.y;
+  w_th = tf::getYaw(msg->pose.orientation);
+  ROS_INFO("[CONTROL] Received waypoint -> w_x: [%f] | w_y: [%f] | w_th: [%f]", w_x, w_y, w_th);
 }
 
-float last_L = 0;
-float f = 0;
-
-void stateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg){
-  float X, Y, C;
-  std_msgs::Float32 msg_r, msg_l;
-
-  X = msg->pose.position.x;
-  Y = msg->pose.position.y;
-  C = tf::getYaw(msg->pose.orientation);
-
-  float L = cos(cons_cap)*(cons_x-X) + sin(cons_cap)*(cons_y-Y);  // to control speed in curves
-  float dist = sqrt(pow(cons_x-X, 2) + pow(cons_y-Y, 2));
-
-  //currentSpeed += sqrt(abs(L))*sign(L)/2.;
-
-  if(dist > 1.) {
-    currentSpeed = maxSpeed*0.90;
-  } else {
-    currentSpeed = 20*dist;
-    currentSpeed = max(currentSpeed, 100);
-    f += 1.*(L-last_L);
-    currentSpeed += f;
-  }
-
-  last_L = L;
-
-  currentSpeed = max(min(currentSpeed, maxSpeed), 0);
-
-  float angle_avec_la_consigne = atan2(cons_y-Y, cons_x-X);
-
-  float c2 = (0.1*cons_cap+0.9*angle_avec_la_consigne);
-  //float c2 = atan2(Y-cons_y, X-cons_x);
-
-  //float cmd_r = (0.5 - sawtooth(C-c2)/M_PI)*round(currentSpeed);
-  //float cmd_l = (0.5 + sawtooth(C-c2)/M_PI)*round(currentSpeed);
-  float max_diff = 9.*currentSpeed/10.*2.;
-  float diff = sawtooth(c2-C)/M_PI*max_diff;
-
-  float cmd_l = currentSpeed-diff;
-  float cmd_r = currentSpeed+diff;
-
-  cmd_r = max(min(cmd_r, maxSpeed), -0);
-  cmd_l = max(min(cmd_l, maxSpeed), -0);
-
-  ROS_WARN("L : %f | currentSpeed : %f | C : %f", L, currentSpeed, C*180/M_PI);
-  ROS_WARN("dist : %f", dist);
-
-  ROS_WARN("cmd_l : %f | cmd_r : %f ", cmd_l, cmd_r);
-  ROS_WARN("cons_cap : %f | angle : %f | c2 : %f ", cons_cap*180/M_PI, angle_avec_la_consigne*180/M_PI, c2*180/M_PI);
-  ROS_WARN("sawtooth : %f", sawtooth(C-c2)/M_PI);
-  ROS_WARN(" ");
-
-  cmd_l /= 100;
-  cmd_r /= 100;
-
-  msg_l.data = cmd_l;
-  msg_r.data = cmd_r;
-
-  pub_cmd_l.publish(msg_l);
-  pub_cmd_r.publish(msg_r);
-
-}
-
-int main(int argc, char **argv)
-{
-  ros::init(argc, argv, "Control_node");
-
-  ros::NodeHandle n;
-  pub_cmd_l = n.advertise<std_msgs::Float32>("cmd_ul", 1000);
-  pub_cmd_r = n.advertise<std_msgs::Float32>("cmd_ur", 1000);
-
-  ros::Subscriber sub_cons = n.subscribe("consigne", 1000, consigneCallback);
-  ros::Subscriber sub_state = n.subscribe("state_estimated", 1000, stateCallback);
-
-  ros::spin();
-  return 0;
+void state_callback(const tiles_loc::State::ConstPtr& msg){
+  x_x = (msg->x1_lb + msg->x1_ub)/2.;
+  x_y = (msg->x2_lb + msg->x2_ub)/2.;
+  x_th = (msg->x3_lb + msg->x3_ub)/2. * 180./M_PI;  // NOTE: check if radians or degrees should be user later
+  ROS_INFO("[CONTROL] Received state-> x1: [%f] | x2: [%f] | x3: [%f]", x_x, x_y, x_th);
 }

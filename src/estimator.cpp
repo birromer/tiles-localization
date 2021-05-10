@@ -120,7 +120,7 @@ void calc_new_pos(std::vector<Vec4i> lines) {
 
   //conversion from cartesian to polar form :
   float x1,x2,y1,y2;
-  vector<float> Msn, Mew;
+  vector<float> Msn, Mew;  // the bags?
 
   alpha_median = alpha_median;
   cout << "alpha_median : " << alpha_median*180/M_PI << endl;
@@ -427,9 +427,9 @@ int main(int argc, char **argv)
   }
 
   vibes::beginDrawing();
-  VIBesFigMap fig_map("Map");
-  vibes::setFigureProperties("Map",vibesParams("x", 10, "y", -10, "width", 100, "height", 100));
-  vibes::axisLimits(-10, 10, -10, 10, "Map");
+  VIBesFigMap fig_map("MapIntervals");
+  vibes::setFigureProperties("MapIntervals",vibesParams("x", 10, "y", -10, "width", 100, "height", 100));
+  vibes::axisLimits(-10, 10, -10, 10, "MapIntervals");
 
   fig_map.show();
 
