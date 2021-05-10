@@ -72,15 +72,15 @@ tiles_loc::Observation observation_to_msg(double y1, double y2, double y3);
 
 // callback functions
 void state_loc_callback(const tiles_loc::State::ConstPtr& msg);
-void cmd_l_callback(const std_msgs::Float64::ConstPtr& msg);
-void cmd_r_callback(const std_msgs::Float64::ConstPtr& msg);
 void image_callback(const sensor_msgs::ImageConstPtr& msg);
+void speed_callback(const geometry_msgs::Pose::ConstPtr& msg);
+void compass_callback(const std_msgs::Float64::ConstPtr& msg);
 
 // node communication related variables
 ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);  // current state of the robot
 ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);  // robot state from the localization method
 double obs_1, obs_2, obs_3;      // observed parameters from the image
-double cmd_1, cmd_2;             // commands from controller
+double compass, speed_x, speed_y;             // input from the sensors
 
 // NOTE: Pose is used for debugging only, to be removed afterwards
 void pose_callback(const geometry_msgs::Pose::ConstPtr& msg);
@@ -90,7 +90,7 @@ double pose_1, pose_2, pose_3;
 bool display_window;
 double frame_width, frame_height;
 
-const double PIX = 103.0;  //99.3;  //107.; //pixels between each pair of lines
+const double pix = 103.0;  //99.3;  //107.; //pixels between each pair of lines
 const double scale_pixel = 1./pix;
 
 int main(int argc, char **argv) {
@@ -130,8 +130,8 @@ int main(int argc, char **argv) {
 
   // --- subscribers --- //
   // subscriber to the estimated movement of the robot (speed and heading)
-  ros::Subscriber sub_speed = n.subscribe("speed", 1000, cmd_speed_callback);
-  ros::Subscriber sub_compass = n.subscribe("compass", 1000, cmd_compass_callback);
+  ros::Subscriber sub_speed = n.subscribe("speed", 1000, speed_callback);
+  ros::Subscriber sub_compass = n.subscribe("compass", 1000, compass_callback);
 
   // subscriber to the image from the simulator
   ros::Subscriber sub_img = n.subscribe("image", 1000, image_callback);
@@ -159,8 +159,8 @@ int main(int argc, char **argv) {
 
     state = state_loc;                             // start with the last state contracted from the localization
     y1 = obs_1, y2 = obs_2, y3 = obs_3;            // use last observed parameters from the image
-    ul = sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
-    ur = compass;                                  // u2 as the heading comes from the compass
+    u1 = sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
+    u2 = compass;                                  // u2 as the heading comes from the compass
 
     // publish current, unevolved state to be used by the control and viewer nodes
     tiles_loc::State state_msg = state_to_msg(state);
@@ -179,8 +179,8 @@ int main(int argc, char **argv) {
     ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y1, y2, y3);
     ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
-    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-state[0].mid)), sin(M_PI*(y2-state[1].mid)), sin(y3-state[2].mid));
-    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-state[1].mid)), sin(M_PI*(y2-state[0].mid)), cos(y3-state[2].mid));
+    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-state[0].mid())), sin(M_PI*(y2-state[1].mid())), sin(y3-state[2].mid()));
+    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-state[1].mid())), sin(M_PI*(y2-state[0].mid())), cos(y3-state[2].mid()));
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -312,25 +312,6 @@ ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, do
   return state_new;
 }
 
-void state_loc_callback(const tiles_loc::State::ConstPtr& msg) {
-  state_loc[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
-  state_loc[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
-  state_loc[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
-//  ROS_INFO("[ROBOT] Received estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
-//           state_loc[0].lb(), state_loc[0].ub(), state_loc[1].lb(), state_loc[1].ub(), state_loc[2].lb(), state_loc[2].ub());
-}
-
-// callbacks for each subscriber
-void cmd_l_callback(const std_msgs::Float64::ConstPtr& msg) {
-  cmd_1 = msg->data;
-//  ROS_INFO("[ROBOT] Received command: u1 [%f] ", cmd_1);
-}
-
-void cmd_r_callback(const std_msgs::Float64::ConstPtr& msg) {
-  cmd_2 = msg->data;
-//  ROS_INFO("[ROBOT] Received command: u2 [%f]", cmd_2);
-}
-
 tiles_loc::State state_to_msg(double x1, double x2, double x3) {
     tiles_loc::State msg;
     msg.x1_lb = x1;
@@ -362,6 +343,15 @@ tiles_loc::Observation observation_to_msg(double y1, double y2, double y3) {
   msg.y3 = y3;
 
   return msg;
+}
+
+// callbacks for each subscriber
+void state_loc_callback(const tiles_loc::State::ConstPtr& msg) {
+  state_loc[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
+  state_loc[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
+  state_loc[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
+//  ROS_INFO("[ROBOT] Received estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+//           state_loc[0].lb(), state_loc[0].ub(), state_loc[1].lb(), state_loc[1].ub(), state_loc[2].lb(), state_loc[2].ub());
 }
 
 void image_callback(const sensor_msgs::ImageConstPtr& msg) {
@@ -669,13 +659,13 @@ void pose_callback(const geometry_msgs::Pose::ConstPtr& msg) {
     pose_3 = tf::getYaw(msg->orientation);;
 }
 
-void compass_callback(const std_msgs::Float32::ConstPtr& msg) {
+void compass_callback(const std_msgs::Float64::ConstPtr& msg) {
   compass = msg->data;
   ROS_INFO("[ROBOT] received compass data: [%f]", compass);
 }
 
 void speed_callback(const geometry_msgs::Pose::ConstPtr& msg) {
-  speed_x = msg->pose.position.x;
-  speed_y = msg->pose.position.y;
+  speed_x = msg->position.x;
+  speed_y = msg->position.y;
   ROS_INFO("[ROBOT] Received current speed in x and y: [%f] [%f]", speed_x, speed_y);
 }
