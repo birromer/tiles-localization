@@ -6,9 +6,35 @@
 Robot localization algorithm based on single downwards facing camera on a floor with identical tiles.
 
 * Introduction
+This is the implementation of the localization algorithm in a ROS package, containing the following structure:
+
+[[file:doc/node_graph.png]]
+
+It uses interval analysis to contract the state of the robot according to a series of constraints, those being related to the tiles that are view with the camera. The state is evolved at every iteration before being contracted, which makes use of the speed and orientation of the robot, but those could be replaced by an optical flow method or similar method.
+
+All of the development and theory behind it has been explained in [[doc/report.pdf][this]] report.
+
+For running the simulation and visualizing the progress you'll need both the [[https://www.coppeliarobotics.com/downloads][Coppeliasim simulator]] and the [[https://github.com/ENSTABretagneRobotics/VIBES][VIBES visualizer]].
 
 * Quick Start Guide
+The execution of the package requires [[https://www.ros.org/][ROS]], having it been developed in ROS Noetic, alongside a Ubuntu 20.04 docker image. If you have it installed, the docker step will not be necessary.
 
 ** Docker
+The docker image used for the development is available in [[https://github.com/birromer/ros-intervals-docker][this]] repository.
+In order to used you need to generate the image and run it with the arguments, as explained in the readme.
 
 ** Local installation
+If you prefer to use a local installation, the following libraries are required:
+- [[http://codac.io/install/01-installation.html][Codac]]
+- [[https://docs.opencv.org/master/d7/d9f/tutorial_linux_install.html][OpenCV]]
+
+** Compilation and execution
+In order to compile the package you must put this repository inside the =src/= folder of your catkin workspace and simply run =catkin_make=. If you want to be sure that only this package will be compiled, the following command can be used: =catkin_make --only-pkg-with-deps tiles_loc=
+
+For executing it, you must first run Coppeliasim, open the scene located at the =sim/= folder and execute it, as well as run the VIBES visualizer.
+
+Note: you must run roscore before running the simulator for it to be connected to ROS.
+
+After everything is open and running, you launch the package with: =roslaunch tiles_loc launcher.launch=.
+
+Multiple windows will open with the image processing steps and information about the state of the algorithm will be displayed on the terminal.
