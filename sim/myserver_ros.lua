@@ -42,7 +42,7 @@ function getCompass(objectName, statemotor)
   else
     heading = -o[3]   -- north along X > 0
   end
-  return heading*180/math.pi -- in radians
+  return heading -- in radians
 --  return heading*180/math.pi -- in degrees
 end
 
@@ -121,10 +121,10 @@ function sysCall_init()
 
   -- Prepare the publishers and subscribers :
   if rosInterfacePresent then
-    publisher_time    = simROS.advertise('/simulationTime','std_msgs/Float32')
+    publisher_time    = simROS.advertise('/simulationTime','std_msgs/Float64')
     publisher_pose    = simROS.advertise('/pose','geometry_msgs/Pose')
     publisher_speed   = simROS.advertise('/speed','geometry_msgs/Pose')
-    publisher_compass = simROS.advertise('/compass','std_msgs/Float32')
+    publisher_compass = simROS.advertise('/compass','std_msgs/Float64')
 
     subscriber_ul = simROS.subscribe('/cmd_l','std_msgs/Float64','subscriber_cmd_ul_callback')
     subscriber_ur = simROS.subscribe('/cmd_r','std_msgs/Float64','subscriber_cmd_ur_callback')

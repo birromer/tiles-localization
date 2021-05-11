@@ -179,8 +179,15 @@ int main(int argc, char **argv) {
     ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y1, y2, y3);
     ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
-    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-state[0].mid())), sin(M_PI*(y2-state[1].mid())), sin(y3-state[2].mid()));
-    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-state[1].mid())), sin(M_PI*(y2-state[0].mid())), cos(y3-state[2].mid()));
+    // comparando Y com X
+//    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-state[0].mid())), sin(M_PI*(y2-state[1].mid())), sin(y3-state[2].mid()));
+//    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-state[1].mid())), sin(M_PI*(y2-state[0].mid())), cos(y3-state[2].mid()));
+
+    // comparando Y com pose
+    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
+    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-pose_2)), sin(M_PI*(y2-pose_1)), cos(y3-pose_3));
+
+
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -445,7 +452,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
    // median of the components of the lines
     x_hat = median(lines, 3);
     y_hat = median(lines, 4);
-//    double median_angle = median(lines, 2);
+    double median_angle = median(lines, 2);
 
     std::vector<line_t> lines_good;
 
@@ -466,6 +473,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     x_hat = median(filtered_m_x);
     y_hat = median(filtered_m_y);
 
+    median_angle = median(lines_good, 2);
+
     a_hat = atan2(y_hat, x_hat) * 1/4;
 
     if(lines_good.size() > MIN_GOOD_LINES) {
@@ -475,7 +484,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       double x1, y1, x2, y2;
       double angle_new;
 
-      for (line_t l : lines) {
+      for (line_t l : lines_good) {
         //translation in order to center lines around 0
         x1 = l.p1.x - frame_width/2.0f;
         y1 = l.p1.y - frame_height/2.0f;
@@ -521,6 +530,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       obs_1 = d_hat_v;
       obs_2 = d_hat_h;
       obs_3 = a_hat;
+//      obs_3 = median_angle;
 
       if(display_window){
 //        cvtColor(grey, grey, CV_GRAY2BGR);
