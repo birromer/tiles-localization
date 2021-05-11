@@ -113,7 +113,6 @@ int main(int argc, char **argv) {
 
   // start visualization windows windows
   if(display_window) {
-//    cv::namedWindow("steps");
     cv::namedWindow("lines");
     cv::namedWindow("camera");
     cv::namedWindow("grey");
@@ -169,12 +168,11 @@ int main(int argc, char **argv) {
     tiles_loc::Observation observation_msg = observation_to_msg(y1, y2, y3);
     pub_y.publish(observation_msg);
 
-    ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y1, y2, y3);
-
-    // Comparisson of the observed parameters with the predicted state
-    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-state[0].mid())), sin(M_PI*(y2-state[1].mid())), sin(y3-state[2].mid()));
-    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-state[1].mid())), sin(M_PI*(y2-state[0].mid())), cos(y3-state[2].mid()));
-
+//    ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y1, y2, y3);
+//
+//    // Comparisson of the observed parameters with the predicted state
+//    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-state[0].mid())), sin(M_PI*(y2-state[1].mid())), sin(y3-state[2].mid()));
+//    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-state[1].mid())), sin(M_PI*(y2-state[0].mid())), cos(y3-state[2].mid()));
 
     ros::spinOnce();
     loop_rate.sleep();
