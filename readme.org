@@ -8,11 +8,11 @@ Robot localization algorithm based on single downwards facing camera on a floor 
 * Introduction
 This is the implementation of the localization algorithm in a ROS package, containing the following structure:
 
-[[file:docs/node_graph.png]]
+[[file:doc/node_graph.png]]
 
 It uses interval analysis to contract the state of the robot according to a series of constraints, those being related to the tiles that are view with the camera. The state is evolved at every iteration before being contracted, which makes use of the speed and orientation of the robot, but those could be replaced by an optical flow method or similar method.
 
-All of the development and theory behind it has been explained in [[docs/report.pdf][this]] report.
+All of the development and theory behind it has been explained in [[doc/report.pdf][this]] report.
 
 For running the simulation and visualizing the progress you'll need both the [[https://www.coppeliarobotics.com/downloads][Coppeliasim simulator]] and the [[https://github.com/ENSTABretagneRobotics/VIBES][VIBES visualizer]].
 
