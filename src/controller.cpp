@@ -65,8 +65,6 @@ int main(int argc, char **argv)
     float L = cos(w_th)*(w_x - x_x) + sin(w_th)*(w_y - x_y);  // to control speed in curves
     float dist = sqrt(pow(w_x - x_x, 2) + pow(w_y - x_y, 2));
 
-    //current_speed += sqrt(abs(L))*sign(L)/2.;
-
     if(dist > 1.) {
       current_speed = max_speed*0.90;
 
@@ -84,10 +82,7 @@ int main(int argc, char **argv)
     float angle_state_waypoint = atan2(w_y - x_y, w_x - x_x);  // angle with the waypoint
 
     float c2 = (0.1*w_th + 0.9*angle_state_waypoint);
-    //float c2 = atan2(Y-cons_y, X-cons_x);
 
-    //float cmd_r = (0.5 - sawtooth(C-c2)/M_PI)*round(current_speed);
-    //float cmd_l = (0.5 + sawtooth(C-c2)/M_PI)*round(current_speed);
     float max_diff = 9.*current_speed/10.*2.;
     float diff = sawtooth(c2 - x_th)/M_PI*max_diff;
 
@@ -150,6 +145,6 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
 void state_callback(const tiles_loc::State::ConstPtr& msg){
   x_x = (msg->x1_lb + msg->x1_ub)/2.;
   x_y = (msg->x2_lb + msg->x2_ub)/2.;
-  x_th = (msg->x3_lb + msg->x3_ub)/2. * 180./M_PI;  // NOTE: check if radians or degrees should be user later
+  x_th = (msg->x3_lb + msg->x3_ub)/2. * 180./M_PI;
   ROS_INFO("[CONTROL] Received state-> x1: [%f] | x2: [%f] | x3: [%f]", x_x, x_y, x_th);
 }
