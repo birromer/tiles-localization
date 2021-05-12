@@ -98,12 +98,13 @@ int main(int argc, char **argv) {
       ROS_WARN("[LOCALIZATION] X is empty");
 
     } else {
-      x_loc[0] = box[0];
-      x_loc[1] = box[1];
-      x_loc[2] = box[2];
-//      float a = (x_loc[2].mid())*180./M_PI;
-//      std::cout << "angle robot: " << a << std::endl;
+//      x_loc[0] = box[0];
+//      x_loc[1] = box[1];
+//      x_loc[2] = box[2];
     }
+      x_loc[0] = x_pred[0];
+      x_loc[1] = x_pred[1];
+      x_loc[2] = x_pred[2];
 
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_loc_msg = state_to_msg(x_loc);

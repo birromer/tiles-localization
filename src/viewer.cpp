@@ -65,6 +65,15 @@ void pose_callback(const geometry_msgs::Pose& msg){
   vibes::drawVehicle(x, y, c*180./M_PI, 0.3, "red");
 }
 
+void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
+  ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);
+  state_pred[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
+  state_pred[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
+  state_pred[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
+
+  vibes::drawVehicle(state_pred[0].mid(), state_pred[1].mid(), (state_pred[2].mid())*180./M_PI, 0.4, "yellow");
+}
+
 int main(int argc, char **argv){
   vibes::beginDrawing();
   VIBesFigMap fig_map("Map");
@@ -79,6 +88,7 @@ int main(int argc, char **argv){
   ros::Subscriber sub_waypoint = n.subscribe("waypoint", 1000, waypoint_callback);
   ros::Subscriber sub_state_loc = n.subscribe("state_loc", 1000, state_loc_callback);  // NOTE: CHANGE THAT, ONLY USING LIKE THAT FOR DEBUGGING
   ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
+  ros::Subscriber sub_state_pred = n.subscribe("state_pred", 1000, state_pred_callback);
 
   ros::spin();
 

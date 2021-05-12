@@ -75,12 +75,16 @@ void state_loc_callback(const tiles_loc::State::ConstPtr& msg);
 void image_callback(const sensor_msgs::ImageConstPtr& msg);
 void speed_callback(const geometry_msgs::Pose::ConstPtr& msg);
 void compass_callback(const std_msgs::Float64::ConstPtr& msg);
+void time_callback(const std_msgs::Float64::ConstPtr& msg);
+
 
 // node communication related variables
-ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);  // current state of the robot
+ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);      // current state of the robot
 ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);  // robot state from the localization method
-double obs_1, obs_2, obs_3;      // observed parameters from the image
-double compass, speed_x, speed_y;             // input from the sensors
+double obs_1, obs_2, obs_3;        // observed parameters from the image
+double compass, speed_x, speed_y;  // input from the sensors
+double sim_time;                   // simulation time from coppelia
+double prev_sim_time;              // previosu simulation time from coppelia
 
 // NOTE: Pose is used for debugging only, to be removed afterwards
 void pose_callback(const geometry_msgs::Pose::ConstPtr& msg);
@@ -98,7 +102,9 @@ int main(int argc, char **argv) {
   ros::NodeHandle n;
 
   ros::Rate loop_rate(25);  // 25Hz frequency
-  double dt = 0.005;  // time step
+
+//  double dt = 0.025;  // time step
+  double dt;
 
   // read initial values from the launcher
   double x1, x2, x3;  // initial parameters for the state
@@ -132,6 +138,7 @@ int main(int argc, char **argv) {
   // subscriber to the estimated movement of the robot (speed and heading)
   ros::Subscriber sub_speed = n.subscribe("speed", 1000, speed_callback);
   ros::Subscriber sub_compass = n.subscribe("compass", 1000, compass_callback);
+  ros::Subscriber sub_time = n.subscribe("simulationTime", 1000, time_callback);
 
   // subscriber to the image from the simulator
   ros::Subscriber sub_img = n.subscribe("image", 1000, image_callback);
@@ -156,6 +163,9 @@ int main(int argc, char **argv) {
     std::cout << " =================================================================== " << std::endl;
     std::cout << "--------------------- [ROBOT] beggining ros loop ------------------- " << std::endl;
     std::cout << " =================================================================== " << std::endl;
+    dt = sim_time - prev_sim_time;
+    prev_sim_time = sim_time;
+    ROS_INFO("[ROBOT] Simulaton time step: [%f]", dt);
 
     state = state_loc;                             // start with the last state contracted from the localization
     y1 = obs_1, y2 = obs_2, y3 = obs_3;            // use last observed parameters from the image
@@ -186,8 +196,6 @@ int main(int argc, char **argv) {
     // comparando Y com pose
     ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
     ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-pose_2)), sin(M_PI*(y2-pose_1)), cos(y3-pose_3));
-
-
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -297,21 +305,13 @@ int sign(double x) {
 }
 
 ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt) {
+  ROS_WARN("[ROBOT] STARTING STATE -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
+             state[0].lb(), state[0].ub(), state[1].lb(), state[1].ub(), state[2].lb(), state[2].ub());
+
   ibex::IntervalVector state_new(3, ibex::Interval::ALL_REALS);
   state_new[0] = state[0] + dt * (u1*ibex::cos(state[0]));
   state_new[1] = state[1] + dt * (u1*ibex::sin(state[1]));
   state_new[2] = state[2] + dt * (u2);
-
-//  double u1 = (ul + ur)/2;
-//  double u2 = (ul - ur)/2;
-//
-//  double d1 = 0.9, d2 = 0.6;
-//  double k1 = 0.25/2.;  // radius of the wheel
-//  double k2 = (2*d2*k1)/(d1*d1+d2*d2);
-//
-//  state_new[0] = state[0] + dt * (k1 * u1 * ibex::cos(state[0]));
-//  state_new[1] = state[1] + dt * (k1 * u1 * ibex::sin(state[1]));
-//  state_new[2] = state[2] + dt * k2 * u2;
 
   ROS_INFO("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
              state_new[0].lb(), state_new[0].ub(), state_new[1].lb(), state_new[1].ub(), state_new[2].lb(), state_new[2].ub(), u1, u2);
@@ -672,6 +672,11 @@ void pose_callback(const geometry_msgs::Pose::ConstPtr& msg) {
 void compass_callback(const std_msgs::Float64::ConstPtr& msg) {
   compass = msg->data;
   ROS_INFO("[ROBOT] received compass data: [%f]", compass);
+}
+
+void time_callback(const std_msgs::Float64::ConstPtr& msg) {
+  sim_time = msg->data;
+  ROS_INFO("[ROBOT] received simulation time: [%f]", sim_time);
 }
 
 void speed_callback(const geometry_msgs::Pose::ConstPtr& msg) {

@@ -109,7 +109,7 @@ int main(int argc, char **argv)
     pub_cmd_l.publish(cmd_msg_l);
     pub_cmd_r.publish(cmd_msg_r);
 
-    ROS_INFO("[CONTROL] Sent commands -> u1: [%f] | u2: [%f]", cmd_l, cmd_r);
+    ROS_INFO("[CONTROL] Sent commands -> u_l: [%f] | u_r: [%f]", cmd_l, cmd_r);
 
     ros::spinOnce();
     loop_rate.sleep();
