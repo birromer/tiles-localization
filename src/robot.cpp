@@ -311,7 +311,7 @@ ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, do
   ibex::IntervalVector state_new(3, ibex::Interval::ALL_REALS);
   state_new[0] = state[0] + dt * (u1*ibex::cos(state[2]));
   state_new[1] = state[1] + dt * (u1*ibex::sin(state[2]));
-  state_new[2] = state[2] + dt * (u2);
+  state_new[2] = u2; //state[2] + dt * (u2);
 
   ROS_INFO("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
              state_new[0].lb(), state_new[0].ub(), state_new[1].lb(), state_new[1].ub(), state_new[2].lb(), state_new[2].ub(), u1, u2);

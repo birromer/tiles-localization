@@ -86,7 +86,7 @@ int main(int argc, char **argv){
   ros::NodeHandle n;
 
   ros::Subscriber sub_waypoint = n.subscribe("waypoint", 1000, waypoint_callback);
-  ros::Subscriber sub_state_loc = n.subscribe("state_loc", 1000, state_loc_callback);  // NOTE: CHANGE THAT, ONLY USING LIKE THAT FOR DEBUGGING
+  ros::Subscriber sub_state_loc = n.subscribe("state_loc", 1000, state_loc_callback);
   ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
   ros::Subscriber sub_state_pred = n.subscribe("state_pred", 1000, state_pred_callback);
 

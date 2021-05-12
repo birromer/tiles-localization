@@ -150,6 +150,6 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
 void state_callback(const tiles_loc::State::ConstPtr& msg){
   x_x = (msg->x1_lb + msg->x1_ub)/2.;
   x_y = (msg->x2_lb + msg->x2_ub)/2.;
-  x_th = (msg->x3_lb + msg->x3_ub)/2. * 180./M_PI;  // NOTE: check if radians or degrees should be user later
+  x_th = (msg->x3_lb + msg->x3_ub)/2.; //* 180./M_PI;  // NOTE: check if radians or degrees should be user later
   ROS_INFO("[CONTROL] Received state-> x1: [%f] | x2: [%f] | x3: [%f]", x_x, x_y, x_th);
 }

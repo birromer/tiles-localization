@@ -86,8 +86,8 @@ int main(int argc, char **argv) {
     ibex::CtcFwdBwd c1(f1);
     ibex::CtcFwdBwd c2(f2);
 
-    c1.contract(box0);
-    c2.contract(box1);
+//    c1.contract(box0);
+//    c2.contract(box1);
 
     ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
     box[0] = box0[0] | box1[0];
