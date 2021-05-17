@@ -5,6 +5,7 @@
 **   - geometry_msgs::PoseStamped waypoint  // the target state, waypoint
 **   - geometry_msgs::PoseStamped pose      // the current pose, ground truth
 **   - tiles_loc::State state_loc           // the estimated state
+**   - tiles_loc::State state_pred          // the predicted state, from the state equations
 **
 ** Publishers:
 **   - none
@@ -46,14 +47,25 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
 }
 
 void state_loc_callback(const tiles_loc::State::ConstPtr& msg){
-  IntervalVector state({
+  IntervalVector state_loc({
     {msg->x1_lb, msg->x1_ub},
     {msg->x2_lb, msg->x2_ub},
     {msg->x3_lb, msg->x1_ub}}
   );
 
-  vibes::drawBox(state.subvector(0, 1), "pink");
-  vibes::drawVehicle(state[0].mid(), state[1].mid(), (state[2].mid())*180./M_PI, 0.4, "blue");
+  vibes::drawBox(state_loc.subvector(0, 1), "pink");
+  vibes::drawVehicle(state_loc[0].mid(), state_loc[1].mid(), (state_loc[2].mid())*180./M_PI, 0.4, "blue");
+}
+
+void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
+  IntervalVector state_pred({
+    {msg->x1_lb, msg->x1_ub},
+    {msg->x2_lb, msg->x2_ub},
+    {msg->x3_lb, msg->x1_ub}}
+  );
+
+  vibes::drawBox(state_loc.subvector(0, 1), "lightred");
+  vibes::drawVehicle(state_pred[0].mid(), state_pred[1].mid(), (state_pred[2].mid())*180./M_PI, 0.4, "yellow");
 }
 
 void pose_callback(const geometry_msgs::Pose& msg){
@@ -65,19 +77,10 @@ void pose_callback(const geometry_msgs::Pose& msg){
   vibes::drawVehicle(x, y, c*180./M_PI, 0.3, "red");
 }
 
-void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
-  ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);
-  state_pred[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
-  state_pred[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
-  state_pred[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
-
-  vibes::drawVehicle(state_pred[0].mid(), state_pred[1].mid(), (state_pred[2].mid())*180./M_PI, 0.4, "yellow");
-}
-
 int main(int argc, char **argv){
   vibes::beginDrawing();
   VIBesFigMap fig_map("Map");
-  vibes::setFigureProperties("Map",vibesParams("x", 10, "y", -10, "width", 100, "height", 100));
+  vibes::setFigureProperties("Map",vibesParams("x", 10, "y", -10, "width", 200, "height", 200));
   vibes::axisLimits(-10, 10, -10, 10, "Map");
   fig_map.show();
 
@@ -87,8 +90,8 @@ int main(int argc, char **argv){
 
   ros::Subscriber sub_waypoint = n.subscribe("waypoint", 1000, waypoint_callback);
   ros::Subscriber sub_state_loc = n.subscribe("state_loc", 1000, state_loc_callback);
-  ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
   ros::Subscriber sub_state_pred = n.subscribe("state_pred", 1000, state_pred_callback);
+  ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
 
   ros::spin();
 
