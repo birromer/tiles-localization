@@ -74,11 +74,11 @@ int main(int argc, char **argv) {
     ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
 
     // TODO: test having angle from the state, such as if there were a compass
-//    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2]; //X[2];
-//    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2]; //X[2];
+    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2]; //X[2];
+    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2]; //X[2];
 
-    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = x_pred[0], box0[4] = x_pred[1], box0[5] = x_pred[2];
-    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = x_pred[0], box1[4] = x_pred[1], box1[5] = x_pred[2];
+//    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = x_pred[0], box0[4] = x_pred[1], box0[5] = x_pred[2];
+//    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = x_pred[0], box1[4] = x_pred[1], box1[5] = x_pred[2];
 
     ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
     ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");

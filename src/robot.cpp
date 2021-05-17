@@ -95,7 +95,6 @@ bool display_window;
 double frame_width, frame_height;
 
 const double pix = 103.0;  //99.3;  //107.; //pixels between each pair of lines
-const double scale_pixel = 1./pix;
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "robot_node");
@@ -126,10 +125,10 @@ int main(int argc, char **argv) {
 //    cv::namedWindow("steps");
     cv::namedWindow("lines");
     cv::namedWindow("camera");
-    cv::namedWindow("grey");
-    cv::namedWindow("sobel");
-    cv::namedWindow("canny");
-    cv::namedWindow("morphology");
+//    cv::namedWindow("grey");
+//    cv::namedWindow("sobel");
+//    cv::namedWindow("canny");
+//    cv::namedWindow("morphology");
     cv::namedWindow("rotated");
     cv::startWindowThread();
   }
@@ -309,8 +308,8 @@ ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, do
              state[0].lb(), state[0].ub(), state[1].lb(), state[1].ub(), state[2].lb(), state[2].ub());
 
   ibex::IntervalVector state_new(3, ibex::Interval::ALL_REALS);
-  state_new[0] = state[0] + dt * (u1 * ibex::cos(state[2]));
-  state_new[1] = state[1] + dt * (u1 * ibex::sin(state[2]));
+  state_new[0] = pose_1;//state[0] + dt * (u1 * ibex::cos(state[2]));
+  state_new[1] = pose_2;//state[1] + dt * (u1 * ibex::sin(state[2]));
   state_new[2] = pose_3;//u2; //state[2] + dt * (u2);
 
   ROS_WARN("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
@@ -426,7 +425,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //      d = (d+0.5)-floor(d+0.5)-0.5;
 
       // decimal distance, displacement between the lines
-      dd = (d/scale_pixel - floor(d/scale_pixel));
+      dd = (d/pix - floor(d/pix));
+      ROS_WARN("D = [%f], D/l = [%f] | DD = [%f]", d, d/pix, dd);
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -453,8 +453,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     std::vector<line_t> lines_good;
 
     for (line_t l : lines) {
-      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
-//      if (sawtooth(l.angle4 - median_angle) < 0.1) {
+//      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
+      if (sawtooth(l.angle4 - median_angle) < 0.05) {
         filtered_m_x.push_back(l.m_x);
         filtered_m_y.push_back(l.m_y);
 
@@ -519,12 +519,11 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         }
       }
 
-      double d_hat_h = scale_pixel * median(bag_h, 6);
+      double d_hat_h = pix * median(bag_h, 6);
+      double d_hat_v = pix * median(bag_v, 6);
 
-      double d_hat_v = scale_pixel * median(bag_h, 6);
-
-      obs_1 = d_hat_v;
-      obs_2 = d_hat_h;
+      obs_1 = d_hat_h;
+      obs_2 = d_hat_v;
       obs_3 = a_hat;
 //      obs_3 = median_angle;
 
@@ -534,10 +533,10 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //        cvtColor(edges, edges, CV_GRAY2BGR);
 //        ShowManyImages("steps", 4, in, grey, grad, edges);//, morph, rot, src);
         cv::imshow("camera", in);
-        cv::imshow("grey", grey);
-        cv::imshow("sobel", grad);
-        cv::imshow("canny", edges);
-        cv::imshow("morphology", morph);
+//        cv::imshow("grey", grey);
+//        cv::imshow("sobel", grad);
+//        cv::imshow("canny", edges);
+//        cv::imshow("morphology", morph);
         cv::imshow("lines", src);
         cv::imshow("rotated", rot);
 
