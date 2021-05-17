@@ -38,7 +38,7 @@ function getCompass(objectName, statemotor)
   relTo = -1
   o = sim.getObjectOrientation(objectHandle, relTo)
   if statemotor then -- if motor is ON
-    heading = o[3] + gaussian(0,1)*math.pi  -- gaussian noise is added
+    heading = o[3] --+ gaussian(0,1)*math.pi  -- gaussian noise is added
   else
     heading = o[3]   -- north along X > 0
   end
@@ -50,11 +50,20 @@ function getSpeed(objectName)
   -- This function get the object pose at ROS format geometry_msgs/Pose
   objectHandle = sim.getObjectAssociatedWithScript(sim.handle_self)
   relTo = -1
-  p, o =sim.getObjectVelocity(objectHandle)
+  p, o = sim.getObjectVelocity(objectHandle)
 
   return {
-    position={x=p[1],y=p[2],z=p[3]},
-    orientation={x=o[1],y=o[2],z=o[3],w=0}
+    position={
+      x=p[1],
+      y=p[2],
+      z=p[3]
+    },
+    orientation={
+      x=o[1],
+      y=o[2],
+      z=o[3],
+      w=o[4]
+    }
   }
 end
 
@@ -82,8 +91,17 @@ function getPose(objectName)
   o=sim.getObjectQuaternion(objectHandle,relTo)
 
   return {
-    position={x=p[1],y=p[2],z=p[3]},
-    orientation={x=o[1],y=o[2],z=o[3],w=o[4]}
+    position={
+      x=p[1],
+      y=p[2],
+      z=p[3]
+    },
+    orientation={
+      x=o[1],
+      y=o[2],
+      z=o[3],
+      w=o[4]
+    }
   }
 end
 
