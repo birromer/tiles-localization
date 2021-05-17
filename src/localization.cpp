@@ -86,8 +86,8 @@ int main(int argc, char **argv) {
     ibex::CtcFwdBwd c1(f1);
     ibex::CtcFwdBwd c2(f2);
 
-//    c1.contract(box0);
-//    c2.contract(box1);
+    c1.contract(box0);
+    c2.contract(box1);
 
     ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
     box[0] = box0[0] | box1[0];
@@ -98,9 +98,9 @@ int main(int argc, char **argv) {
       ROS_WARN("[LOCALIZATION] X is empty");
 
     } else {
-//      x_loc[0] = box[0];
-//      x_loc[1] = box[1];
-//      x_loc[2] = box[2];
+      x_loc[0] = box[0];
+      x_loc[1] = box[1];
+      x_loc[2] = box[2];
     }
       x_loc[0] = x_pred[0];
       x_loc[1] = x_pred[1];

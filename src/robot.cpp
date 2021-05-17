@@ -169,7 +169,8 @@ int main(int argc, char **argv) {
 
     state = state_loc;                             // start with the last state contracted from the localization
     y1 = obs_1, y2 = obs_2, y3 = obs_3;            // use last observed parameters from the image
-    u1 = sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
+//    u1 = sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
+    u1 = abs(speed_x) + abs(speed_y);  // u1 as the speed comes from the velocity in x and y
     u2 = compass;                                  // u2 as the heading comes from the compass
 
     // publish current, unevolved state to be used by the control and viewer nodes
@@ -309,8 +310,8 @@ ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, do
              state[0].lb(), state[0].ub(), state[1].lb(), state[1].ub(), state[2].lb(), state[2].ub());
 
   ibex::IntervalVector state_new(3, ibex::Interval::ALL_REALS);
-  state_new[0] = state[0] + dt * (u1*ibex::cos(state[2]));
-  state_new[1] = state[1] + dt * (u1*ibex::sin(state[2]));
+  state_new[0] = state[0] + dt * (u1 * ibex::cos(state[2]));
+  state_new[1] = state[1] + dt * (u1 * ibex::sin(state[2]));
   state_new[2] = u2; //state[2] + dt * (u2);
 
   ROS_INFO("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",

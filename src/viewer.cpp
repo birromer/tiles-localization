@@ -50,7 +50,7 @@ void state_loc_callback(const tiles_loc::State::ConstPtr& msg){
   IntervalVector state_loc({
     {msg->x1_lb, msg->x1_ub},
     {msg->x2_lb, msg->x2_ub},
-    {msg->x3_lb, msg->x1_ub}}
+    {msg->x3_lb, msg->x3_ub}}
   );
 
   vibes::drawBox(state_loc.subvector(0, 1), "pink");
@@ -61,10 +61,10 @@ void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
   IntervalVector state_pred({
     {msg->x1_lb, msg->x1_ub},
     {msg->x2_lb, msg->x2_ub},
-    {msg->x3_lb, msg->x1_ub}}
+    {msg->x3_lb, msg->x3_ub}}
   );
 
-  vibes::drawBox(state_loc.subvector(0, 1), "lightred");
+  vibes::drawBox(state_pred.subvector(0, 1), "lightred");
   vibes::drawVehicle(state_pred[0].mid(), state_pred[1].mid(), (state_pred[2].mid())*180./M_PI, 0.4, "yellow");
 }
 

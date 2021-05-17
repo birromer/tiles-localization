@@ -38,9 +38,9 @@ function getCompass(objectName, statemotor)
   relTo = -1
   o = sim.getObjectOrientation(objectHandle, relTo)
   if statemotor then -- if motor is ON
-    heading = -o[3] + gaussian(0,1)*math.pi  -- gaussian noise is added
+    heading = o[3] + gaussian(0,1)*math.pi  -- gaussian noise is added
   else
-    heading = -o[3]   -- north along X > 0
+    heading = o[3]   -- north along X > 0
   end
   return heading -- in radians
 --  return heading*180/math.pi -- in degrees
