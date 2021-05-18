@@ -64,6 +64,7 @@ double median(std::vector<line_t> lines, int op);
 double median(std::vector<double> scores);
 ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt);
 void ShowManyImages(string title, int nArgs, ...);
+cv::Mat generate_grid(double dist_lines, double d_hat_h, double d_hat_v, double a_hat);
 
 // message convertion functions
 tiles_loc::State state_to_msg(double x1, double x2, double x3);
@@ -94,7 +95,7 @@ double pose_1, pose_2, pose_3;
 bool display_window;
 double frame_width, frame_height;
 
-const double pix = 103.0;  //99.3;  //107.; //pixels between each pair of lines
+const double dist_lines = 103.0;  //99.3;  //107.; //pixels between each pair of lines
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "robot_node");
@@ -130,6 +131,7 @@ int main(int argc, char **argv) {
 //    cv::namedWindow("canny");
 //    cv::namedWindow("morphology");
     cv::namedWindow("rotated");
+    cv::namedWindow("view_param");
     cv::startWindowThread();
   }
 
@@ -425,7 +427,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //      d = (d+0.5)-floor(d+0.5)-0.5;
 
       // decimal distance, displacement between the lines
-      dd = (d/pix - floor(d/pix));
+      dd = (d/dist_lines - floor(d/dist_lines));
 
 
       line_t ln = {
@@ -512,21 +514,23 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         if (abs(cos(angle_new)) < 0.2) {
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           bag_v.push_back(l);
-          ROS_WARN("V) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/pix, l.dd);
+          ROS_WARN("V) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/dist_lines, l.dd);
 
         } else if (abs(sin(angle_new)) < 0.2) {line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
           bag_h.push_back(l);
-          ROS_WARN("H) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/pix, l.dd);
+          ROS_WARN("H) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/dist_lines, l.dd);
 
         }
       }
 
-      double d_hat_h = pix * median(bag_h, 6);
-      double d_hat_v = pix * median(bag_v, 6);
+      double d_hat_h = dist_lines * median(bag_h, 6);
+      double d_hat_v = dist_lines * median(bag_v, 6);
 
       obs_1 = d_hat_h;
       obs_2 = d_hat_v;
       obs_3 = a_hat;
+
+      Mat view_param = generate_grid(dist_lines, d_hat_h, d_hat_v, a_hat);
 
       ROS_WARN("PARAMETERS -> d_hat_h = [%f] | d_hat_v = [%f] | a_hat = [%f]", d_hat_h, d_hat_v, a_hat);
 //      obs_3 = median_angle;
@@ -543,6 +547,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //        cv::imshow("morphology", morph);
         cv::imshow("lines", src);
         cv::imshow("rotated", rot);
+        cv::imshow("view_param", rot);
 
       }
     } else {
@@ -689,4 +694,11 @@ void speed_callback(const geometry_msgs::Pose::ConstPtr& msg) {
 
   ROS_INFO("[ROBOT] Received current speed in x, y and z: [%f] [%f] [%f]", speed_x, speed_y, speed_z);
 //  ROS_INFO("[ROBOT] Received current speed in rho, theta and psi: [%f] [%f] [%f]", speed_rho, speed_tht, speed_psi);
+}
+
+cv::Mat generate_grid(double dist_lines, double d_hat_h, double d_hat_v, double a_hat) {
+  cv::Mat image = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
+
+  return image;
+
 }
