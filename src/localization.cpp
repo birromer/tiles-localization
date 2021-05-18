@@ -27,7 +27,8 @@
 #include <codac-rob.h>
 
 // TODO: test different errors
-#define ERROR_OBS 0.1
+#define ERROR_PRED      0.1
+#define ERROR_OBS       0.1
 #define ERROR_OBS_ANGLE 0.1
 
 ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);  // predicted state of the robot, from the base node callback
@@ -155,9 +156,9 @@ tiles_loc::State state_to_msg(ibex::IntervalVector state) {
 
 void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
 
-  state_pred[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
-  state_pred[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
-  state_pred[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
+  state_pred[0] = ibex::Interval(msg->x1_lb, msg->x1_ub).inflate(ERROR_PRED);
+  state_pred[1] = ibex::Interval(msg->x2_lb, msg->x2_ub).inflate(ERROR_PRED);
+  state_pred[2] = ibex::Interval(msg->x3_lb, msg->x3_ub).inflate(ERROR_PRED);
 
 //  ROS_INFO("[LOCALIZATION] Received predicted state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
 //           msg->x1_lb, msg->x1_ub, msg->x2_lb, msg->x2_ub, msg->x3_lb, msg->x3_ub);

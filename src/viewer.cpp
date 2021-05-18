@@ -53,7 +53,7 @@ void state_loc_callback(const tiles_loc::State::ConstPtr& msg){
     {msg->x3_lb, msg->x3_ub}}
   );
 
-  vibes::drawBox(state_loc.subvector(0, 1), "pink");
+  vibes::drawBox(state_loc.subvector(0, 1), "blue");
   vibes::drawVehicle(state_loc[0].mid(), state_loc[1].mid(), (state_loc[2].mid())*180./M_PI, 0.3, "blue");
 }
 
@@ -64,8 +64,8 @@ void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
     {msg->x3_lb, msg->x3_ub}}
   );
 
-  vibes::drawBox(state_pred.subvector(0, 1), "lightred");
-  vibes::drawVehicle(state_pred[0].mid(), state_pred[1].mid(), (state_pred[2].mid())*180./M_PI, 0.3, "yellow");
+  vibes::drawBox(state_pred.subvector(0, 1), "pink");
+  vibes::drawVehicle(state_pred[0].mid(), state_pred[1].mid(), (state_pred[2].mid())*180./M_PI, 0.3, "pink");
 }
 
 void pose_callback(const geometry_msgs::Pose& msg){
