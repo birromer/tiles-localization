@@ -45,6 +45,11 @@ using namespace cv;
 
 #define MIN_GOOD_LINES 5
 
+// TODO: test different errors
+#define ERROR_PRED      0.1
+#define ERROR_OBS       0.1
+#define ERROR_OBS_ANGLE 0.1
+
 typedef struct line_struct{
   Point2f p1;     // 1st point of the line
   Point2f p2;     // 2nd point of the line
@@ -64,12 +69,12 @@ double median(std::vector<line_t> lines, int op);
 double median(std::vector<double> scores);
 ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt);
 void ShowManyImages(string title, int nArgs, ...);
-cv::Mat generate_grid(double dist_lines, double d_hat_h, double d_hat_v, double a_hat);
+cv::Mat generate_grid(double dist_lines, ibex::IntervalVector obs);
 
 // message convertion functions
 tiles_loc::State state_to_msg(double x1, double x2, double x3);
 tiles_loc::State state_to_msg(ibex::IntervalVector state);
-tiles_loc::Observation observation_to_msg(double y1, double y2, double y3);
+tiles_loc::Observation observation_to_msg(ibex::IntervalVector  y);
 
 // callback functions
 void state_loc_callback(const tiles_loc::State::ConstPtr& msg);
@@ -80,9 +85,8 @@ void time_callback(const std_msgs::Float64::ConstPtr& msg);
 
 
 // node communication related variables
-ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);      // current state of the robot
 ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);  // robot state from the localization method
-double obs_1, obs_2, obs_3;        // observed parameters from the image
+ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);        // observed parameters from the image
 double compass, speed_x, speed_y, speed_z, speed_rho, speed_tht, speed_psi;  // input from the sensors
 double sim_time;                   // simulation time from coppelia
 double prev_sim_time;              // previosu simulation time from coppelia
@@ -107,6 +111,9 @@ int main(int argc, char **argv) {
   double dt;
 
   // read initial values from the launcher
+  ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);      // current state of the robot
+  ibex::IntervalVector y(3, ibex::Interval::ALL_REALS);      // current state of the robot
+
   double x1, x2, x3;  // initial parameters for the state
   n.param<double>("pos_x_init", x1, 0);
   n.param<double>("pos_y_init", x2, 0);
@@ -118,8 +125,7 @@ int main(int argc, char **argv) {
   state[1] = ibex::Interval(x2,x2);
   state[2] = ibex::Interval(x3,x3);
 
-  double y1, y2, y3;                                        // current observation of the robot
-  double u1, u2;                                            // current input received
+  double u1, u2;      // current input received
 
   // start visualization windows windows
   if(display_window) {
@@ -169,8 +175,8 @@ int main(int argc, char **argv) {
     ROS_INFO("[ROBOT] Simulaton time step: [%f]", dt);
 
     state = state_loc;                             // start with the last state contracted from the localization
-    y1 = obs_1, y2 = obs_2, y3 = obs_3;            // use last observed parameters from the image
-    u1 = sqrt(speed_x*speed_x + speed_y*speed_y); //sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
+    y = obs;                                        // use last observed parameters from the image
+    u1 = sqrt(speed_x*speed_x + speed_y*speed_y);  //sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
     u2 = compass;                                  // u2 as the heading comes from the compass
 
     // publish current, unevolved state to be used by the control and viewer nodes
@@ -184,15 +190,15 @@ int main(int argc, char **argv) {
     tiles_loc::State state_pred_msg = state_to_msg(state);
     pub_state_pred.publish(state_pred_msg);
 
-    tiles_loc::Observation observation_msg = observation_to_msg(y1, y2, y3);
+    tiles_loc::Observation observation_msg = observation_to_msg(y);
     pub_y.publish(observation_msg);
 
-    ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y1, y2, y3);
+    ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
     ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
     // comparando Y com X
-    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-state[0].mid())), sin(M_PI*(y2-state[1].mid())), sin(y3-state[2].mid()));
-    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-state[1].mid())), sin(M_PI*(y2-state[0].mid())), cos(y3-state[2].mid()));
+    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y[0].mid()-state[0].mid())), sin(M_PI*(y[1].mid()-state[1].mid())), sin(y[2].mid()-state[2].mid()));
+    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y[0].mid()-state[1].mid())), sin(M_PI*(y[1].mid()-state[0].mid())), cos(y[2].mid()-state[2].mid()));
 
     // comparando Y com pose
 //    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
@@ -314,6 +320,10 @@ ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, do
   state_new[1] = pose_2;//state[1] + dt * (u1 * ibex::sin(state[2]));
   state_new[2] = pose_3;//u2; //state[2] + dt * (u2);
 
+  state_new[0] = state_new[0].inflate(ERROR_PRED);
+  state_new[1] = state_new[1].inflate(ERROR_PRED);
+  state_new[2] = state_new[2].inflate(ERROR_PRED);
+
   ROS_WARN("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
              state_new[0].lb(), state_new[0].ub(), state_new[1].lb(), state_new[1].ub(), state_new[2].lb(), state_new[2].ub(), u1, u2);
 
@@ -344,11 +354,14 @@ tiles_loc::State state_to_msg(ibex::IntervalVector state) {
     return msg;
 }
 
-tiles_loc::Observation observation_to_msg(double y1, double y2, double y3) {
+tiles_loc::Observation observation_to_msg(ibex::IntervalVector y) {
   tiles_loc::Observation msg;
-  msg.y1 = y1;
-  msg.y2 = y2;
-  msg.y3 = y3;
+  msg.y1_lb = y[0].lb();
+  msg.y1_ub = y[0].ub();
+  msg.y2_lb = y[1].lb();
+  msg.y2_ub = y[1].ub();
+  msg.y3_lb = y[2].lb();
+  msg.y3_ub = y[2].ub();
 
   return msg;
 }
@@ -526,14 +539,17 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       double d_hat_h = dist_lines * median(bag_h, 6);
       double d_hat_v = dist_lines * median(bag_v, 6);
 
-      obs_1 = d_hat_h;
-      obs_2 = d_hat_v;
-      obs_3 = a_hat;
-
-      Mat view_param = generate_grid(dist_lines, d_hat_h, d_hat_v, a_hat);
 
       ROS_WARN("PARAMETERS -> d_hat_h = [%f] | d_hat_v = [%f] | a_hat = [%f]", d_hat_h, d_hat_v, a_hat);
 //      obs_3 = median_angle;
+//
+      obs = ibex::IntervalVector({
+          {d_hat_h, d_hat_h},
+          {d_hat_v, d_hat_v},
+          {a_hat, a_hat}
+      });
+
+      Mat view_param = generate_grid(dist_lines, obs);
 
       if(display_window){
 //        cvtColor(grey, grey, CV_GRAY2BGR);
@@ -696,7 +712,7 @@ void speed_callback(const geometry_msgs::Pose::ConstPtr& msg) {
 //  ROS_INFO("[ROBOT] Received current speed in rho, theta and psi: [%f] [%f] [%f]", speed_rho, speed_tht, speed_psi);
 }
 
-cv::Mat generate_grid(double dist_lines, double d_hat_h, double d_hat_v, double a_hat) {
+cv::Mat generate_grid(double dist_lines, ibex::IntervalVector obs) {
   cv::Mat image = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
 
   return image;

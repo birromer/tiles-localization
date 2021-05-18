@@ -26,10 +26,6 @@
 #include <codac.h>
 #include <codac-rob.h>
 
-// TODO: test different errors
-#define ERROR_PRED      0.1
-#define ERROR_OBS       0.1
-#define ERROR_OBS_ANGLE 0.1
 
 ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);  // predicted state of the robot, from the base node callback
 ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);  // observed parameters, from the base node callback
@@ -156,22 +152,23 @@ tiles_loc::State state_to_msg(ibex::IntervalVector state) {
 
 void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
 
-  state_pred[0] = ibex::Interval(msg->x1_lb, msg->x1_ub).inflate(ERROR_PRED);
-  state_pred[1] = ibex::Interval(msg->x2_lb, msg->x2_ub).inflate(ERROR_PRED);
-  state_pred[2] = ibex::Interval(msg->x3_lb, msg->x3_ub).inflate(ERROR_PRED);
+  state_pred[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
+  state_pred[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
+  state_pred[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
 
-//  ROS_INFO("[LOCALIZATION] Received predicted state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
-//           msg->x1_lb, msg->x1_ub, msg->x2_lb, msg->x2_ub, msg->x3_lb, msg->x3_ub);
+  ROS_INFO("[LOCALIZATION] Received predicted state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
+           msg->x1_lb, msg->x1_ub, msg->x2_lb, msg->x2_ub, msg->x3_lb, msg->x3_ub);
 }
 
 void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
-  observation[0] = ibex::Interval(msg->y1, msg->y1).inflate(ERROR_OBS);
-  observation[1] = ibex::Interval(msg->y2, msg->y2).inflate(ERROR_OBS);
-  observation[2] = ibex::Interval(msg->y3, msg->y3).inflate(ERROR_OBS_ANGLE);
+  observation[0] = ibex::Interval(msg->y1_lb, msg->y1_ub);
+  observation[1] = ibex::Interval(msg->y2_lb, msg->y2_ub);
+  observation[2] = ibex::Interval(msg->y3_lb, msg->y3_ub);
 
-//  ROS_INFO("[LOCALIZATION] Received observation -> y1: [%f] | y2: [%f] | y3: [%f]", msg->y1, msg->y2, msg->y3);
+  ROS_INFO("[LOCALIZATION] Received observation -> y1: ([%f],[%f]) | y2: ([%f],[%f]) | y3: ([%f],[%f])",
+           msg->y1_lb, msg->y1_ub, msg->y2_lb, msg->y2_ub, msg->y3_lb, msg->y3_ub);
 
-  if (msg->y1 == 0 && msg->y2 == 0) {
+  if (observation[0].is_empty() && observation[1].is_empty()) {
     ROS_WARN("[LOCALIZATION] Observation is empty.");
   }
 }
