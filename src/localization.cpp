@@ -27,7 +27,7 @@
 #include <codac-rob.h>
 
 // TODO: test different errors
-#define ERROR_OBS 0.03
+#define ERROR_OBS 0.1
 #define ERROR_OBS_ANGLE 0.1
 
 ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);  // predicted state of the robot, from the base node callback
@@ -102,17 +102,38 @@ int main(int argc, char **argv) {
       x_loc[1] = box[1];
       x_loc[2] = box[2];
     }
-
-//    x_loc[0] = x_pred[0];
-//    x_loc[1] = x_pred[1];
-//    x_loc[2] = x_pred[2];
-
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_loc_msg = state_to_msg(x_loc);
     pub_state_loc.publish(state_loc_msg);
 
     ROS_INFO("[LOCALIZATION] Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
              x_loc[0].lb(), x_loc[0].ub(), x_loc[1].lb(), x_loc[1].ub(), x_loc[2].lb(), x_loc[2].ub());
+
+//    // now contract possible solutions within reasonable margin for visualization
+//    ibex::IntervalVector x_view({
+//      {-100, 100},
+//      {-100, 100},
+//      {-100, 100}}
+//    );
+//
+//    ibex::IntervalVector box0_view(6, ibex::Interval::ALL_REALS);
+//    ibex::IntervalVector box1_view(6, ibex::Interval::ALL_REALS);
+//
+//    box0_view[0] = x_view[0], box0_view[1] = x_view[1], box0_view[2] = x_view[2], box0_view[3] = y[0], box0_view[4] = y[1], box0_view[5] = y[2];
+//    box1_view[0] = x_view[0], box1_view[1] = x_view[1], box1_view[2] = x_view[2], box1_view[3] = y[0], box1_view[4] = y[1], box1_view[5] = y[2];
+//
+//    c1.contract(box0_view);
+//    c2.contract(box1_view);
+//
+//    codac::SIVIAPaving p0(box0_view);
+//    codac::SIVIAPaving p1(box1_view);
+//
+//    p0.compute(f1, y, 0.1);
+//    p0.compute(f2, y, 0.1);
+//
+//    std:cout << " y " << y << std::endl;
+//    std::cout << "box_0" << box0_view << std::endl;
+//    std::cout << "box_1" << box1_view << std::endl;
 
     ros::spinOnce();
     loop_rate.sleep();

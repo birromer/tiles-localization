@@ -189,12 +189,12 @@ int main(int argc, char **argv) {
     ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
     // comparando Y com X
-//    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-state[0].mid())), sin(M_PI*(y2-state[1].mid())), sin(y3-state[2].mid()));
-//    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-state[1].mid())), sin(M_PI*(y2-state[0].mid())), cos(y3-state[2].mid()));
+    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-state[0].mid())), sin(M_PI*(y2-state[1].mid())), sin(y3-state[2].mid()));
+    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-state[1].mid())), sin(M_PI*(y2-state[0].mid())), cos(y3-state[2].mid()));
 
     // comparando Y com pose
-    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
-    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-pose_2)), sin(M_PI*(y2-pose_1)), cos(y3-pose_3));
+//    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
+//    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-pose_2)), sin(M_PI*(y2-pose_1)), cos(y3-pose_3));
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -426,7 +426,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
       // decimal distance, displacement between the lines
       dd = (d/pix - floor(d/pix));
-      ROS_WARN("D = [%f], D/l = [%f] | DD = [%f]", d, d/pix, dd);
+
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -512,9 +512,11 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         if (abs(cos(angle_new)) < 0.2) {
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           bag_v.push_back(l);
+          ROS_WARN("V) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/pix, l.dd);
 
         } else if (abs(sin(angle_new)) < 0.2) {line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
           bag_h.push_back(l);
+          ROS_WARN("H) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/pix, l.dd);
 
         }
       }
@@ -525,6 +527,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       obs_1 = d_hat_h;
       obs_2 = d_hat_v;
       obs_3 = a_hat;
+
+      ROS_WARN("PARAMETERS -> d_hat_h = [%f] | d_hat_v = [%f] | a_hat = [%f]", d_hat_h, d_hat_v, a_hat);
 //      obs_3 = median_angle;
 
       if(display_window){
