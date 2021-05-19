@@ -760,16 +760,11 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
     int x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
     int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
 
-    x1 = x1_temp;
-    x2 = x2_temp;
-    y1 = y1_temp;
-    y2 = y2_temp;
-
     // translates the image back and adds displacement
-    x1 += (frame_width/2. + d_hat_h);
-    y1 += (frame_height/2. + d_hat_v);
-    x2 += (frame_width/2. + d_hat_h);
-    y2 += (frame_height/2. + d_hat_v);
+    x1 = (x1_temp + frame_width/2. + d_hat_h);
+    y1 = (x2_temp + frame_height/2. + d_hat_v);
+    x2 = (y1_temp + frame_width/2. + d_hat_h);
+    y2 = (y2_temp + frame_height/2. + d_hat_v);
 
     cv::line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(255,255,255), 3, cv::LINE_AA);
   }
