@@ -133,13 +133,13 @@ int main(int argc, char **argv) {
   // start visualization windows windows
   if(display_window) {
 //    cv::namedWindow("steps");
-    cv::namedWindow("lines");
     cv::namedWindow("camera");
 //    cv::namedWindow("grey");
 //    cv::namedWindow("sobel");
 //    cv::namedWindow("canny");
 //    cv::namedWindow("morphology");
     cv::namedWindow("rotated");
+    cv::namedWindow("lines");
     cv::namedWindow("view_param");
     cv::startWindowThread();
   }
@@ -744,10 +744,10 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
 
   cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
   std::vector<Vec4i> grid_lines = base_grid_lines;
+  ROS_WARN("â = [%f]", a_hat);
 
   for (Vec4i l : grid_lines) {
     //translation in order to center lines around 0
-    ROS_WARN("â = [%f]", a_hat);
     int x1 = l[0] - frame_width/2.;
     int y1 = l[1] - frame_height/2.;
     int x2 = l[2] - frame_width/2.;
@@ -760,6 +760,11 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
     int x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
     int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
 
+    x1 = x1_temp;
+    x2 = x2_temp;
+    y1 = y1_temp;
+    y2 = y2_temp;
+
 //    x1 = (x1_temp > frame_width) ? frame_width : ((x1_temp < 0) ? 0 : x1_temp);
 //    x2 = (x2_temp > frame_width) ? frame_width : ((x2_temp < 0) ? 0 : x2_temp);
 //
@@ -767,14 +772,14 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
 //    y2 = (y2_temp > frame_height) ? frame_height : ((y2_temp < 0) ? 0 : y2_temp);
 
     // translates the image back and adds displacement
-    x1 += frame_width/2.;
-    y1 += frame_height/2.;
-    x2 += frame_width/2.;
-    y2 += frame_height/2.;
-//    //x1 += (frame_width/2. + d_hat_h);
-//    //y1 += (frame_height/2. + d_hat_v);
-//    //x2 += (frame_width/2. + d_hat_h);
-//    //y2 += (frame_height/2. + d_hat_v);
+//    x1 += frame_width/2.;
+//    y1 += frame_height/2.;
+//    x2 += frame_width/2.;
+//    y2 += frame_height/2.;
+    x1 += (frame_width/2. - d_hat_h);
+    y1 += (frame_height/2. - d_hat_v);
+    x2 += (frame_width/2. - d_hat_h);
+    y2 += (frame_height/2. - d_hat_v);
 
     cv::line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(255,255,255), 3, cv::LINE_AA);
   }
