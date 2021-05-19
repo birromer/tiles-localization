@@ -67,70 +67,49 @@ int main(int argc, char **argv) {
     x_pred[1] = state_pred[1];
     x_pred[2] = state_pred[2];
 
-    ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
-    ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
+//    ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
+//    ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
+//
+//    // TODO: test having angle from the state, such as if there were a compass
+//    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2]; //X[2];
+//    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2]; //X[2];
+//
+////    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = x_pred[0], box0[4] = x_pred[1], box0[5] = x_pred[2];
+////    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = x_pred[0], box1[4] = x_pred[1], box1[5] = x_pred[2];
+//
+//    ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
+//    ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
+//
+//    ibex::CtcFwdBwd c1(f1);
+//    ibex::CtcFwdBwd c2(f2);
+//
+//    c1.contract(box0);
+//    c2.contract(box1);
+//
+//    ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
+//    box[0] = box0[0] | box1[0];
+//    box[1] = box0[1] | box1[1];
+//    box[2] = box0[2] | box1[2];
+//
+//    if(box[0].is_empty() or box[1].is_empty()) {
+//      ROS_WARN("[LOCALIZATION] X is empty");
+//
+//    } else {
+//      x_loc[0] = box[0];
+//      x_loc[1] = box[1];
+//      x_loc[2] = box[2];
+//    }
 
-    // TODO: test having angle from the state, such as if there were a compass
-    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2]; //X[2];
-    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2]; //X[2];
+    x_loc[0] = x_pred[0];
+    x_loc[1] = x_pred[1];
+    x_loc[2] = x_pred[2];
 
-//    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = x_pred[0], box0[4] = x_pred[1], box0[5] = x_pred[2];
-//    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = x_pred[0], box1[4] = x_pred[1], box1[5] = x_pred[2];
-
-    ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
-    ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
-
-    ibex::CtcFwdBwd c1(f1);
-    ibex::CtcFwdBwd c2(f2);
-
-    c1.contract(box0);
-    c2.contract(box1);
-
-    ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
-    box[0] = box0[0] | box1[0];
-    box[1] = box0[1] | box1[1];
-    box[2] = box0[2] | box1[2];
-
-    if(box[0].is_empty() or box[1].is_empty()) {
-      ROS_WARN("[LOCALIZATION] X is empty");
-
-    } else {
-      x_loc[0] = box[0];
-      x_loc[1] = box[1];
-      x_loc[2] = box[2];
-    }
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_loc_msg = state_to_msg(x_loc);
     pub_state_loc.publish(state_loc_msg);
 
     ROS_INFO("[LOCALIZATION] Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
              x_loc[0].lb(), x_loc[0].ub(), x_loc[1].lb(), x_loc[1].ub(), x_loc[2].lb(), x_loc[2].ub());
-
-//    // now contract possible solutions within reasonable margin for visualization
-//    ibex::IntervalVector x_view({
-//      {-100, 100},
-//      {-100, 100},
-//      {-100, 100}}
-//    );
-//
-//    ibex::IntervalVector box0_view(6, ibex::Interval::ALL_REALS);
-//    ibex::IntervalVector box1_view(6, ibex::Interval::ALL_REALS);
-//
-//    box0_view[0] = x_view[0], box0_view[1] = x_view[1], box0_view[2] = x_view[2], box0_view[3] = y[0], box0_view[4] = y[1], box0_view[5] = y[2];
-//    box1_view[0] = x_view[0], box1_view[1] = x_view[1], box1_view[2] = x_view[2], box1_view[3] = y[0], box1_view[4] = y[1], box1_view[5] = y[2];
-//
-//    c1.contract(box0_view);
-//    c2.contract(box1_view);
-//
-//    codac::SIVIAPaving p0(box0_view);
-//    codac::SIVIAPaving p1(box1_view);
-//
-//    p0.compute(f1, y, 0.1);
-//    p0.compute(f2, y, 0.1);
-//
-//    std:cout << " y " << y << std::endl;
-//    std::cout << "box_0" << box0_view << std::endl;
-//    std::cout << "box_1" << box1_view << std::endl;
 
     ros::spinOnce();
     loop_rate.sleep();

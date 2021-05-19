@@ -472,7 +472,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     for (line_t l : lines) {
 //      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
-      if (sawtooth(l.angle4 - median_angle) < 0.05) {
+      if (sawtooth(l.angle4 - median_angle) < 0.10) {
         filtered_m_x.push_back(l.m_x);
         filtered_m_y.push_back(l.m_y);
 
@@ -512,16 +512,12 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         double x2_temp = x2 * cos(-a_hat) - y2 * sin(-a_hat);
         double y2_temp = x2 * sin(-a_hat) + y2 * cos(-a_hat);
 
-        x1 = x1_temp;
-        x2 = x2_temp;
-        y1 = y1_temp;
-        y2 = y2_temp;
-
         // translates the image back
-        x1 += frame_width/2.0f;
-        y1 += frame_height/2.0f;
-        x2 += frame_width/2.0f;
-        y2 += frame_height/2.0f;
+        x1 = x1_temp + frame_width/2.0f;
+        x2 = x2_temp + frame_width/2.0f;
+
+        y1 = y1_temp + frame_height/2.0f;
+        y2 = y2_temp + frame_height/2.0f;
 
         // compute the new angle of the rotated lines
         angle_new = atan2(y2-y1, x2-x1);
@@ -547,7 +543,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       obs = ibex::IntervalVector({
           {d_hat_h, d_hat_h},
           {d_hat_v, d_hat_v},
-          {a_hat, a_hat}
+//          {a_hat, a_hat}
+          {median_angle, median_angle}
       }).inflate(ERROR_OBS);
 
       Mat view_param = generate_grid(dist_lines, obs);
@@ -744,14 +741,13 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
 
   cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
   std::vector<Vec4i> grid_lines = base_grid_lines;
-  ROS_WARN("â = [%f]", a_hat);
 
   for (Vec4i l : grid_lines) {
     //translation in order to center lines around 0
-    int x1 = l[0] - frame_width/2.;
-    int y1 = l[1] - frame_height/2.;
-    int x2 = l[2] - frame_width/2.;
-    int y2 = l[3] - frame_height/2.;
+    int x1 = l[0] - frame_width/2.  + d_hat_h;
+    int y1 = l[1] - frame_height/2. + d_hat_v;
+    int x2 = l[2] - frame_width/2.  + d_hat_h;
+    int y2 = l[3] - frame_height/2. + d_hat_v;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
     int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
@@ -761,10 +757,10 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
     int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
 
     // translates the image back and adds displacement
-    x1 = (x1_temp + frame_width/2. + d_hat_h);
-    y1 = (x2_temp + frame_height/2. + d_hat_v);
-    x2 = (y1_temp + frame_width/2. + d_hat_h);
-    y2 = (y2_temp + frame_height/2. + d_hat_v);
+    x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
+    y1 = (y1_temp + frame_height/2.);// + d_hat_v);
+    x2 = (x2_temp + frame_width/2. );//+ d_hat_h);
+    y2 = (y2_temp + frame_height/2.);// + d_hat_v);
 
     cv::line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(255,255,255), 3, cv::LINE_AA);
   }
