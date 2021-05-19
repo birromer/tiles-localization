@@ -727,13 +727,13 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
     int n_steps_h = middle_x/dist_lines;
     int n_steps_v = middle_y/dist_lines;
 
-    int pos_x = middle_x % dist_lines;
+    int pos_x = (middle_x % dist_lines) - dist_lines;
     while (pos_x < frame_width) {
       base_grid_lines.push_back(cv::Vec4i(pos_x, -max_dim , pos_x, max_dim));
       pos_x += dist_lines;
     }
 
-    int pos_y = middle_y % dist_lines;
+    int pos_y = (middle_y % dist_lines) - dist_lines;
     while (pos_y < frame_height) {
       base_grid_lines.push_back(cv::Vec4i(-max_dim, pos_y, max_dim, pos_y));
       pos_y += dist_lines;
@@ -765,21 +765,15 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
     y1 = y1_temp;
     y2 = y2_temp;
 
-//    x1 = (x1_temp > frame_width) ? frame_width : ((x1_temp < 0) ? 0 : x1_temp);
-//    x2 = (x2_temp > frame_width) ? frame_width : ((x2_temp < 0) ? 0 : x2_temp);
-//
-//    y1 = (y1_temp > frame_height) ? frame_height : ((y1_temp < 0) ? 0 : y1_temp);
-//    y2 = (y2_temp > frame_height) ? frame_height : ((y2_temp < 0) ? 0 : y2_temp);
-
     // translates the image back and adds displacement
 //    x1 += frame_width/2.;
 //    y1 += frame_height/2.;
 //    x2 += frame_width/2.;
 //    y2 += frame_height/2.;
-    x1 += (frame_width/2. - d_hat_h);
-    y1 += (frame_height/2. - d_hat_v);
-    x2 += (frame_width/2. - d_hat_h);
-    y2 += (frame_height/2. - d_hat_v);
+    x1 += (frame_width/2. + d_hat_h);
+    y1 += (frame_height/2. + d_hat_v);
+    x2 += (frame_width/2. + d_hat_h);
+    y2 += (frame_height/2. + d_hat_v);
 
     cv::line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(255,255,255), 3, cv::LINE_AA);
   }
