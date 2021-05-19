@@ -721,20 +721,20 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
   int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
 
   if (!base_grid_created) {
-    int middle_x = frame_width/2.;
-    int middle_y = frame_height/2.;
+    // center of the image, where tiles start with zero displacement
+    int center_x = frame_width/2.;
+    int center_y = frame_height/2.;
 
-    int n_steps_h = middle_x/dist_lines;
-    int n_steps_v = middle_y/dist_lines;
-
-    int pos_x = (middle_x % dist_lines) - dist_lines;
-    while (pos_x < frame_width) {
+    // create a line every specified number of pixels
+    // adds one before and one after because occluded areas may appear
+    int pos_x = (center_x % dist_lines) - 2*dist_lines;
+    while (pos_x < frame_width + 2*dist_lines) {
       base_grid_lines.push_back(cv::Vec4i(pos_x, -max_dim , pos_x, max_dim));
       pos_x += dist_lines;
     }
 
-    int pos_y = (middle_y % dist_lines) - dist_lines;
-    while (pos_y < frame_height) {
+    int pos_y = (center_y % dist_lines) - 2*dist_lines;
+    while (pos_y < frame_height + 2*dist_lines) {
       base_grid_lines.push_back(cv::Vec4i(-max_dim, pos_y, max_dim, pos_y));
       pos_y += dist_lines;
     }
@@ -766,10 +766,6 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
     y2 = y2_temp;
 
     // translates the image back and adds displacement
-//    x1 += frame_width/2.;
-//    y1 += frame_height/2.;
-//    x2 += frame_width/2.;
-//    y2 += frame_height/2.;
     x1 += (frame_width/2. + d_hat_h);
     y1 += (frame_height/2. + d_hat_v);
     x2 += (frame_width/2. + d_hat_h);
