@@ -69,7 +69,7 @@ double median(std::vector<line_t> lines, int op);
 double median(std::vector<double> scores);
 ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt);
 void ShowManyImages(string title, int nArgs, ...);
-cv::Mat generate_grid(double dist_lines, ibex::IntervalVector obs);
+cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs);
 
 // message convertion functions
 tiles_loc::State state_to_msg(double x1, double x2, double x3);
@@ -91,15 +91,18 @@ double compass, speed_x, speed_y, speed_z, speed_rho, speed_tht, speed_psi;  // 
 double sim_time;                   // simulation time from coppelia
 double prev_sim_time;              // previosu simulation time from coppelia
 
+std::vector<Vec4i> base_grid_lines;
+bool base_grid_created = false;
+
 // NOTE: Pose is used for debugging only, to be removed afterwards
 void pose_callback(const geometry_msgs::Pose::ConstPtr& msg);
 double pose_1, pose_2, pose_3;
 
 // image processing related variables
 bool display_window;
-double frame_width, frame_height;
+double frame_width=0, frame_height=0;
 
-const double dist_lines = 103.0;  //99.3;  //107.; //pixels between each pair of lines
+const int dist_lines = 103.0;  //pixels between each pair of lines
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "robot_node");
@@ -527,27 +530,25 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         if (abs(cos(angle_new)) < 0.2) {
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           bag_v.push_back(l);
-          ROS_WARN("V) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/dist_lines, l.dd);
+//          ROS_WARN("V) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/dist_lines, l.dd);
 
         } else if (abs(sin(angle_new)) < 0.2) {line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
           bag_h.push_back(l);
-          ROS_WARN("H) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/dist_lines, l.dd);
-
+//          ROS_WARN("H) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/dist_lines, l.dd);
         }
       }
 
       double d_hat_h = dist_lines * median(bag_h, 6);
       double d_hat_v = dist_lines * median(bag_v, 6);
-
+//      a_hat = median_angle;
 
       ROS_WARN("PARAMETERS -> d_hat_h = [%f] | d_hat_v = [%f] | a_hat = [%f]", d_hat_h, d_hat_v, a_hat);
-//      obs_3 = median_angle;
-//
+
       obs = ibex::IntervalVector({
           {d_hat_h, d_hat_h},
           {d_hat_v, d_hat_v},
           {a_hat, a_hat}
-      });
+      }).inflate(ERROR_OBS);
 
       Mat view_param = generate_grid(dist_lines, obs);
 
@@ -563,7 +564,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //        cv::imshow("morphology", morph);
         cv::imshow("lines", src);
         cv::imshow("rotated", rot);
-        cv::imshow("view_param", rot);
+        cv::imshow("view_param", view_param);
 
       }
     } else {
@@ -712,9 +713,71 @@ void speed_callback(const geometry_msgs::Pose::ConstPtr& msg) {
 //  ROS_INFO("[ROBOT] Received current speed in rho, theta and psi: [%f] [%f] [%f]", speed_rho, speed_tht, speed_psi);
 }
 
-cv::Mat generate_grid(double dist_lines, ibex::IntervalVector obs) {
-  cv::Mat image = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
+cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
+  double d_hat_h = obs[0].mid();
+  double d_hat_v = obs[1].mid();
+  double a_hat   = obs[2].mid();
 
-  return image;
+  int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
 
+  if (!base_grid_created) {
+    int middle_x = frame_width/2.;
+    int middle_y = frame_height/2.;
+
+    int n_steps_h = middle_x/dist_lines;
+    int n_steps_v = middle_y/dist_lines;
+
+    int pos_x = middle_x % dist_lines;
+    while (pos_x < frame_width) {
+      base_grid_lines.push_back(cv::Vec4i(pos_x, -max_dim , pos_x, max_dim));
+      pos_x += dist_lines;
+    }
+
+    int pos_y = middle_y % dist_lines;
+    while (pos_y < frame_height) {
+      base_grid_lines.push_back(cv::Vec4i(-max_dim, pos_y, max_dim, pos_y));
+      pos_y += dist_lines;
+    }
+
+    base_grid_created = true;
+  }
+
+  cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
+  std::vector<Vec4i> grid_lines = base_grid_lines;
+
+  for (Vec4i l : grid_lines) {
+    //translation in order to center lines around 0
+    ROS_WARN("â = [%f]", a_hat);
+    int x1 = l[0] - frame_width/2.;
+    int y1 = l[1] - frame_height/2.;
+    int x2 = l[2] - frame_width/2.;
+    int y2 = l[3] - frame_height/2.;
+
+    // applies the 2d rotation to the line, making it either horizontal or vertical
+    int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
+    int y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
+
+    int x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
+    int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
+
+//    x1 = (x1_temp > frame_width) ? frame_width : ((x1_temp < 0) ? 0 : x1_temp);
+//    x2 = (x2_temp > frame_width) ? frame_width : ((x2_temp < 0) ? 0 : x2_temp);
+//
+//    y1 = (y1_temp > frame_height) ? frame_height : ((y1_temp < 0) ? 0 : y1_temp);
+//    y2 = (y2_temp > frame_height) ? frame_height : ((y2_temp < 0) ? 0 : y2_temp);
+
+    // translates the image back and adds displacement
+    x1 += frame_width/2.;
+    y1 += frame_height/2.;
+    x2 += frame_width/2.;
+    y2 += frame_height/2.;
+//    //x1 += (frame_width/2. + d_hat_h);
+//    //y1 += (frame_height/2. + d_hat_v);
+//    //x2 += (frame_width/2. + d_hat_h);
+//    //y2 += (frame_height/2. + d_hat_v);
+
+    cv::line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(255,255,255), 3, cv::LINE_AA);
+  }
+
+  return img_grid;
 }
