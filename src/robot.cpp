@@ -10,9 +10,10 @@
 **   - std_msgs::Float64 compass         //  the robot's orientation
 **
 ** Publishers:
-**   - tiles_loc::State state_pred    // the evolved state, predicted from the state equations
-**   - tiles_loc::State state         // the current state of the robot
+**   - tiles_loc::State state_pred         // the evolved state, predicted from the state equations
+**   - tiles_loc::State state              // the current state of the robot
 **   - tiles_loc::Observation observation  // the observation vector, processed from the incoming image
+**   - std_msgs::Int32 mutex               // mutex specifying the resource locked for other nodes
 */
 
 #include "ros/ros.h"
@@ -26,6 +27,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 
 #include "std_msgs/Float64.h"
+#include "std_msgs/Int32.h"
 
 #include "tiles_loc/State.h"
 #include "tiles_loc/Observation.h"
@@ -83,7 +85,6 @@ void speed_callback(const geometry_msgs::Pose::ConstPtr& msg);
 void compass_callback(const std_msgs::Float64::ConstPtr& msg);
 void time_callback(const std_msgs::Float64::ConstPtr& msg);
 
-
 // node communication related variables
 ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);  // robot state from the localization method
 ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);        // observed parameters from the image
@@ -101,6 +102,7 @@ double pose_1, pose_2, pose_3;
 // image processing related variables
 bool display_window;
 double frame_width=0, frame_height=0;
+int mutex_ros;
 
 const int dist_lines = 103.0;  //pixels between each pair of lines
 
@@ -167,6 +169,10 @@ int main(int argc, char **argv) {
   // publisher of the predicted state and observation for localization
   ros::Publisher pub_state_pred = n.advertise<tiles_loc::State>("state_pred", 1000);
   ros::Publisher pub_y = n.advertise<tiles_loc::Observation>("observation", 1000);
+
+  // publisher o the mutex for synchronization
+  ros::Publisher pub_mutex = n.advertise<std_msgs::Int32>("mutex", 1000);
+  std_msgs::Int32 mutex_msg;
   // ------------------ //
 
   while (ros::ok()) {
@@ -178,8 +184,12 @@ int main(int argc, char **argv) {
     ROS_INFO("[ROBOT] Simulaton time step: [%f]", dt);
 
     state = state_loc;                             // start with the last state contracted from the localization
+
+//    mutex_msg.data = 0;
+//    pub_mutex.publish(mutex_msg);
+
     y = obs;                                        // use last observed parameters from the image
-    u1 = sqrt(speed_x*speed_x + speed_y*speed_y);  //sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
+    u1 = sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
     u2 = compass;                                  // u2 as the heading comes from the compass
 
     // publish current, unevolved state to be used by the control and viewer nodes
@@ -195,6 +205,9 @@ int main(int argc, char **argv) {
 
     tiles_loc::Observation observation_msg = observation_to_msg(y);
     pub_y.publish(observation_msg);
+
+//    mutex_msg.data = 1;
+//    pub_mutex.publish(mutex_msg);
 
     ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
     ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
@@ -319,9 +332,9 @@ ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, do
              state[0].lb(), state[0].ub(), state[1].lb(), state[1].ub(), state[2].lb(), state[2].ub());
 
   ibex::IntervalVector state_new(3, ibex::Interval::ALL_REALS);
-  state_new[0] = pose_1;//state[0] + dt * (u1 * ibex::cos(state[2]));
-  state_new[1] = pose_2;//state[1] + dt * (u1 * ibex::sin(state[2]));
-  state_new[2] = pose_3;//u2; //state[2] + dt * (u2);
+  state_new[0] = pose_1;//state[0] + dt * (u1 * ibex::cos(u2));
+  state_new[1] = pose_2;//state[1] + dt * (u1 * ibex::sin(u2));
+  state_new[2] = u2; //state[2] + dt * (u2);
 
   state_new[0] = state_new[0].inflate(ERROR_PRED);
   state_new[1] = state_new[1].inflate(ERROR_PRED);

@@ -43,7 +43,7 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
   w_y = msg->pose.position.y;
   w_th = tf::getYaw(msg->pose.orientation);
 
-  vibes::drawVehicle(w_x, w_y, w_th*180./M_PI, 0.3, "green");
+  vibes::drawVehicle(w_x, w_y, w_th*180./M_PI, 0.3, "red");
 }
 
 void state_loc_callback(const tiles_loc::State::ConstPtr& msg){
@@ -64,8 +64,8 @@ void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
     {msg->x3_lb, msg->x3_ub}}
   );
 
-  vibes::drawBox(state_pred.subvector(0, 1), "pink");
-  vibes::drawVehicle(state_pred[0].mid(), state_pred[1].mid(), (state_pred[2].mid())*180./M_PI, 0.3, "pink");
+  vibes::drawBox(state_pred.subvector(0, 1), "green");
+  vibes::drawVehicle(state_pred[0].mid(), state_pred[1].mid(), (state_pred[2].mid())*180./M_PI, 0.3, "green");
 }
 
 void pose_callback(const geometry_msgs::Pose& msg){
@@ -74,7 +74,7 @@ void pose_callback(const geometry_msgs::Pose& msg){
   y = msg.position.y;
   c = tf::getYaw(msg.orientation);
 
-  vibes::drawVehicle(x, y, c*180./M_PI, 0.3, "red");
+  vibes::drawVehicle(x, y, c*180./M_PI, 0.3, "pink");
 }
 
 int main(int argc, char **argv){

@@ -15,6 +15,7 @@
 #include <vector>
 #include <cmath>
 
+#include "std_msgs/Int32.h"
 #include "geometry_msgs/Quaternion.h"
 #include "geometry_msgs/PoseStamped.h"
 #include <tf2/LinearMath/Quaternion.h>
@@ -32,6 +33,9 @@ ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);  // observed par
 
 void state_pred_callback(const tiles_loc::State::ConstPtr& msg);
 void observation_callback(const tiles_loc::Observation::ConstPtr& msg);
+void mutex_callback(const std_msgs::Int32::ConstPtr& msg);
+
+int mutex_ros;
 
 tiles_loc::State state_to_msg(ibex::IntervalVector state);
 
@@ -49,6 +53,7 @@ int main(int argc, char **argv) {
   // subscriber to predicted state and measured observation from base
   ros::Subscriber sub_state_pred = n.subscribe("state_pred", 1000, state_pred_callback);
   ros::Subscriber sub_y = n.subscribe("observation", 1000, observation_callback);
+  ros::Subscriber sub_mutex = n.subscribe("mutex", 1000, mutex_callback);
   // ------------------ //
 
   // --- publishers --- //
@@ -57,60 +62,61 @@ int main(int argc, char **argv) {
   // ------------------ //
 
   while (ros::ok()) {
-    // use last observed parameters from the image TODO: add intervals to observations
-    y[0] = observation[0];
-    y[1] = observation[1];
-    y[2] = observation[2];
+//    if (mutex_ros == 1) {
+      // use last observed parameters from the image TODO: add intervals to observations
+      y[0] = observation[0];
+      y[1] = observation[1];
+      y[2] = observation[2];
 
-    // start with the last state contracted from the localization
-    x_pred[0] = state_pred[0];
-    x_pred[1] = state_pred[1];
-    x_pred[2] = state_pred[2];
+      // start with the last state contracted from the localization
+      x_pred[0] = state_pred[0];
+      x_pred[1] = state_pred[1];
+      x_pred[2] = state_pred[2];
 
-//    ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
-//    ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
-//
-//    // TODO: test having angle from the state, such as if there were a compass
-//    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2]; //X[2];
-//    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2]; //X[2];
-//
-////    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = x_pred[0], box0[4] = x_pred[1], box0[5] = x_pred[2];
-////    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = x_pred[0], box1[4] = x_pred[1], box1[5] = x_pred[2];
-//
-//    ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
-//    ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
-//
-//    ibex::CtcFwdBwd c1(f1);
-//    ibex::CtcFwdBwd c2(f2);
-//
-//    c1.contract(box0);
-//    c2.contract(box1);
-//
-//    ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
-//    box[0] = box0[0] | box1[0];
-//    box[1] = box0[1] | box1[1];
-//    box[2] = box0[2] | box1[2];
-//
-//    if(box[0].is_empty() or box[1].is_empty()) {
-//      ROS_WARN("[LOCALIZATION] X is empty");
-//
-//    } else {
-//      x_loc[0] = box[0];
-//      x_loc[1] = box[1];
-//      x_loc[2] = box[2];
-//    }
+      ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
+      ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
 
-    x_loc[0] = x_pred[0];
-    x_loc[1] = x_pred[1];
-    x_loc[2] = x_pred[2];
+      // TODO: test having angle from the state, such as if there were a compass
+      box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2]; //X[2];
+      box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2]; //X[2];
 
-    // publish evolved state and observation, to be used only by the localization node
-    tiles_loc::State state_loc_msg = state_to_msg(x_loc);
-    pub_state_loc.publish(state_loc_msg);
+//      box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = x_pred[0], box0[4] = x_pred[1], box0[5] = x_pred[2];
+//      box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = x_pred[0], box1[4] = x_pred[1], box1[5] = x_pred[2];
 
-    ROS_INFO("[LOCALIZATION] Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
-             x_loc[0].lb(), x_loc[0].ub(), x_loc[1].lb(), x_loc[1].ub(), x_loc[2].lb(), x_loc[2].ub());
+      ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
+      ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
 
+      ibex::CtcFwdBwd c1(f1);
+      ibex::CtcFwdBwd c2(f2);
+
+      c1.contract(box0);
+      c2.contract(box1);
+
+      ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
+      box[0] = box0[0] | box1[0];
+      box[1] = box0[1] | box1[1];
+      box[2] = box0[2] | box1[2];
+
+      if(box[0].is_empty() or box[1].is_empty()) {
+        ROS_WARN("[LOCALIZATION] X is empty");
+
+      } else {
+        x_loc[0] = box[0];
+        x_loc[1] = box[1];
+        x_loc[2] = box[2];
+      }
+
+ //     x_loc[0] = x_pred[0];
+ //     x_loc[1] = x_pred[1];
+ //     x_loc[2] = x_pred[2];
+
+      // publish evolved state and observation, to be used only by the localization node
+      tiles_loc::State state_loc_msg = state_to_msg(x_loc);
+      pub_state_loc.publish(state_loc_msg);
+
+      ROS_INFO("[LOCALIZATION] Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+               x_loc[0].lb(), x_loc[0].ub(), x_loc[1].lb(), x_loc[1].ub(), x_loc[2].lb(), x_loc[2].ub());
+ //   }
     ros::spinOnce();
     loop_rate.sleep();
   }
@@ -150,4 +156,9 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
   if (observation[0].is_empty() && observation[1].is_empty()) {
     ROS_WARN("[LOCALIZATION] Observation is empty.");
   }
+}
+
+void mutex_callback(const std_msgs::Int32::ConstPtr& msg) {
+  mutex_ros = msg->data;
+  ROS_INFO("[LOCALIZAION] Received mutex [%d]", mutex_ros);
 }
