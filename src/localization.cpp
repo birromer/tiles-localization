@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
   // ------------------ //
 
   while (ros::ok()) {
-//    if (mutex_ros == 1) {
+    if (mutex_ros == 1) {
       // use last observed parameters from the image TODO: add intervals to observations
       y[0] = observation[0];
       y[1] = observation[1];
@@ -106,9 +106,9 @@ int main(int argc, char **argv) {
         x_loc[2] = box[2];
       }
 
- //     x_loc[0] = x_pred[0];
- //     x_loc[1] = x_pred[1];
- //     x_loc[2] = x_pred[2];
+//      x_loc[0] = x_pred[0];
+//      x_loc[1] = x_pred[1];
+//      x_loc[2] = x_pred[2];
 
       // publish evolved state and observation, to be used only by the localization node
       tiles_loc::State state_loc_msg = state_to_msg(x_loc);
@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
 
       ROS_INFO("[LOCALIZATION] Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
                x_loc[0].lb(), x_loc[0].ub(), x_loc[1].lb(), x_loc[1].ub(), x_loc[2].lb(), x_loc[2].ub());
- //   }
+    }
     ros::spinOnce();
     loop_rate.sleep();
   }

@@ -185,8 +185,8 @@ int main(int argc, char **argv) {
 
     state = state_loc;                             // start with the last state contracted from the localization
 
-//    mutex_msg.data = 0;
-//    pub_mutex.publish(mutex_msg);
+    mutex_msg.data = 0;
+    pub_mutex.publish(mutex_msg);
 
     y = obs;                                        // use last observed parameters from the image
     u1 = sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
@@ -206,8 +206,8 @@ int main(int argc, char **argv) {
     tiles_loc::Observation observation_msg = observation_to_msg(y);
     pub_y.publish(observation_msg);
 
-//    mutex_msg.data = 1;
-//    pub_mutex.publish(mutex_msg);
+    mutex_msg.data = 1;
+    pub_mutex.publish(mutex_msg);
 
     ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
     ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
