@@ -13,7 +13,6 @@
 **   - tiles_loc::State state_pred         // the evolved state, predicted from the state equations
 **   - tiles_loc::State state              // the current state of the robot
 **   - tiles_loc::Observation observation  // the observation vector, processed from the incoming image
-**   - std_msgs::Int32 mutex               // mutex specifying the resource locked for other nodes
 */
 
 #include "ros/ros.h"
@@ -69,12 +68,11 @@ double modulo(double a, double b);
 int sign(double x);
 double median(std::vector<line_t> lines, int op);
 double median(std::vector<double> scores);
-ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt);
-void ShowManyImages(string title, int nArgs, ...);
+ibex::IntervalVector compute_change_dt(ibex::IntervalVector state, double u1, double u2, double dt);
 cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs);
+void ShowManyImages(string title, int nArgs, ...);
 
 // message convertion functions
-tiles_loc::State state_to_msg(double x1, double x2, double x3);
 tiles_loc::State state_to_msg(ibex::IntervalVector state);
 tiles_loc::Observation observation_to_msg(ibex::IntervalVector  y);
 
@@ -89,8 +87,8 @@ void time_callback(const std_msgs::Float64::ConstPtr& msg);
 ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);  // robot state from the localization method
 ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);        // observed parameters from the image
 double compass, speed_x, speed_y, speed_z, speed_rho, speed_tht, speed_psi;  // input from the sensors
-double sim_time;                   // simulation time from coppelia
-double prev_sim_time;              // previosu simulation time from coppelia
+double sim_time;       // simulation time from coppelia
+double prev_sim_time;  // previosu simulation time from coppelia
 
 std::vector<Vec4i> base_grid_lines;
 bool base_grid_created = false;
@@ -102,7 +100,6 @@ double pose_1, pose_2, pose_3;
 // image processing related variables
 bool display_window;
 double frame_width=0, frame_height=0;
-int mutex_ros;
 
 const int dist_lines = 103.0;  //pixels between each pair of lines
 
@@ -169,24 +166,18 @@ int main(int argc, char **argv) {
   // publisher of the predicted state and observation for localization
   ros::Publisher pub_state_pred = n.advertise<tiles_loc::State>("state_pred", 1000);
   ros::Publisher pub_y = n.advertise<tiles_loc::Observation>("observation", 1000);
-
-  // publisher o the mutex for synchronization
-  ros::Publisher pub_mutex = n.advertise<std_msgs::Int32>("mutex", 1000);
-  std_msgs::Int32 mutex_msg;
   // ------------------ //
 
   while (ros::ok()) {
     std::cout << " =================================================================== " << std::endl;
     std::cout << "--------------------- [ROBOT] beggining ros loop ------------------- " << std::endl;
     std::cout << " =================================================================== " << std::endl;
+
     dt = sim_time - prev_sim_time;
     prev_sim_time = sim_time;
     ROS_INFO("[ROBOT] Simulaton time step: [%f]", dt);
 
     state = state_loc;                             // start with the last state contracted from the localization
-
-    mutex_msg.data = 0;
-    pub_mutex.publish(mutex_msg);
 
     y = obs;                                        // use last observed parameters from the image
     u1 = sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
@@ -197,7 +188,7 @@ int main(int argc, char **argv) {
     pub_state.publish(state_msg);
 
     // evolve state according to input and state equations
-    state = integration_euler(state, u1, u2, dt);
+    state = compute_change_dt(state, u1, u2, dt);
 
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_pred_msg = state_to_msg(state);
@@ -205,20 +196,6 @@ int main(int argc, char **argv) {
 
     tiles_loc::Observation observation_msg = observation_to_msg(y);
     pub_y.publish(observation_msg);
-
-    mutex_msg.data = 1;
-    pub_mutex.publish(mutex_msg);
-
-    ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
-    ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
-
-    // comparando Y com X
-    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y[0].mid()-state[0].mid())), sin(M_PI*(y[1].mid()-state[1].mid())), sin(y[2].mid()-state[2].mid()));
-    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y[0].mid()-state[1].mid())), sin(M_PI*(y[1].mid()-state[0].mid())), cos(y[2].mid()-state[2].mid()));
-
-    // comparando Y com pose
-//    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
-//    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-pose_2)), sin(M_PI*(y2-pose_1)), cos(y3-pose_3));
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -327,35 +304,23 @@ int sign(double x) {
   return 1;
 }
 
-ibex::IntervalVector integration_euler(ibex::IntervalVector state, double u1, double u2, double dt) {
+ibex::IntervalVector compute_change_dt(ibex::IntervalVector state, double u1, double u2, double dt) {
   ROS_WARN("[ROBOT] STARTING STATE -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
              state[0].lb(), state[0].ub(), state[1].lb(), state[1].ub(), state[2].lb(), state[2].ub());
 
-  ibex::IntervalVector state_new(3, ibex::Interval::ALL_REALS);
-  state_new[0] = pose_1;//state[0] + dt * (u1 * ibex::cos(u2));
-  state_new[1] = pose_2;//state[1] + dt * (u1 * ibex::sin(u2));
-  state_new[2] = u2; //state[2] + dt * (u2);
+  ibex::IntervalVector change_dt(3, ibex::Interval::ALL_REALS);
+  change_dt[0] = (u1 * ibex::cos(u2)) * dt;
+  change_dt[1] = (u1 * ibex::sin(u2)) * dt;
+  change_dt[2] = u2;// * dt;
 
-  state_new[0] = state_new[0].inflate(ERROR_PRED);
-  state_new[1] = state_new[1].inflate(ERROR_PRED);
-  state_new[2] = state_new[2].inflate(ERROR_PRED);
+  change_dt[0] = change_dt[0].inflate(ERROR_PRED);
+  change_dt[1] = change_dt[1].inflate(ERROR_PRED);
+  change_dt[2] = change_dt[2].inflate(ERROR_PRED);
 
-  ROS_WARN("[ROBOT] Updated state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f]) || u1: [%f] | u2: [%f]",
-             state_new[0].lb(), state_new[0].ub(), state_new[1].lb(), state_new[1].ub(), state_new[2].lb(), state_new[2].ub(), u1, u2);
+  ROS_WARN("[ROBOT] Change on state with dt = [%f] -> dx1: ([%f],[%f]) | dx2: ([%f],[%f]) | dx3: ([%f],[%f])",
+             dt, change_dt[0].lb(), change_dt[0].ub(), change_dt[1].lb(), change_dt[1].ub(), change_dt[2].lb(), change_dt[2].ub());
 
   return state_new;
-}
-
-tiles_loc::State state_to_msg(double x1, double x2, double x3) {
-    tiles_loc::State msg;
-    msg.x1_lb = x1;
-    msg.x1_ub = x1;
-    msg.x2_lb = x2;
-    msg.x2_ub = x2;
-    msg.x3_lb = x3;
-    msg.x3_ub = x3;
-
-    return msg;
 }
 
 tiles_loc::State state_to_msg(ibex::IntervalVector state) {
@@ -588,6 +553,64 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
   }
 }
 
+cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
+  double d_hat_h = obs[0].mid();
+  double d_hat_v = obs[1].mid();
+  double a_hat   = obs[2].mid();
+
+  int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
+
+  if (!base_grid_created) {
+    // center of the image, where tiles start with zero displacement
+    int center_x = frame_width/2.;
+    int center_y = frame_height/2.;
+
+    // create a line every specified number of pixels
+    // adds one before and one after because occluded areas may appear
+    int pos_x = (center_x % dist_lines) - 2*dist_lines;
+    while (pos_x < frame_width + 2*dist_lines) {
+      base_grid_lines.push_back(cv::Vec4i(pos_x, -max_dim , pos_x, max_dim));
+      pos_x += dist_lines;
+    }
+
+    int pos_y = (center_y % dist_lines) - 2*dist_lines;
+    while (pos_y < frame_height + 2*dist_lines) {
+      base_grid_lines.push_back(cv::Vec4i(-max_dim, pos_y, max_dim, pos_y));
+      pos_y += dist_lines;
+    }
+
+    base_grid_created = true;
+  }
+
+  cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
+  std::vector<Vec4i> grid_lines = base_grid_lines;
+
+  for (Vec4i l : grid_lines) {
+    //translation in order to center lines around 0
+    int x1 = l[0] - frame_width/2.  + d_hat_h;
+    int y1 = l[1] - frame_height/2. + d_hat_v;
+    int x2 = l[2] - frame_width/2.  + d_hat_h;
+    int y2 = l[3] - frame_height/2. + d_hat_v;
+
+    // applies the 2d rotation to the line, making it either horizontal or vertical
+    int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
+    int y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
+
+    int x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
+    int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
+
+    // translates the image back and adds displacement
+    x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
+    y1 = (y1_temp + frame_height/2.);// + d_hat_v);
+    x2 = (x2_temp + frame_width/2. );//+ d_hat_h);
+    y2 = (y2_temp + frame_height/2.);// + d_hat_v);
+
+    cv::line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(255,255,255), 3, cv::LINE_AA);
+  }
+
+  return img_grid;
+}
+
 void ShowManyImages(string title, int nArgs, ...) {
 // from https://github.com/opencv/opencv/wiki/DisplayManyImages
 
@@ -715,68 +738,9 @@ void speed_callback(const geometry_msgs::Pose::ConstPtr& msg) {
   speed_y = msg->position.y;
   speed_z = msg->position.z;
 
-//  speed_rho = msg->orientation.x;
-//  speed_tht = msg->orientation.y;
-//  speed_psi = msg->orientation.z;
+  speed_rho = msg->orientation.x;
+  speed_tht = msg->orientation.y;
+  speed_psi = msg->orientation.z;
 
-  ROS_INFO("[ROBOT] Received current speed in x, y and z: [%f] [%f] [%f]", speed_x, speed_y, speed_z);
-//  ROS_INFO("[ROBOT] Received current speed in rho, theta and psi: [%f] [%f] [%f]", speed_rho, speed_tht, speed_psi);
-}
-
-cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
-  double d_hat_h = obs[0].mid();
-  double d_hat_v = obs[1].mid();
-  double a_hat   = obs[2].mid();
-
-  int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
-
-  if (!base_grid_created) {
-    // center of the image, where tiles start with zero displacement
-    int center_x = frame_width/2.;
-    int center_y = frame_height/2.;
-
-    // create a line every specified number of pixels
-    // adds one before and one after because occluded areas may appear
-    int pos_x = (center_x % dist_lines) - 2*dist_lines;
-    while (pos_x < frame_width + 2*dist_lines) {
-      base_grid_lines.push_back(cv::Vec4i(pos_x, -max_dim , pos_x, max_dim));
-      pos_x += dist_lines;
-    }
-
-    int pos_y = (center_y % dist_lines) - 2*dist_lines;
-    while (pos_y < frame_height + 2*dist_lines) {
-      base_grid_lines.push_back(cv::Vec4i(-max_dim, pos_y, max_dim, pos_y));
-      pos_y += dist_lines;
-    }
-
-    base_grid_created = true;
-  }
-
-  cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
-  std::vector<Vec4i> grid_lines = base_grid_lines;
-
-  for (Vec4i l : grid_lines) {
-    //translation in order to center lines around 0
-    int x1 = l[0] - frame_width/2.  + d_hat_h;
-    int y1 = l[1] - frame_height/2. + d_hat_v;
-    int x2 = l[2] - frame_width/2.  + d_hat_h;
-    int y2 = l[3] - frame_height/2. + d_hat_v;
-
-    // applies the 2d rotation to the line, making it either horizontal or vertical
-    int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
-    int y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
-
-    int x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
-    int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
-
-    // translates the image back and adds displacement
-    x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
-    y1 = (y1_temp + frame_height/2.);// + d_hat_v);
-    x2 = (x2_temp + frame_width/2. );//+ d_hat_h);
-    y2 = (y2_temp + frame_height/2.);// + d_hat_v);
-
-    cv::line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(255,255,255), 3, cv::LINE_AA);
-  }
-
-  return img_grid;
+  ROS_INFO("[ROBOT] Received current speed in x, y and z: [%f] [%f] [%f] | rho, theta and psi: [%f] [%f] [%f]", speed_x, speed_y, speed_z, speed_rho, speed_tht, speed_psi);
 }
