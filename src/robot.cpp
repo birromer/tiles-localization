@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
   ros::Publisher pub_state = n.advertise<tiles_loc::State>("state", 1000);
 
   // publisher of the predicted state and observation for localization
-  ros::Publisher pub_state_pred = n.advertise<tiles_loc::State>("state_pred", 1000);
+  ros::Publisher pub_dt_state_pred = n.advertise<tiles_loc::State>("dt_state_pred", 1000);
   ros::Publisher pub_y = n.advertise<tiles_loc::Observation>("observation", 1000);
   // ------------------ //
 
@@ -171,8 +171,8 @@ int main(int argc, char **argv) {
     ROS_INFO("[ROBOT] Simulaton time step: [%f]", dt);
 
     state = state_loc;                             // start with the last state contracted from the localization
+    y = obs;                                       // use last observed parameters from the image
 
-    y = obs;                                        // use last observed parameters from the image
     u1 = sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
     u2 = compass;                                  // u2 as the heading comes from the compass
 

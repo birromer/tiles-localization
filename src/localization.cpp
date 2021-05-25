@@ -4,8 +4,8 @@
 ** the observed parameters from the input images
 **
 ** Subscribers:
-**   - geometry_msgs::PoseStamped state_pred  // the predicted state from the state model
-**   - tiles_loc::Observation observation     // the observation vector, processed from the input image
+**   - tiles_loc::State dt_state_pred      // the change within dt of the predicted state from the state model
+**   - tiles_loc::Observation observation  // the observation vector, processed from the input image
 **
 ** Publishers:
 **   - geometry_msgs::PoseStamped state_loc     // the estimation of the robot's state
@@ -27,13 +27,14 @@
 #include <codac.h>
 #include <codac-rob.h>
 
-
-ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);  // predicted state of the robot, from the base node callback
-ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);  // observed parameters, from the base node callback
+ibex::IntervalVector d_state_pred(3, ibex::Interval::ALL_REALS);  // change in the state within dt, from the state equations
+ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);    // observed parameters, from the base node callback
+double gt_1, gt_2, gt_3;  // ground truth //NOTE: only for debugging//
 
 void state_pred_callback(const tiles_loc::State::ConstPtr& msg);
 void observation_callback(const tiles_loc::Observation::ConstPtr& msg);
 
+ibex::IntervalVector integration_euler(ibex::IntervalVector state, ibex::IntervalVector d_state, double dt);
 tiles_loc::State state_to_msg(ibex::IntervalVector state);
 
 int main(int argc, char **argv) {
@@ -42,9 +43,8 @@ int main(int argc, char **argv) {
 
   ros::Rate loop_rate(25);  // 25Hz frequency
 
-  ibex::IntervalVector x_loc(3, ibex::Interval::ALL_REALS);   // estimated state of the robot, from the contractors
-  ibex::IntervalVector x_pred(3, ibex::Interval::ALL_REALS);  // predicted state of the robot, from the equations
-  ibex::IntervalVector y(3, ibex::Interval::ALL_REALS);       // observed parameters
+  ibex::IntervalVector x(3, ibex::Interval::ALL_REALS);  // state of the robot
+  ibex::IntervalVector y(3, ibex::Interval::ALL_REALS);  // observed parameters
 
   // --- subscribers --- //
   // subscriber to predicted state and measured observation from base
@@ -57,11 +57,24 @@ int main(int argc, char **argv) {
   ros::Publisher pub_state_loc = n.advertise<tiles_loc::State>("state_loc", 1000);
   // ------------------ //
 
+  double pose_1, pose_2, pose_3;
+
   while (ros::ok()) {
-    // use last observed parameters from the image TODO: add intervals to observations
+    //NOTE: ground truth used for debugging only
+    gt_1 = pose_1, gt_2 = pose_2, gt_3 = pose_3;
+
+    // get last received derivative of x
+    dx[0] = d_state_pred[0];
+    dx[1] = d_state_pred[1];
+    dx[2] = d_state_pred[2];
+
+    // use last observed parameters from the image
     y[0] = observation[0];
     y[1] = observation[1];
     y[2] = observation[2];
+
+    // predict the state according to state equations
+    x = integration_euler(x, dx, dt);
 
     // start with the last state contracted from the localization
     x_pred[0] = state_pred[0];
@@ -101,11 +114,9 @@ int main(int argc, char **argv) {
       x_loc[2] = box[2];
     }
 
-    ROS_INFO("[LOCALIZATION] Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
-             x_loc[0].lb(), x_loc[0].ub(), x_loc[1].lb(), x_loc[1].ub(), x_loc[2].lb(), x_loc[2].ub());
-
-    ROS_WARN("Sent parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
+    ROS_WARN("Using parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
     ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
+    ROS_WARN("Using state: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
     // comparando Y com X
     ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y[0].mid()-state[0].mid())), sin(M_PI*(y[1].mid()-state[1].mid())), sin(y[2].mid()-state[2].mid()));
@@ -122,6 +133,9 @@ int main(int argc, char **argv) {
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_loc_msg = state_to_msg(x_loc);
     pub_state_loc.publish(state_loc_msg);
+
+    ROS_INFO("[LOCALIZATION] Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+             x_loc[0].lb(), x_loc[0].ub(), x_loc[1].lb(), x_loc[1].ub(), x_loc[2].lb(), x_loc[2].ub());
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -162,4 +176,11 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
   if (observation[0].is_empty() && observation[1].is_empty()) {
     ROS_WARN("[LOCALIZATION] Observation is empty.");
   }
+}
+
+//NOTE: Used for debugging only
+void pose_callback(const geometry_msgs::Pose& msg){
+  gt_1 = msg.position.x;
+  gt_2 = msg.position.y;
+  gt_3 = tf::getYaw(msg.orientation);
 }
