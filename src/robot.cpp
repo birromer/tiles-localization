@@ -93,10 +93,6 @@ double prev_sim_time;  // previosu simulation time from coppelia
 std::vector<Vec4i> base_grid_lines;
 bool base_grid_created = false;
 
-// NOTE: Pose is used for debugging only, to be removed afterwards
-void pose_callback(const geometry_msgs::Pose::ConstPtr& msg);
-double pose_1, pose_2, pose_3;
-
 // image processing related variables
 bool display_window;
 double frame_width=0, frame_height=0;
@@ -154,9 +150,6 @@ int main(int argc, char **argv) {
 
   // subscriber to the updated state from the localization subsystem
   ros::Subscriber sub_loc = n.subscribe("state_loc", 1000, state_loc_callback);
-
-  // NOTE: Pose only for debugging, remove later
-  ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
   // ------------------ //
 
   // --- publishers --- //
@@ -714,13 +707,6 @@ void ShowManyImages(string title, int nArgs, ...) {
 
   // End the number of arguments
   va_end(args);
-}
-
-void pose_callback(const geometry_msgs::Pose::ConstPtr& msg) {
-    geometry_msgs::Pose pose;
-    pose_1 = msg->position.x;
-    pose_2 = msg->position.y;
-    pose_3 = tf::getYaw(msg->orientation);;
 }
 
 void compass_callback(const std_msgs::Float64::ConstPtr& msg) {
