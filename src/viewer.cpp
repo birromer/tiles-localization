@@ -57,7 +57,7 @@ void state_loc_callback(const tiles_loc::State::ConstPtr& msg){
   vibes::drawVehicle(state_loc[0].mid(), state_loc[1].mid(), (state_loc[2].mid())*180./M_PI, 0.3, "blue");
 }
 
-void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
+void state_pred_dt_callback(const tiles_loc::State::ConstPtr& msg) {
   IntervalVector state_pred({
     {msg->x1_lb, msg->x1_ub},
     {msg->x2_lb, msg->x2_ub},
@@ -90,7 +90,7 @@ int main(int argc, char **argv){
 
   ros::Subscriber sub_waypoint = n.subscribe("waypoint", 1000, waypoint_callback);
   ros::Subscriber sub_state_loc = n.subscribe("state_loc", 1000, state_loc_callback);
-  ros::Subscriber sub_state_pred = n.subscribe("state_pred", 1000, state_pred_callback);
+  ros::Subscriber sub_state_pred = n.subscribe("state_pred_dt", 1000, state_pred_dt_callback);
   ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
 
   ros::spin();

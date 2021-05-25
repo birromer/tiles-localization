@@ -19,11 +19,7 @@
 
 #include "geometry_msgs/Pose.h"
 #include "geometry_msgs/Point.h"
-#include "geometry_msgs/Quaternion.h"
 #include "geometry_msgs/PoseStamped.h"
-
-#include "tf/tf.h"
-#include <tf2/LinearMath/Quaternion.h>
 
 #include "std_msgs/Float64.h"
 #include "std_msgs/Int32.h"
@@ -108,8 +104,9 @@ int main(int argc, char **argv) {
   double dt;
 
   // read initial values from the launcher
-  ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);      // current state of the robot
-  ibex::IntervalVector y(3, ibex::Interval::ALL_REALS);      // current state of the robot
+  ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);          // current state of the robot
+  ibex::IntervalVector state_pred_dt(3, ibex::Interval::ALL_REALS);  // change of state within time step
+  ibex::IntervalVector y(3, ibex::Interval::ALL_REALS);              // current state of the robot
 
   double x1, x2, x3;  // initial parameters for the state
   n.param<double>("pos_x_init", x1, 0);
@@ -180,11 +177,11 @@ int main(int argc, char **argv) {
     u2 = compass;                                  // u2 as the heading comes from the compass
 
     // evolve state according to input and state equations
-    dt_state_pred = compute_change_dt(state, u1, u2, dt);
+    state_pred_dt = compute_change_dt(state, u1, u2, dt);
 
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_pred_dt_msg = state_to_msg(state_pred_dt);
-    pub_state_pred.publish(state_pred_dt_msg);
+    pub_state_pred_dt.publish(state_pred_dt_msg);
 
     tiles_loc::Observation observation_msg = observation_to_msg(y);
     pub_y.publish(observation_msg);
@@ -302,12 +299,12 @@ ibex::IntervalVector compute_change_dt(ibex::IntervalVector state, double u1, do
   ibex::IntervalVector change_dt(3, ibex::Interval::ALL_REALS);
   change_dt[0] = (u1 * ibex::cos(u2)).inflate(ERROR_PRED) * dt;
   change_dt[1] = (u1 * ibex::sin(u2)).inflate(ERROR_PRED) * dt;
-  change_dt[2] = u2.inflate(ERROR_PRED);// * dt;
+  change_dt[2] = ibex::Interval(u2).inflate(ERROR_PRED);// * dt;
 
   ROS_WARN("[ROBOT] Change on state with dt = [%f] -> dx1: ([%f],[%f]) | dx2: ([%f],[%f]) | dx3: ([%f],[%f])",
              dt, change_dt[0].lb(), change_dt[0].ub(), change_dt[1].lb(), change_dt[1].ub(), change_dt[2].lb(), change_dt[2].ub());
 
-  return state_new;
+  return change_dt;
 }
 
 tiles_loc::State state_to_msg(ibex::IntervalVector state) {
@@ -526,8 +523,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         cv::imshow("lines", src);
         cv::imshow("rotated", rot);
         cv::imshow("view_param", view_param);
-
       }
+
     } else {
       ROS_WARN("Not enought good lines ([%ld])", lines_good.size());
 

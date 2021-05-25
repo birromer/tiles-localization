@@ -18,7 +18,9 @@
 #include "std_msgs/Int32.h"
 #include "geometry_msgs/Quaternion.h"
 #include "geometry_msgs/PoseStamped.h"
+
 #include <tf2/LinearMath/Quaternion.h>
+#include "tf/tf.h"
 
 #include "tiles_loc/Observation.h"
 #include "tiles_loc/State.h"
@@ -33,8 +35,7 @@ double gt_1, gt_2, gt_3;  // ground truth //NOTE: only for debugging//
 
 void state_pred_dt_callback(const tiles_loc::State::ConstPtr& msg);
 void observation_callback(const tiles_loc::Observation::ConstPtr& msg);
-
-ibex::IntervalVector integration_euler(ibex::IntervalVector state, ibex::IntervalVector d_state, double dt);
+void pose_callback(const geometry_msgs::Pose& msg);  //NOTE: used only for debugging
 tiles_loc::State state_to_msg(ibex::IntervalVector state);
 
 int main(int argc, char **argv) {
@@ -45,11 +46,15 @@ int main(int argc, char **argv) {
 
   ibex::IntervalVector x(3, ibex::Interval::ALL_REALS);  // state of the robot
   ibex::IntervalVector y(3, ibex::Interval::ALL_REALS);  // observed parameters
+  double pose_1, pose_2, pose_3;                         // NOTE: debugging only
 
   // --- subscribers --- //
   // subscriber to predicted state and measured observation from base
-  ros::Subscriber sub_state_pred_dt = n.subscribe("state_pred_dt", 1000, state_pred_callback);
+  ros::Subscriber sub_state_pred_dt = n.subscribe("state_pred_dt", 1000, state_pred_dt_callback);
   ros::Subscriber sub_y = n.subscribe("observation", 1000, observation_callback);
+
+  //NOTE: ground truth used only for debugging
+  ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
   // ------------------ //
 
   // --- publishers --- //
@@ -57,14 +62,15 @@ int main(int argc, char **argv) {
   ros::Publisher pub_state_loc = n.advertise<tiles_loc::State>("state_loc", 1000);
   // ------------------ //
 
-  double pose_1, pose_2, pose_3;
-
   while (ros::ok()) {
     //NOTE: ground truth used for debugging only
     gt_1 = pose_1, gt_2 = pose_2, gt_3 = pose_3;
 
     // predict the state according to the state equations
-    x = x + d_state_pred;
+//    x = x + d_state_pred;
+    x[0] = pose_1;
+    x[1] = pose_2;
+    x[2] = pose_3;
 
     // use last observed parameters from the image
     y[0] = observation[0];
@@ -75,11 +81,11 @@ int main(int argc, char **argv) {
     ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
 
     // TODO: test having angle from the state, such as if there were a compass
-    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2]; //X[2];
-    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2]; //X[2];
+    box0[0] = x[0], box0[1] = x[1], box0[2] = x[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2];
+    box1[0] = x[0], box1[1] = x[1], box1[2] = x[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2];
 
-//    box0[0] = x_pred[0], box0[1] = x_pred[1], box0[2] = x_pred[2], box0[3] = x_pred[0], box0[4] = x_pred[1], box0[5] = x_pred[2];
-//    box1[0] = x_pred[0], box1[1] = x_pred[1], box1[2] = x_pred[2], box1[3] = x_pred[0], box1[4] = x_pred[1], box1[5] = x_pred[2];
+//    box0[0] = x[0], box0[1] = x[1], box0[2] = x[2], box0[3] = x[0], box0[4] = x[1], box0[5] = x[2];
+//    box1[0] = x[0], box1[1] = x[1], box1[2] = x[2], box1[3] = x[0], box1[4] = x[1], box1[5] = x[2];
 
     ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
     ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
@@ -99,33 +105,28 @@ int main(int argc, char **argv) {
       ROS_WARN("[LOCALIZATION] X is empty");
 
     } else {
-      x_loc[0] = box[0];
-      x_loc[1] = box[1];
-      x_loc[2] = box[2];
+      x[0] = box[0];
+      x[1] = box[1];
+      x[2] = box[2];
     }
+
+    // publish evolved state and observation, to be used only by the localization node
+    tiles_loc::State state_loc_msg = state_to_msg(x);
+    pub_state_loc.publish(state_loc_msg);
+
+    ROS_INFO("[LOCALIZATION] Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+             x[0].lb(), x[0].ub(), x[1].lb(), x[1].ub(), x[2].lb(), x[2].ub());
 
     ROS_WARN("Using parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
     ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
-    ROS_WARN("Using state: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
     // comparando Y com X
-    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y[0].mid()-state[0].mid())), sin(M_PI*(y[1].mid()-state[1].mid())), sin(y[2].mid()-state[2].mid()));
-    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y[0].mid()-state[1].mid())), sin(M_PI*(y[1].mid()-state[0].mid())), cos(y[2].mid()-state[2].mid()));
+    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y[0].mid()-x[0].mid())), sin(M_PI*(y[1].mid()-x[1].mid())), sin(y[2].mid()-x[2].mid()));
+    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y[0].mid()-x[1].mid())), sin(M_PI*(y[1].mid()-x[0].mid())), cos(y[2].mid()-x[2].mid()));
 
     // comparando Y com pose
 //    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
 //    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-pose_2)), sin(M_PI*(y2-pose_1)), cos(y3-pose_3));
-
-//    x_loc[0] = x_pred[0];
-//    x_loc[1] = x_pred[1];
-//    x_loc[2] = x_pred[2];
-
-    // publish evolved state and observation, to be used only by the localization node
-    tiles_loc::State state_loc_msg = state_to_msg(x_loc);
-    pub_state_loc.publish(state_loc_msg);
-
-    ROS_INFO("[LOCALIZATION] Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
-             x_loc[0].lb(), x_loc[0].ub(), x_loc[1].lb(), x_loc[1].ub(), x_loc[2].lb(), x_loc[2].ub());
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -145,13 +146,13 @@ tiles_loc::State state_to_msg(ibex::IntervalVector state) {
     return msg;
 }
 
-void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
+void state_pred_dt_callback(const tiles_loc::State::ConstPtr& msg) {
 
-  state_pred[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
-  state_pred[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
-  state_pred[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
+  state_pred_dt[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
+  state_pred_dt[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
+  state_pred_dt[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
 
-  ROS_INFO("[LOCALIZATION] Received predicted state -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
+  ROS_INFO("[LOCALIZATION] Received predicted state change-> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
            msg->x1_lb, msg->x1_ub, msg->x2_lb, msg->x2_ub, msg->x3_lb, msg->x3_ub);
 }
 
