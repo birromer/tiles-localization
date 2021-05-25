@@ -10,8 +10,8 @@
 **   - std_msgs::Float64 compass         //  the robot's orientation
 **
 ** Publishers:
-**   - tiles_loc::State state_pred         // the evolved state, predicted from the state equations
-**   - tiles_loc::State state              // the current state of the robot
+**   - tiles_loc::State state_pred_dt      // change within dt of the evolved state, predicted from the state equations
+**   - tiles_loc::State state              // the current state of the robot, for synchronization
 **   - tiles_loc::Observation observation  // the observation vector, processed from the incoming image
 */
 
@@ -103,9 +103,8 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "robot_node");
   ros::NodeHandle n;
 
-  ros::Rate loop_rate(25);  // 25Hz frequency
+  ros::Rate loop_rate(50);  // 50Hz frequency
 
-//  double dt = 0.025;  // time step
   double dt;
 
   // read initial values from the launcher
@@ -157,7 +156,7 @@ int main(int argc, char **argv) {
   ros::Publisher pub_state = n.advertise<tiles_loc::State>("state", 1000);
 
   // publisher of the predicted state and observation for localization
-  ros::Publisher pub_dt_state_pred = n.advertise<tiles_loc::State>("dt_state_pred", 1000);
+  ros::Publisher pub_state_pred_dt = n.advertise<tiles_loc::State>("state_pred_dt", 1000);
   ros::Publisher pub_y = n.advertise<tiles_loc::Observation>("observation", 1000);
   // ------------------ //
 
@@ -165,6 +164,10 @@ int main(int argc, char **argv) {
     std::cout << " =================================================================== " << std::endl;
     std::cout << "--------------------- [ROBOT] beggining ros loop ------------------- " << std::endl;
     std::cout << " =================================================================== " << std::endl;
+
+    // publish current, unevolved state to be used by the control and viewer nodes
+    tiles_loc::State state_msg = state_to_msg(state);
+    pub_state.publish(state_msg);
 
     dt = sim_time - prev_sim_time;
     prev_sim_time = sim_time;
@@ -176,16 +179,12 @@ int main(int argc, char **argv) {
     u1 = sqrt(speed_x*speed_x + speed_y*speed_y);  // u1 as the speed comes from the velocity in x and y
     u2 = compass;                                  // u2 as the heading comes from the compass
 
-    // publish current, unevolved state to be used by the control and viewer nodes
-    tiles_loc::State state_msg = state_to_msg(state);
-    pub_state.publish(state_msg);
-
     // evolve state according to input and state equations
-    state = compute_change_dt(state, u1, u2, dt);
+    dt_state_pred = compute_change_dt(state, u1, u2, dt);
 
     // publish evolved state and observation, to be used only by the localization node
-    tiles_loc::State state_pred_msg = state_to_msg(state);
-    pub_state_pred.publish(state_pred_msg);
+    tiles_loc::State state_pred_dt_msg = state_to_msg(state_pred_dt);
+    pub_state_pred.publish(state_pred_dt_msg);
 
     tiles_loc::Observation observation_msg = observation_to_msg(y);
     pub_y.publish(observation_msg);
@@ -201,6 +200,23 @@ double sawtooth(double x){
   return 2.*atan(tan(x/2.));
 }
 
+double median(std::vector<double> scores) {
+  //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
+  size_t size = scores.size();
+
+  if (size == 0) {
+    return 0;  // undefined
+  } else {
+    sort(scores.begin(), scores.end());  // sort elements and take middle one
+
+    if (size % 2 == 0) {
+      return (scores[size / 2 - 1] + scores[size / 2]) / 2;
+    } else {
+      return scores[size / 2];
+    }
+  }
+}
+
 /* use op to select which field to be used for comparisson:
 **   1 = angle
 **   2 = angle4
@@ -210,7 +226,6 @@ double sawtooth(double x){
 **   6 = dd
 */
 double median(std::vector<line_t> lines, int op) {
-  //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
   size_t size = lines.size();
 
   if (size == 0) {
@@ -265,23 +280,6 @@ double median(std::vector<line_t> lines, int op) {
   }
 }
 
-double median(std::vector<double> scores) {
-  //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
-  size_t size = scores.size();
-
-  if (size == 0) {
-    return 0;  // undefined
-  } else {
-    sort(scores.begin(), scores.end());  // sort elements and take middle one
-
-    if (size % 2 == 0) {
-      return (scores[size / 2 - 1] + scores[size / 2]) / 2;
-    } else {
-      return scores[size / 2];
-    }
-  }
-}
-
 double modulo(double a, double b) {
   double r = a/b - floor(a/b);
   if(r<0) {
@@ -302,13 +300,9 @@ ibex::IntervalVector compute_change_dt(ibex::IntervalVector state, double u1, do
              state[0].lb(), state[0].ub(), state[1].lb(), state[1].ub(), state[2].lb(), state[2].ub());
 
   ibex::IntervalVector change_dt(3, ibex::Interval::ALL_REALS);
-  change_dt[0] = (u1 * ibex::cos(u2)) * dt;
-  change_dt[1] = (u1 * ibex::sin(u2)) * dt;
-  change_dt[2] = u2;// * dt;
-
-  change_dt[0] = change_dt[0].inflate(ERROR_PRED);
-  change_dt[1] = change_dt[1].inflate(ERROR_PRED);
-  change_dt[2] = change_dt[2].inflate(ERROR_PRED);
+  change_dt[0] = (u1 * ibex::cos(u2)).inflate(ERROR_PRED) * dt;
+  change_dt[1] = (u1 * ibex::sin(u2)).inflate(ERROR_PRED) * dt;
+  change_dt[2] = u2.inflate(ERROR_PRED);// * dt;
 
   ROS_WARN("[ROBOT] Change on state with dt = [%f] -> dx1: ([%f],[%f]) | dx2: ([%f],[%f]) | dx3: ([%f],[%f])",
              dt, change_dt[0].lb(), change_dt[0].ub(), change_dt[1].lb(), change_dt[1].ub(), change_dt[2].lb(), change_dt[2].ub());
@@ -507,7 +501,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
       double d_hat_h = dist_lines * median(bag_h, 6);
       double d_hat_v = dist_lines * median(bag_v, 6);
-//      a_hat = median_angle;
 
       ROS_WARN("PARAMETERS -> d_hat_h = [%f] | d_hat_v = [%f] | a_hat = [%f]", d_hat_h, d_hat_v, a_hat);
 

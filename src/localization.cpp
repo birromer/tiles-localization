@@ -4,7 +4,7 @@
 ** the observed parameters from the input images
 **
 ** Subscribers:
-**   - tiles_loc::State dt_state_pred      // the change within dt of the predicted state from the state model
+**   - tiles_loc::State state_pred_dt      // the change within dt of the predicted state from the state model
 **   - tiles_loc::Observation observation  // the observation vector, processed from the input image
 **
 ** Publishers:
@@ -27,11 +27,11 @@
 #include <codac.h>
 #include <codac-rob.h>
 
-ibex::IntervalVector d_state_pred(3, ibex::Interval::ALL_REALS);  // change in the state within dt, from the state equations
+ibex::IntervalVector state_pred_dt(3, ibex::Interval::ALL_REALS);  // change in the state within dt, from the state equations
 ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);    // observed parameters, from the base node callback
 double gt_1, gt_2, gt_3;  // ground truth //NOTE: only for debugging//
 
-void state_pred_callback(const tiles_loc::State::ConstPtr& msg);
+void state_pred_dt_callback(const tiles_loc::State::ConstPtr& msg);
 void observation_callback(const tiles_loc::Observation::ConstPtr& msg);
 
 ibex::IntervalVector integration_euler(ibex::IntervalVector state, ibex::IntervalVector d_state, double dt);
@@ -41,14 +41,14 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "localization_node");
   ros::NodeHandle n;
 
-  ros::Rate loop_rate(25);  // 25Hz frequency
+  ros::Rate loop_rate(50);  // 50Hz frequency
 
   ibex::IntervalVector x(3, ibex::Interval::ALL_REALS);  // state of the robot
   ibex::IntervalVector y(3, ibex::Interval::ALL_REALS);  // observed parameters
 
   // --- subscribers --- //
   // subscriber to predicted state and measured observation from base
-  ros::Subscriber sub_state_pred = n.subscribe("state_pred", 1000, state_pred_callback);
+  ros::Subscriber sub_state_pred_dt = n.subscribe("state_pred_dt", 1000, state_pred_callback);
   ros::Subscriber sub_y = n.subscribe("observation", 1000, observation_callback);
   // ------------------ //
 
@@ -63,23 +63,13 @@ int main(int argc, char **argv) {
     //NOTE: ground truth used for debugging only
     gt_1 = pose_1, gt_2 = pose_2, gt_3 = pose_3;
 
-    // get last received derivative of x
-    dx[0] = d_state_pred[0];
-    dx[1] = d_state_pred[1];
-    dx[2] = d_state_pred[2];
+    // predict the state according to the state equations
+    x = x + d_state_pred;
 
     // use last observed parameters from the image
     y[0] = observation[0];
     y[1] = observation[1];
     y[2] = observation[2];
-
-    // predict the state according to state equations
-    x = integration_euler(x, dx, dt);
-
-    // start with the last state contracted from the localization
-    x_pred[0] = state_pred[0];
-    x_pred[1] = state_pred[1];
-    x_pred[2] = state_pred[2];
 
     ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
     ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
