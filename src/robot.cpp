@@ -183,6 +183,9 @@ int main(int argc, char **argv) {
     tiles_loc::State state_pred_dt_msg = state_to_msg(state_pred_dt);
     pub_state_pred_dt.publish(state_pred_dt_msg);
 
+    ROS_INFO("[ROBOT] Sent change in dt: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+             state_pred_dt[0].lb(), state_pred_dt[0].ub(), state_pred_dt[1].lb(), state_pred_dt[1].ub(), state_pred_dt[2].lb(), state_pred_dt[2].ub());
+
     tiles_loc::Observation observation_msg = observation_to_msg(y);
     pub_y.publish(observation_msg);
 
@@ -300,6 +303,7 @@ ibex::IntervalVector compute_change_dt(ibex::IntervalVector state, double u1, do
   change_dt[0] = (u1 * ibex::cos(u2)).inflate(ERROR_PRED) * dt;
   change_dt[1] = (u1 * ibex::sin(u2)).inflate(ERROR_PRED) * dt;
   change_dt[2] = ibex::Interval(u2).inflate(ERROR_PRED);// * dt;
+//  change_dt[2] = ibex::Interval(u2).inflate(ERROR_PRED);// * dt;
 
   ROS_WARN("[ROBOT] Change on state with dt = [%f] -> dx1: ([%f],[%f]) | dx2: ([%f],[%f]) | dx3: ([%f],[%f])",
              dt, change_dt[0].lb(), change_dt[0].ub(), change_dt[1].lb(), change_dt[1].ub(), change_dt[2].lb(), change_dt[2].ub());

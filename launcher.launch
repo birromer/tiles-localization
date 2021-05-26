@@ -8,7 +8,11 @@
     <param name="pos_th_init" type="double" value="0"/>
   </node>
 
-  <node name="localization_node" pkg="tiles_loc" type="loc" output="screen" />
+  <node name="localization_node" pkg="tiles_loc" type="loc" output="screen">
+    <param name="pos_x_init" type="double" value="10"/>
+    <param name="pos_y_init" type="double" value="-20"/>
+    <param name="pos_th_init" type="double" value="0"/>
+  </node>
 
   <node name="waypoint_node" pkg="tiles_loc" type="cmd" output="screen" />
 

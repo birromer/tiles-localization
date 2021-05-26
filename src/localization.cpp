@@ -48,6 +48,16 @@ int main(int argc, char **argv) {
   ibex::IntervalVector y(3, ibex::Interval::ALL_REALS);  // observed parameters
   double pose_1, pose_2, pose_3;                         // NOTE: debugging only
 
+  double x1, x2, x3;  // initial parameters for the state
+  n.param<double>("pos_x_init", x1, 0);
+  n.param<double>("pos_y_init", x2, 0);
+  n.param<double>("pos_th_init", x3, 0);
+
+  // starting state is known
+  x[0] = ibex::Interval(x1, x1);
+  x[1] = ibex::Interval(x2, x2);
+  x[2] = ibex::Interval(x3, x3);
+
   // --- subscribers --- //
   // subscriber to predicted state and measured observation from base
   ros::Subscriber sub_state_pred_dt = n.subscribe("state_pred_dt", 1000, state_pred_dt_callback);
@@ -58,57 +68,68 @@ int main(int argc, char **argv) {
   // ------------------ //
 
   // --- publishers --- //
-  // publisher of the estimated state back to base node
+  // publisher of the estimated states back to base node
+  ros::Publisher pub_state_pred = n.advertise<tiles_loc::State>("state_pred", 1000);
   ros::Publisher pub_state_loc = n.advertise<tiles_loc::State>("state_loc", 1000);
   // ------------------ //
 
   while (ros::ok()) {
     //NOTE: ground truth used for debugging only
-    gt_1 = pose_1, gt_2 = pose_2, gt_3 = pose_3;
+    pose_1 = gt_1;
+    pose_2 = gt_2;
+    pose_3 = gt_3;
 
     // predict the state according to the state equations
-//    x = x + d_state_pred;
-    x[0] = pose_1;
-    x[1] = pose_2;
-    x[2] = pose_3;
+    x[0] = x[0] + state_pred_dt[0];
+    x[1] = x[1] + state_pred_dt[1];
+    x[2] = state_pred_dt[2];
+//    x[0] = pose_1;
+//    x[1] = pose_2;
+//    x[2] = pose_3;
 
-    // use last observed parameters from the image
-    y[0] = observation[0];
-    y[1] = observation[1];
-    y[2] = observation[2];
+//    x.inflate(0.1);
 
-    ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
-    ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
+    // publish predicted state
+    tiles_loc::State state_pred_msg = state_to_msg(x);
+    pub_state_pred.publish(state_pred_msg);
 
-    // TODO: test having angle from the state, such as if there were a compass
-    box0[0] = x[0], box0[1] = x[1], box0[2] = x[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2];
-    box1[0] = x[0], box1[1] = x[1], box1[2] = x[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2];
+//    // use last observed parameters from the image
+//    y[0] = observation[0];
+//    y[1] = observation[1];
+//    y[2] = observation[2];
+//
+//    ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
+//    ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
+//
+//    // TODO: test having angle from the state, such as if there were a compass
+//    box0[0] = x[0], box0[1] = x[1], box0[2] = x[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2];
+//    box1[0] = x[0], box1[1] = x[1], box1[2] = x[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2];
 
 //    box0[0] = x[0], box0[1] = x[1], box0[2] = x[2], box0[3] = x[0], box0[4] = x[1], box0[5] = x[2];
 //    box1[0] = x[0], box1[1] = x[1], box1[2] = x[2], box1[3] = x[0], box1[4] = x[1], box1[5] = x[2];
 
-    ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
-    ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
+//    ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
+//    ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
+//
+//    ibex::CtcFwdBwd c1(f1);
+//    ibex::CtcFwdBwd c2(f2);
+//
+//    c1.contract(box0);
+//    c2.contract(box1);
+//
+//    ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
+//    box[0] = box0[0] | box1[0];
+//    box[1] = box0[1] | box1[1];
+//    box[2] = box0[2] | box1[2];
 
-    ibex::CtcFwdBwd c1(f1);
-    ibex::CtcFwdBwd c2(f2);
-
-    c1.contract(box0);
-    c2.contract(box1);
-
-    ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
-    box[0] = box0[0] | box1[0];
-    box[1] = box0[1] | box1[1];
-    box[2] = box0[2] | box1[2];
-
-    if(box[0].is_empty() or box[1].is_empty()) {
-      ROS_WARN("[LOCALIZATION] X is empty");
-
-    } else {
-      x[0] = box[0];
-      x[1] = box[1];
-      x[2] = box[2];
-    }
+//    if(box[0].is_empty() or box[1].is_empty()) {
+//      ROS_WARN("[LOCALIZATION] X is empty");
+//
+//    } else {
+//      x[0] = box[0];
+//      x[1] = box[1];
+//      x[2] = box[2];
+//    }
 
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_loc_msg = state_to_msg(x);
@@ -121,8 +142,8 @@ int main(int argc, char **argv) {
     ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
     // comparando Y com X
-    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y[0].mid()-x[0].mid())), sin(M_PI*(y[1].mid()-x[1].mid())), sin(y[2].mid()-x[2].mid()));
-    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y[0].mid()-x[1].mid())), sin(M_PI*(y[1].mid()-x[0].mid())), cos(y[2].mid()-x[2].mid()));
+    ROS_INFO("[LOCALIZATION] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y[0].mid()-x[0].mid())), sin(M_PI*(y[1].mid()-x[1].mid())), sin(y[2].mid()-x[2].mid()));
+    ROS_INFO("[LOCALIZATION] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y[0].mid()-x[1].mid())), sin(M_PI*(y[1].mid()-x[0].mid())), cos(y[2].mid()-x[2].mid()));
 
     // comparando Y com pose
 //    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
