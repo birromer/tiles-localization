@@ -93,43 +93,43 @@ int main(int argc, char **argv) {
     tiles_loc::State state_pred_msg = state_to_msg(x);
     pub_state_pred.publish(state_pred_msg);
 
-//    // use last observed parameters from the image
-//    y[0] = observation[0];
-//    y[1] = observation[1];
-//    y[2] = observation[2];
-//
-//    ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
-//    ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
-//
-//    // TODO: test having angle from the state, such as if there were a compass
-//    box0[0] = x[0], box0[1] = x[1], box0[2] = x[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2];
-//    box1[0] = x[0], box1[1] = x[1], box1[2] = x[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2];
+    // use last observed parameters from the image
+    y[0] = observation[0];
+    y[1] = observation[1];
+    y[2] = observation[2];
+
+    ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
+    ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
+
+    // TODO: test having angle from the state, such as if there were a compass
+    box0[0] = x[0], box0[1] = x[1], box0[2] = x[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2];
+    box1[0] = x[0], box1[1] = x[1], box1[2] = x[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2];
 
 //    box0[0] = x[0], box0[1] = x[1], box0[2] = x[2], box0[3] = x[0], box0[4] = x[1], box0[5] = x[2];
 //    box1[0] = x[0], box1[1] = x[1], box1[2] = x[2], box1[3] = x[0], box1[4] = x[1], box1[5] = x[2];
 
-//    ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
-//    ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
-//
-//    ibex::CtcFwdBwd c1(f1);
-//    ibex::CtcFwdBwd c2(f2);
-//
-//    c1.contract(box0);
-//    c2.contract(box1);
-//
-//    ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
-//    box[0] = box0[0] | box1[0];
-//    box[1] = box0[1] | box1[1];
-//    box[2] = box0[2] | box1[2];
+    ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
+    ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
 
-//    if(box[0].is_empty() or box[1].is_empty()) {
-//      ROS_WARN("[LOCALIZATION] X is empty");
-//
-//    } else {
-//      x[0] = box[0];
-//      x[1] = box[1];
-//      x[2] = box[2];
-//    }
+    ibex::CtcFwdBwd c1(f1);
+    ibex::CtcFwdBwd c2(f2);
+
+    c1.contract(box0);
+    c2.contract(box1);
+
+    ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
+    box[0] = box0[0] | box1[0];
+    box[1] = box0[1] | box1[1];
+    box[2] = box0[2] | box1[2];
+
+    if(box[0].is_empty() or box[1].is_empty()) {
+      ROS_WARN("[LOCALIZATION] X is empty");
+
+    } else {
+      x[0] = box[0];
+      x[1] = box[1];
+      x[2] = box[2];
+    }
 
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_loc_msg = state_to_msg(x);
