@@ -56,6 +56,7 @@ typedef struct line_struct{
   double m_y;     // y coord of the point from the disambiguation function
   double d;       // radius value in the polar coordinates of a line
   double dd;      // displacement between tiles
+  int side;       // 0 if horizontal, 1 if vertical
 } line_t;
 
 // helper functions
@@ -86,8 +87,11 @@ double compass, speed_x, speed_y, speed_z, speed_rho, speed_tht, speed_psi;  // 
 double sim_time;       // simulation time from coppelia
 double prev_sim_time;  // previosu simulation time from coppelia
 
-std::vector<Vec4i> base_grid_lines;
+std::vector<line_t> base_grid_lines;
 bool base_grid_created = false;
+
+int quart_state = 0;  // in which quarter of the plane is the current angle
+double prev_a_hat;  // a_hat of the previous iteration
 
 // image processing related variables
 bool display_window;
@@ -390,6 +394,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     std::vector<double> lines_angles;  // stores the angles of the lines from the hough transform with the image compressed between [-pi/4, pi/4]
 
     double line_angle, line_angle4, d, dd, m_x, m_y;
+//    double median_angle;
 
     // extract the informations from the good detected lines
     for(int i=0; i<detected_lines.size(); i++) {
@@ -397,20 +402,17 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       double p1_x = l[0], p1_y = l[1];
       double p2_x = l[2], p2_y = l[3];
 
-      line_angle = atan2(p2_y - p1_y, p2_x - p1_x);  // get the angle of the line from the existing points
+      line_angle = atan2(p2_y - p1_y, p2_x - p1_x);               // get the angle of the line from the existing points
       line_angle4 = modulo(line_angle+M_PI/4., M_PI/2.)-M_PI/4.;  // compress image between [-pi/4, pi/4]
-//       line_angle4 = 1/4*line_angle;                              // compress image between [-pi/4, pi/4]
 
       m_x = cos(4*line_angle);
       m_y = sin(4*line_angle);
 
       // smallest radius of a circle with a point belonging to the line with origin in 0
       d = ((p2_x-p1_x)*(p1_y)-(p1_x)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x, 2)+pow(p2_y-p1_y, 2));
-//      d = (d+0.5)-floor(d+0.5)-0.5;
 
       // decimal distance, displacement between the lines
       dd = (d/dist_lines - floor(d/dist_lines));
-
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -420,25 +422,24 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         .m_x    = m_x,
         .m_y    = m_y,
         .d      = d,
-        .dd     = dd
+        .dd     = dd,
+        .side   = 0  // temporary value
       };
 
       // save the extracted information
       lines.push_back(ln);
-
-      line(src, cv::Point(p1_x, p1_y), cv::Point(p2_x, p2_y), Scalar(255, 0, 0), 3, LINE_AA);
     }
 
    // median of the components of the lines
     x_hat = median(lines, 3);
     y_hat = median(lines, 4);
-    double median_angle = median(lines, 2);
+//    median_angle = median(lines, 2);
 
     std::vector<line_t> lines_good;
 
     for (line_t l : lines) {
-//      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
-      if (sawtooth(l.angle4 - median_angle) < 0.10) {
+      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
+//      if (sawtooth(l.angle4 - median_angle) < 0.10) {
         filtered_m_x.push_back(l.m_x);
         filtered_m_y.push_back(l.m_y);
 
@@ -447,19 +448,37 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
       } else {
         line(src, l.p1, l.p2, Scalar(0, 0, 255), 3, LINE_AA);
+
       }
     }
 
     x_hat = median(filtered_m_x);
     y_hat = median(filtered_m_y);
 
-    median_angle = median(lines_good, 2);
-
+    prev_a_hat = a_hat;
     a_hat = atan2(y_hat, x_hat) * 1/4;
+//    median_angle = median(lines_good, 2);
+//
+    if ((a_hat - prev_a_hat) < (-M_PI/2 + 0.1))
+      quart_state += 1;
+    else if ((a_hat - prev_a_hat) > (M_PI/2 - 0.1))
+      quart_state -= 1;
+
+    if (quart_state > 3)
+      quart_state = 0;
+    else if (quart_state < 0)
+      quart_state = 3;
+
+    if (quart_state == 1)
+      a_hat -= M_PI/2;
+    else if (quart_state == 2)
+      a_hat += M_PI;
+    else if (quart_state == 3)
+      a_hat += M_PI/2;
 
     if(lines_good.size() > MIN_GOOD_LINES) {
-//      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
-      Mat rot = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
+      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
+      Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
       std::vector<line_t> bag_h, bag_v;
       double x1, y1, x2, y2;
       double angle_new;
@@ -472,6 +491,9 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         y2 = l.p2.y - frame_height/2.0f;
 
         // applies the 2d rotation to the line, making it either horizontal or vertical
+//        if (l.angle > M_PI/2 && l.angle < M_PI || l.angle > 3*M_PI/2 && l.angle < 2*M_PI)
+//          a_hat -= M_PI/2;
+
         double x1_temp = x1 * cos(-a_hat) - y1 * sin(-a_hat);
         double y1_temp = x1 * sin(-a_hat) + y1 * cos(-a_hat);
 
@@ -489,15 +511,19 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         angle_new = atan2(y2-y1, x2-x1);
 
         // determine if the lines are horizontal or vertical
-        if (abs(cos(angle_new)) < 0.2) {
+        if (abs(cos(angle_new)) < 0.2) {  // vertical
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
+          line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
           bag_v.push_back(l);
 //          ROS_WARN("V) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/dist_lines, l.dd);
 
-        } else if (abs(sin(angle_new)) < 0.2) {line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
+        } else if (abs(sin(angle_new)) < 0.2) {  // horizontal
+          line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
           bag_h.push_back(l);
+          line(src, l.p1, l.p2, Scalar(0, 255, 0), 3, LINE_AA);
 //          ROS_WARN("H) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/dist_lines, l.dd);
         }
+
       }
 
       double d_hat_h = dist_lines * median(bag_h, 6);
@@ -508,8 +534,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       obs = ibex::IntervalVector({
           {d_hat_h, d_hat_h},
           {d_hat_v, d_hat_v},
-//          {a_hat, a_hat}
-          {median_angle, median_angle}
+          {a_hat, a_hat}
+//          {median_angle, median_angle}
       }).inflate(ERROR_OBS);
 
       Mat view_param = generate_grid(dist_lines, obs);
@@ -556,13 +582,23 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
     // adds one before and one after because occluded areas may appear
     int pos_x = (center_x % dist_lines) - 2*dist_lines;
     while (pos_x < frame_width + 2*dist_lines) {
-      base_grid_lines.push_back(cv::Vec4i(pos_x, -max_dim , pos_x, max_dim));
+      line_t ln = {
+        .p1     = cv::Point(pos_x, -max_dim),
+        .p2     = cv::Point(pos_x, max_dim),
+        .side   = 1  // 0 horizontal, 1 vertical
+      };
+      base_grid_lines.push_back(ln);
       pos_x += dist_lines;
     }
 
     int pos_y = (center_y % dist_lines) - 2*dist_lines;
     while (pos_y < frame_height + 2*dist_lines) {
-      base_grid_lines.push_back(cv::Vec4i(-max_dim, pos_y, max_dim, pos_y));
+      line_t ln = {
+        .p1     = cv::Point(-max_dim, pos_y),
+        .p2     = cv::Point(max_dim, pos_y),
+        .side   = 0  // 0 horizontal, 1 vertical
+      };
+      base_grid_lines.push_back(ln);
       pos_y += dist_lines;
     }
 
@@ -570,14 +606,14 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
   }
 
   cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
-  std::vector<Vec4i> grid_lines = base_grid_lines;
+  std::vector<line_t> grid_lines = base_grid_lines;
 
-  for (Vec4i l : grid_lines) {
+  for (line_t l : grid_lines) {
     //translation in order to center lines around 0
-    int x1 = l[0] - frame_width/2.  + d_hat_h;
-    int y1 = l[1] - frame_height/2. + d_hat_v;
-    int x2 = l[2] - frame_width/2.  + d_hat_h;
-    int y2 = l[3] - frame_height/2. + d_hat_v;
+    int x1 = l.p1.x - frame_width/2.  + d_hat_h;
+    int y1 = l.p1.y - frame_height/2. + d_hat_v;
+    int x2 = l.p2.x - frame_width/2.  + d_hat_h;
+    int y2 = l.p2.y - frame_height/2. + d_hat_v;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
     int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
@@ -592,7 +628,11 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
     x2 = (x2_temp + frame_width/2. );//+ d_hat_h);
     y2 = (y2_temp + frame_height/2.);// + d_hat_v);
 
-    cv::line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(255,255,255), 3, cv::LINE_AA);
+    if (l.side == 1) {
+      line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 0, 0), 3, LINE_AA);
+    } else {
+      line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 255, 0), 3, LINE_AA);
+    }
   }
 
   return img_grid;
