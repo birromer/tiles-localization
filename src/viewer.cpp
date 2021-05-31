@@ -80,7 +80,7 @@ void pose_callback(const geometry_msgs::Pose& msg){
 int main(int argc, char **argv){
   vibes::beginDrawing();
   VIBesFigMap fig_map("Map");
-  vibes::setFigureProperties("Map",vibesParams("x", 10, "y", -10, "width", 200, "height", 200));
+  vibes::setFigureProperties("Map",vibesParams("x", 10, "y", -10, "width", 700, "height", 700));
   vibes::axisLimits(-10, 10, -10, 10, "Map");
   fig_map.show();
 

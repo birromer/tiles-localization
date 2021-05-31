@@ -44,7 +44,7 @@ using namespace cv;
 
 // TODO: test different errors
 #define ERROR_PRED      0.1
-#define ERROR_OBS       0.1
+#define ERROR_OBS       0.2
 #define ERROR_OBS_ANGLE 0.1
 
 typedef struct line_struct{
@@ -66,7 +66,8 @@ int sign(double x);
 double median(std::vector<line_t> lines, int op);
 double median(std::vector<double> scores);
 ibex::IntervalVector compute_change_dt(ibex::IntervalVector state, double u1, double u2, double dt);
-cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs);
+cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs);
+cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs);
 void ShowManyImages(string title, int nArgs, ...);
 
 // message convertion functions
@@ -135,7 +136,8 @@ int main(int argc, char **argv) {
 //    cv::namedWindow("morphology");
     cv::namedWindow("rotated");
     cv::namedWindow("lines");
-    cv::namedWindow("view_param");
+    cv::namedWindow("view_param_1");
+    cv::namedWindow("view_param_2");
     cv::startWindowThread();
   }
 
@@ -458,23 +460,23 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     prev_a_hat = a_hat;
     a_hat = atan2(y_hat, x_hat) * 1/4;
 //    median_angle = median(lines_good, 2);
+
+//    if ((a_hat - prev_a_hat) < (-M_PI/2 + 0.1))
+//      quart_state += 1;
+//    else if ((a_hat - prev_a_hat) > (M_PI/2 - 0.1))
+//      quart_state -= 1;
 //
-    if ((a_hat - prev_a_hat) < (-M_PI/2 + 0.1))
-      quart_state += 1;
-    else if ((a_hat - prev_a_hat) > (M_PI/2 - 0.1))
-      quart_state -= 1;
-
-    if (quart_state > 3)
-      quart_state = 0;
-    else if (quart_state < 0)
-      quart_state = 3;
-
-    if (quart_state == 1)
-      a_hat -= M_PI/2;
-    else if (quart_state == 2)
-      a_hat += M_PI;
-    else if (quart_state == 3)
-      a_hat += M_PI/2;
+//    if (quart_state > 3)
+//      quart_state = 0;
+//    else if (quart_state < 0)
+//      quart_state = 3;
+//
+//    if (quart_state == 1)
+//      a_hat -= M_PI/2;
+//    else if (quart_state == 2)
+//      a_hat += M_PI;
+//    else if (quart_state == 3)
+//      a_hat += M_PI/2;
 
     if(lines_good.size() > MIN_GOOD_LINES) {
       ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
@@ -538,7 +540,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //          {median_angle, median_angle}
       }).inflate(ERROR_OBS);
 
-      Mat view_param = generate_grid(dist_lines, obs);
+      Mat view_param_1 = generate_grid_1(dist_lines, obs);
+      Mat view_param_2 = generate_grid_2(dist_lines, obs);
 
       if(display_window){
 //        cvtColor(grey, grey, CV_GRAY2BGR);
@@ -552,7 +555,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //        cv::imshow("morphology", morph);
         cv::imshow("lines", src);
         cv::imshow("rotated", rot);
-        cv::imshow("view_param", view_param);
+        cv::imshow("view_param_1", view_param_1);
+        cv::imshow("view_param_2", view_param_2);
       }
 
     } else {
@@ -566,7 +570,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
   }
 }
 
-cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
+cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
   double d_hat_h = obs[0].mid();
   double d_hat_v = obs[1].mid();
   double a_hat   = obs[2].mid();
@@ -614,6 +618,78 @@ cv::Mat generate_grid(int dist_lines, ibex::IntervalVector obs) {
     int y1 = l.p1.y - frame_height/2. + d_hat_v;
     int x2 = l.p2.x - frame_width/2.  + d_hat_h;
     int y2 = l.p2.y - frame_height/2. + d_hat_v;
+
+    // applies the 2d rotation to the line, making it either horizontal or vertical
+    int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
+    int y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
+
+    int x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
+    int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
+
+    // translates the image back and adds displacement
+    x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
+    y1 = (y1_temp + frame_height/2.);// + d_hat_v);
+    x2 = (x2_temp + frame_width/2. );//+ d_hat_h);
+    y2 = (y2_temp + frame_height/2.);// + d_hat_v);
+
+    if (l.side == 1) {
+      line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 0, 0), 3, LINE_AA);
+    } else {
+      line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 255, 0), 3, LINE_AA);
+    }
+  }
+
+  return img_grid;
+}
+
+cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
+  double d_hat_h = obs[0].mid();
+  double d_hat_v = obs[1].mid();
+  double a_hat   = obs[2].mid();
+
+  int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
+
+  if (!base_grid_created) {
+    // center of the image, where tiles start with zero displacement
+    int center_x = frame_width/2.;
+    int center_y = frame_height/2.;
+
+    // create a line every specified number of pixels
+    // adds one before and one after because occluded areas may appear
+    int pos_x = (center_x % dist_lines) - 2*dist_lines;
+    while (pos_x < frame_width + 2*dist_lines) {
+      line_t ln = {
+        .p1     = cv::Point(pos_x, -max_dim),
+        .p2     = cv::Point(pos_x, max_dim),
+        .side   = 1  // 0 horizontal, 1 vertical
+      };
+      base_grid_lines.push_back(ln);
+      pos_x += dist_lines;
+    }
+
+    int pos_y = (center_y % dist_lines) - 2*dist_lines;
+    while (pos_y < frame_height + 2*dist_lines) {
+      line_t ln = {
+        .p1     = cv::Point(-max_dim, pos_y),
+        .p2     = cv::Point(max_dim, pos_y),
+        .side   = 0  // 0 horizontal, 1 vertical
+      };
+      base_grid_lines.push_back(ln);
+      pos_y += dist_lines;
+    }
+
+    base_grid_created = true;
+  }
+
+  cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
+  std::vector<line_t> grid_lines = base_grid_lines;
+
+  for (line_t l : grid_lines) {
+    //translation in order to center lines around 0
+    int x1 = l.p1.x - frame_width/2.  + d_hat_v;
+    int y1 = l.p1.y - frame_height/2. + d_hat_h;
+    int x2 = l.p2.x - frame_width/2.  + d_hat_v;
+    int y2 = l.p2.y - frame_height/2. + d_hat_h;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
     int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);

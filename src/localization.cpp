@@ -123,8 +123,7 @@ int main(int argc, char **argv) {
     box[2] = box0[2] | box1[2];
 
     if(box[0].is_empty() or box[1].is_empty()) {
-      ROS_WARN("[LOCALIZATION] X is empty");
-
+      ROS_WARN("[LOCALIZATION] Could not contract the state.");
     } else {
       x[0] = box[0];
       x[1] = box[1];
