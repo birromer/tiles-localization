@@ -692,11 +692,11 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
     int y2 = l.p2.y - frame_height/2. + d_hat_h;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
-    int y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
+    int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);//+M_PI);
+    int y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);//+M_PI);
 
-    int x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
-    int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
+    int x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);//+M_PI);
+    int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);//+M_PI);
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
