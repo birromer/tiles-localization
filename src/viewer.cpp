@@ -23,10 +23,10 @@
 #include "geometry_msgs/Quaternion.h"
 #include "geometry_msgs/PoseStamped.h"
 #include "tf/tf.h"
+#include <tf2/LinearMath/Quaternion.h>
 
 #include "tiles_loc/State.h"
-
-#include <tf2/LinearMath/Quaternion.h>
+#include "tiles_loc/Observation.h"
 
 #include <ibex.h>
 #include <codac.h>
@@ -36,6 +36,11 @@ using namespace cv;
 using namespace std;
 using namespace ibex;
 using namespace codac;
+
+ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);
+ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);
+ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);
+double pose_1, pose_2, pose_3;
 
 void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
   float w_x, w_y, w_th;
@@ -47,34 +52,53 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
 }
 
 void state_loc_callback(const tiles_loc::State::ConstPtr& msg){
-  IntervalVector state_loc({
-    {msg->x1_lb, msg->x1_ub},
-    {msg->x2_lb, msg->x2_ub},
-    {msg->x3_lb, msg->x3_ub}}
-  );
+  state_loc[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
+  state_loc[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
+  state_loc[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
 
   vibes::drawBox(state_loc.subvector(0, 1), "blue");
   vibes::drawVehicle(state_loc[0].mid(), state_loc[1].mid(), (state_loc[2].mid())*180./M_PI, 0.3, "blue");
 }
 
 void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
-  IntervalVector state_pred({
-    {msg->x1_lb, msg->x1_ub},
-    {msg->x2_lb, msg->x2_ub},
-    {msg->x3_lb, msg->x3_ub}}
-  );
+  state_pred[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
+  state_pred[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
+  state_pred[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
 
   vibes::drawBox(state_pred.subvector(0, 1), "green");
   vibes::drawVehicle(state_pred[0].mid(), state_pred[1].mid(), (state_pred[2].mid())*180./M_PI, 0.3, "green");
 }
 
 void pose_callback(const geometry_msgs::Pose& msg){
-  float x, y, c;
-  x = msg.position.x;
-  y = msg.position.y;
-  c = tf::getYaw(msg.orientation);
+  pose_1 = msg.position.x;
+  pose_2 = msg.position.y;
+  pose_3 = tf::getYaw(msg.orientation);
 
-  vibes::drawVehicle(x, y, c*180./M_PI, 0.3, "pink");
+  vibes::drawVehicle(pose_1, pose_2, pose_3*180./M_PI, 0.3, "pink");
+}
+
+void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
+  observation[0] = ibex::Interval(msg->y1_lb, msg->y1_ub);
+  observation[1] = ibex::Interval(msg->y2_lb, msg->y2_ub);
+  observation[2] = ibex::Interval(msg->y3_lb, msg->y3_ub);
+
+  ibex::IntervalVector x = state_loc;
+  ibex::IntervalVector y = observation;
+
+  ROS_WARN("Using state: x1 [%f] | x2 [%f] | x3 [%f]", x[0].mid(), x[1].mid(), x[2].mid());
+  ROS_WARN("Using parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
+  ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
+
+  // comparing Y with X
+  ROS_INFO("[LOCALIZATION] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y[0].mid()-x[0].mid())), sin(M_PI*(y[1].mid()-x[1].mid())), sin(y[2].mid()-x[2].mid()));
+  ROS_INFO("[LOCALIZATION] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y[0].mid()-x[1].mid())), sin(M_PI*(y[1].mid()-x[0].mid())), cos(y[2].mid()-x[2].mid()));
+
+  // comparing Y with pose
+//  ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
+//  ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-pose_2)), sin(M_PI*(y2-pose_1)), cos(y3-pose_3));
+
+  // plot similarity equations
+
 }
 
 int main(int argc, char **argv){
@@ -91,10 +115,13 @@ int main(int argc, char **argv){
   ros::Subscriber sub_waypoint = n.subscribe("waypoint", 1000, waypoint_callback);
   ros::Subscriber sub_state_loc = n.subscribe("state_loc", 1000, state_loc_callback);
   ros::Subscriber sub_state_pred = n.subscribe("state_pred", 1000, state_pred_callback);
+  ros::Subscriber sub_observation = n.subscribe("observation", 1000, observation_callback);
   ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
+
 
   ros::spin();
 
   vibes::endDrawing();
   return 0;
 }
+
