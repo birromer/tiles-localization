@@ -137,17 +137,6 @@ int main(int argc, char **argv) {
     ROS_INFO("[LOCALIZATION] Sent estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
              x[0].lb(), x[0].ub(), x[1].lb(), x[1].ub(), x[2].lb(), x[2].ub());
 
-//    ROS_WARN("Using parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
-//    ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
-//
-//    // comparando Y com X
-//    ROS_INFO("[LOCALIZATION] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y[0].mid()-x[0].mid())), sin(M_PI*(y[1].mid()-x[1].mid())), sin(y[2].mid()-x[2].mid()));
-//    ROS_INFO("[LOCALIZATION] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y[0].mid()-x[1].mid())), sin(M_PI*(y[1].mid()-x[0].mid())), cos(y[2].mid()-x[2].mid()));
-
-    // comparando Y com pose
-//    ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
-//    ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-pose_2)), sin(M_PI*(y2-pose_1)), cos(y3-pose_3));
-
     ros::spinOnce();
     loop_rate.sleep();
   }

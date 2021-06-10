@@ -17,6 +17,8 @@
 #include <cv_bridge/cv_bridge.h>
 #include <vector>
 #include <cmath>
+#include <iostream>
+#include <fstream>
 
 #include "geometry_msgs/Pose.h"
 #include "geometry_msgs/Point.h"
@@ -41,6 +43,7 @@ ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);
 ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);
 ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);
 double pose_1, pose_2, pose_3;
+ofstream file_eq;
 
 void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
   float w_x, w_y, w_th;
@@ -89,9 +92,19 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
   ROS_WARN("Using parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
   ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
+  double sim1_eq1 = sin(M_PI*(y[0].mid()-x[0].mid()));
+  double sim1_eq2 = sin(M_PI*(y[1].mid()-x[1].mid()));
+  double sim1_eq3 = sin(y[2].mid()-x[2].mid());
+
+  double sim2_eq1 = sin(M_PI*(y[0].mid()-x[1].mid()));
+  double sim2_eq2 = sin(M_PI*(y[1].mid()-x[0].mid()));
+  double sim2_eq3 = cos(y[2].mid()-x[2].mid());
+
+  file_eq << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
+
   // comparing Y with X
-  ROS_INFO("[LOCALIZATION] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y[0].mid()-x[0].mid())), sin(M_PI*(y[1].mid()-x[1].mid())), sin(y[2].mid()-x[2].mid()));
-  ROS_INFO("[LOCALIZATION] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y[0].mid()-x[1].mid())), sin(M_PI*(y[1].mid()-x[0].mid())), cos(y[2].mid()-x[2].mid()));
+  ROS_INFO("[LOCALIZATION] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sim1_eq1, sim1_eq2, sim1_eq3);
+  ROS_INFO("[LOCALIZATION] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sim2_eq1, sim2_eq2, sim2_eq3);
 
   // comparing Y with pose
 //  ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
@@ -108,6 +121,10 @@ int main(int argc, char **argv){
   vibes::axisLimits(-10, 10, -10, 10, "Map");
   fig_map.show();
 
+  file_eq.open("/home/birromer/ros/file_eq.csv", fstream::in | fstream::out | fstream::trunc);
+
+  file_eq << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
+
   ros::init(argc, argv, "viewer_node");
 
   ros::NodeHandle n;
@@ -122,6 +139,7 @@ int main(int argc, char **argv){
   ros::spin();
 
   vibes::endDrawing();
+  file_eq.close();
+
   return 0;
 }
-
