@@ -82,6 +82,7 @@ c_tile=ctc_tile()
 for n in range(0,5):
     for k in range(1,kmax):
         X1[k],X2[k],X3[k],X1[k-1],X2[k-1],X3[k-1]=c_evol.contract(X1[k],X2[k],X3[k],X1[k-1],X2[k-1],X3[k-1],U[k-1])
+
     for k in range(kmax,1,-1):
         X1[k],X2[k],X3[k],X1[k-1],X2[k-1],X3[k-1]=c_evol.contract(X1[k],X2[k],X3[k],X1[k-1],X2[k-1],X3[k-1],U[k-1])
 

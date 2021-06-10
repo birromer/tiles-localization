@@ -3,6 +3,9 @@ from tubex_lib import *
 import math
 import random
 import time
+from vibes import vibes
+
+vibes.beginDrawing()
 
 dt = 0.05 #0.02
 iteration_dt = 3.0 #3.5
@@ -63,13 +66,13 @@ while t < tdomain.ub():
     xi = cn.create_dom(IntervalVector(3))
     yi=yi.inflate(0.01)
 
-    '''
-    y1, y2, y3 = 0.1, 0.2, 0.3
+
+    y1, y2, y3 = yi[0].mid(), yi[1].mid(), yi[2].mid() #0.1, 0.2, 0.3
     f = Function("a1", "a2","sin(pi*(%f+a1*cos(%f)-a2*sin(%f)))*sin(pi*(%f+a1*sin(%f)+a2*cos(%f)))" % (y1, y3, y3, y2, y3, y3))
     S = SepFwdBwd(f, Interval(0, 0.001))
     pySIVIA(IntervalVector([[-2, 2], [-2, 2]]), S, 0.1)
     vibes.axisEqual()
-    '''
+
     cn.add(ctc.eval, [ti, xi, x, v])
     cn.add(ctc_g, [xi, yi])
     contraction_dt = cn.contract_during(iteration_dt)

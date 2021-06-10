@@ -58,6 +58,7 @@ int main(int argc, char **argv) {
     cout << "Processing image " << curr_img << "/" << NUM_IMGS << endl;
 
     ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
+    ibex::IntervalVector pose(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
 
     // 1. preprocessing
     // 1.1 read the image
@@ -92,7 +93,7 @@ int main(int argc, char **argv) {
     std::vector<Vec4i> detected_lines;
     HoughLinesP(morph, detected_lines, 1, CV_PI/180., 60, 120, 50);
 
-    // 1.7 extract parameters
+    // 2 extract parameters
     // from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
     std::vector<double> lines_m_x, lines_m_y, filtered_m_x, filtered_m_y;  // x and y components of the points in M
@@ -104,7 +105,7 @@ int main(int argc, char **argv) {
 
     double line_angle, line_angle4, d, dd, m_x, m_y;
 
-    // 1.7.1 extract the informations from the good detected lines
+    // 2.1 extract the informations from the good detected lines
     for(int i=0; i<detected_lines.size(); i++) {
       Vec4i l = detected_lines[i];
       double p1_x = l[0], p1_y = l[1];
@@ -116,10 +117,10 @@ int main(int argc, char **argv) {
       m_x = cos(4*line_angle);
       m_y = sin(4*line_angle);
 
-      // smallest radius of a circle with a point belonging to the line with origin in 0
+      // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0
       d = ((p2_x-p1_x)*(p1_y)-(p1_x)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x, 2)+pow(p2_y-p1_y, 2));
 
-      // decimal distance, displacement between the lines
+      // 2.1.2 decimal distance, displacement between the lines
       dd = (d/dist_lines - floor(d/dist_lines));
 
       line_t ln = {
@@ -144,7 +145,7 @@ int main(int argc, char **argv) {
 
     std::vector<line_t> lines_good;
 
-    // 1.7.3 filter lines with bad orientation
+    // 2.2 filter lines with bad orientation
     for (line_t l : lines) {
       if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
         filtered_m_x.push_back(l.m_x);
@@ -170,7 +171,7 @@ int main(int argc, char **argv) {
       double x1, y1, x2, y2;
       double angle_new;
 
-      // 1.7.4 generate bags of horizontal and vertical lines
+      // 2.3 generate bags of horizontal and vertical lines
       for (line_t l : lines_good) {
         //translation in order to center lines around 0
         x1 = l.p1.x - frame_width/2.0f;
@@ -178,7 +179,7 @@ int main(int argc, char **argv) {
         x2 = l.p2.x - frame_width/2.0f;
         y2 = l.p2.y - frame_height/2.0f;
 
-        // applies the 2d rotation to the line, making it either horizontal or vertical
+        // 2.3.1 applies the 2d rotation to the line, making it either horizontal or vertical
 //        if (l.angle > M_PI/2 && l.angle < M_PI || l.angle > 3*M_PI/2 && l.angle < 2*M_PI)
 //          a_hat -= M_PI/2;
 
@@ -188,17 +189,17 @@ int main(int argc, char **argv) {
         double x2_temp = x2 * cos(-a_hat) - y2 * sin(-a_hat);
         double y2_temp = x2 * sin(-a_hat) + y2 * cos(-a_hat);
 
-        // translates the image back
+        // 2.3.2 translates the image back
         x1 = x1_temp + frame_width/2.0f;
         x2 = x2_temp + frame_width/2.0f;
 
         y1 = y1_temp + frame_height/2.0f;
         y2 = y2_temp + frame_height/2.0f;
 
-        // compute the new angle of the rotated lines
+        // 2.3.3 compute the new angle of the rotated lines
         angle_new = atan2(y2-y1, x2-x1);
 
-        // determine if the lines are horizontal or vertical
+        // 2.3.4 determine if the lines are horizontal or vertical
         if (abs(cos(angle_new)) < 0.2) {  // vertical
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
@@ -211,6 +212,7 @@ int main(int argc, char **argv) {
         }
       }
 
+      // 2.4 get displacements parameters
       double d_hat_h = dist_lines * median(bag_h, 6);
       double d_hat_v = dist_lines * median(bag_v, 6);
 
@@ -229,7 +231,7 @@ int main(int argc, char **argv) {
       cout << "Not enough good lines (" << lines_good.size() << ")" << endl;
     }
 
-    // generate the representation of the observed parameters
+    // 3 generate the representation of the observed parameters
     Mat view_param_1 = generate_grid_1(dist_lines, obs);
     Mat view_param_2 = generate_grid_2(dist_lines, obs);
 
@@ -240,6 +242,12 @@ int main(int argc, char **argv) {
       cv::imshow("view_param_1", view_param_1);
       cv::imshow("view_param_2", view_param_2);
     }
+
+    // 4 get the pose from the ground truth
+
+
+    // 5 equivalency equations
+    // ground truth and parameters should have near 0 value in the equivalency equations
 
 
   }  // end of loop for each image
