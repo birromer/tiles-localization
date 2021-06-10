@@ -1,4 +1,3 @@
-#include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
@@ -43,7 +42,8 @@ int sign(double x);
 double median(std::vector<line_t> lines, int op);
 double median(std::vector<double> scores);
 
-cv::Mat gen_grid(int dist_lines, ibex::IntervalVector obs);
+cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs);
+cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs);
 ibex::IntervalVector get_obs(cv::Mat image);
 
 std::vector<line_t> base_grid_lines;
@@ -66,21 +66,23 @@ int main(int argc, char **argv) {
   ofstream file_sim(SIM_FILE);
   file_sim << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
 
-  // Make sure the file is open
-  if(!myFile.is_open())
-    throw std::runtime_error("Could not open file");
+  if(!file_gt.is_open())
+    throw std::runtime_error("Could not open GT file");
 
-  std::string line, colname;
+  if(!file_sim.is_open())
+    throw std::runtime_error("Could not open SIM file");
 
-  std::getline(file_gt, line);  // skip line with column names
+  std::string line_content, colname;
 
-  while(getline(file_gt, line)) {
+  std::getline(file_gt, line_content);  // skip line with column names
+
+  while(getline(file_gt, line_content)) {
     cout << "Processing image " << curr_img << "/" << NUM_IMGS << endl;
 
     // 1. preprocessing
     // 1.1 read the image
     char cimg[1000];
-    snprintf(cimg, 1000, "%s%06d.png", imgFold, curr_imag);
+    snprintf(cimg, 1000, "%s%06d.png", IMG_FOLDER, curr_img);
     string ref_filename(cimg);
     Mat in = imread(ref_filename);
     frame_height = in.size[0];
@@ -88,7 +90,7 @@ int main(int argc, char **argv) {
 
     // 1.2 convert to greyscale for later computing borders
     Mat grey;
-    cvtColor(in, grey, CV_BGR2GRAY);
+    cvtColor(in, grey, COLOR_BGR2GRAY);
 
     // 1.3 compute the gradient image in x and y with the laplacian for the borders
     Mat grad;
@@ -156,12 +158,13 @@ int main(int argc, char **argv) {
       lines.push_back(ln);
     }
 
-    / 1.7.2 median of the components of the lines
+    // 1.7.2 median of the components of the lines
     x_hat = median(lines, 3);
     y_hat = median(lines, 4);
 
     std::vector<line_t> lines_good;
 
+    Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
     // 2.2 filter lines with bad orientation
     for (line_t l : lines) {
       if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
@@ -181,9 +184,9 @@ int main(int argc, char **argv) {
     y_hat = median(filtered_m_y);
     a_hat = atan2(y_hat, x_hat) * 1/4;
 
+    Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
     if(lines_good.size() > MIN_GOOD_LINES) {
       cout << "Found " << lines_good.size() << " good lines" << endl;
-      Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
       std::vector<line_t> bag_h, bag_v;
       double x1, y1, x2, y2;
       double angle_new;
@@ -233,7 +236,7 @@ int main(int argc, char **argv) {
       double d_hat_h = dist_lines * median(bag_h, 6);
       double d_hat_v = dist_lines * median(bag_v, 6);
 
-      cout << "PARAMETERS -> d_hat_h = " << d_hat_h << " | d_hat_v = " << d_hat_v << " | a_hat = " a_hat << endl;
+      cout << "PARAMETERS -> d_hat_h = " << d_hat_h << " | d_hat_v = " << d_hat_v << " | a_hat = " << a_hat << endl;
 
       obs = ibex::IntervalVector({
           {d_hat_h, d_hat_h},
@@ -243,7 +246,6 @@ int main(int argc, char **argv) {
 
       obs[2] = ibex::Interval(a_hat, a_hat).inflate(ERROR_OBS_ANGLE);
 
-      return obs;
     } else {
       cout << "Not enough good lines (" << lines_good.size() << ")" << endl;
     }
@@ -261,13 +263,13 @@ int main(int argc, char **argv) {
     }
 
     // 4 get the pose from the ground truth
-    stringstream ss(line);  // stringstream of the current line
-    vector<double> line_val;
+    stringstream ss(line_content);  // stringstream of the current line
+    vector<double> line_vals;
     double val;
 
     // extract each value
     while(ss >> val){
-        line_val.push_back(val);
+        line_vals.push_back(val);
 
         if(ss.peek() == ',')
           ss.ignore();  // ignore commas
@@ -280,13 +282,13 @@ int main(int argc, char **argv) {
     // 5 equivalency equations
 
     // ground truth and parameters should have near 0 value in the equivalency equations
-    sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1));
-    sim1_eq2 = sin(M_PI*(obs[1].mid()-pose_2));
-    sim1_eq3 = sin(obs[2].mid()-pose_3);
+    double sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1));
+    double sim1_eq2 = sin(M_PI*(obs[1].mid()-pose_2));
+    double sim1_eq3 = sin(obs[2].mid()-pose_3);
 
-    sim2_eq1 = sin(M_PI*(obs[0].mid()-pose_2));
-    sim2_eq2 = sin(M_PI*(obs[1].mid()-pose_1));
-    sim2_eq3 = cos(obs[2].mid()-pose_3);
+    double sim2_eq1 = sin(M_PI*(obs[0].mid()-pose_2));
+    double sim2_eq2 = sin(M_PI*(obs[1].mid()-pose_1));
+    double sim2_eq3 = cos(obs[2].mid()-pose_3);
 
     file_sim << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
 
@@ -295,4 +297,247 @@ int main(int argc, char **argv) {
 
     curr_img += 1;
   }  // end of loop for each image
+}
+
+cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
+  double d_hat_h = obs[0].mid();
+  double d_hat_v = obs[1].mid();
+  double a_hat   = obs[2].mid();
+
+  int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
+
+  if (!base_grid_created) {
+    // center of the image, where tiles start with zero displacement
+    int center_x = frame_width/2.;
+    int center_y = frame_height/2.;
+
+    // create a line every specified number of pixels
+    // adds one before and one after because occluded areas may appear
+    int pos_x = (center_x % dist_lines) - 2*dist_lines;
+    while (pos_x < frame_width + 2*dist_lines) {
+      line_t ln = {
+        .p1     = cv::Point(pos_x, -max_dim),
+        .p2     = cv::Point(pos_x, max_dim),
+        .side   = 1  // 0 horizontal, 1 vertical
+      };
+      base_grid_lines.push_back(ln);
+      pos_x += dist_lines;
+    }
+
+    int pos_y = (center_y % dist_lines) - 2*dist_lines;
+    while (pos_y < frame_height + 2*dist_lines) {
+      line_t ln = {
+        .p1     = cv::Point(-max_dim, pos_y),
+        .p2     = cv::Point(max_dim, pos_y),
+        .side   = 0  // 0 horizontal, 1 vertical
+      };
+      base_grid_lines.push_back(ln);
+      pos_y += dist_lines;
+    }
+
+    base_grid_created = true;
+  }
+
+  cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
+  std::vector<line_t> grid_lines = base_grid_lines;
+
+  for (line_t l : grid_lines) {
+    //translation in order to center lines around 0
+    int x1 = l.p1.x - frame_width/2.  + d_hat_h;
+    int y1 = l.p1.y - frame_height/2. + d_hat_v;
+    int x2 = l.p2.x - frame_width/2.  + d_hat_h;
+    int y2 = l.p2.y - frame_height/2. + d_hat_v;
+
+    // applies the 2d rotation to the line, making it either horizontal or vertical
+    int x1_temp = x1;//x1 * cos(a_hat) - y1 * sin(a_hat);
+    int y1_temp = y1;//x1 * sin(a_hat) + y1 * cos(a_hat);
+
+    int x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);
+    int y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);
+
+    // translates the image back and adds displacement
+    x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
+    y1 = (y1_temp + frame_height/2.);// + d_hat_v);
+    x2 = (x2_temp + frame_width/2. );//+ d_hat_h);
+    y2 = (y2_temp + frame_height/2.);// + d_hat_v);
+
+    if (l.side == 1) {
+      line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 0, 0), 3, LINE_AA);
+    } else {
+      line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 255, 0), 3, LINE_AA);
+    }
+  }
+
+  return img_grid;
+}
+
+cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
+  double d_hat_h = obs[0].mid();
+  double d_hat_v = obs[1].mid();
+  double a_hat   = obs[2].mid();
+
+  int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
+
+  if (!base_grid_created) {
+    // center of the image, where tiles start with zero displacement
+    int center_x = frame_width/2.;
+    int center_y = frame_height/2.;
+
+    // create a line every specified number of pixels
+    // adds one before and one after because occluded areas may appear
+    int pos_x = (center_x % dist_lines) - 2*dist_lines;
+    while (pos_x < frame_width + 2*dist_lines) {
+      line_t ln = {
+        .p1     = cv::Point(pos_x, -max_dim),
+        .p2     = cv::Point(pos_x, max_dim),
+        .side   = 1  // 0 horizontal, 1 vertical
+      };
+      base_grid_lines.push_back(ln);
+      pos_x += dist_lines;
+    }
+
+    int pos_y = (center_y % dist_lines) - 2*dist_lines;
+    while (pos_y < frame_height + 2*dist_lines) {
+      line_t ln = {
+        .p1     = cv::Point(-max_dim, pos_y),
+        .p2     = cv::Point(max_dim, pos_y),
+        .side   = 0  // 0 horizontal, 1 vertical
+      };
+      base_grid_lines.push_back(ln);
+      pos_y += dist_lines;
+    }
+
+    base_grid_created = true;
+  }
+
+  cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
+  std::vector<line_t> grid_lines = base_grid_lines;
+
+  for (line_t l : grid_lines) {
+    //translation in order to center lines around 0
+    int x1 = l.p1.x - frame_width/2.  + d_hat_v;
+    int y1 = l.p1.y - frame_height/2. + d_hat_h;
+    int x2 = l.p2.x - frame_width/2.  + d_hat_v;
+    int y2 = l.p2.y - frame_height/2. + d_hat_h;
+
+    // applies the 2d rotation to the line, making it either horizontal or vertical
+    int x1_temp = x1;//x1 * cos(a_hat) - y1 * sin(a_hat);//+M_PI);
+    int y1_temp = y1;//x1 * sin(a_hat) + y1 * cos(a_hat);//+M_PI);
+
+    int x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);//+M_PI);
+    int y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);//+M_PI);
+
+    // translates the image back and adds displacement
+    x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
+    y1 = (y1_temp + frame_height/2.);// + d_hat_v);
+    x2 = (x2_temp + frame_width/2. );//+ d_hat_h);
+    y2 = (y2_temp + frame_height/2.);// + d_hat_v);
+
+    if (l.side == 1) {
+      line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 0, 0), 3, LINE_AA);
+    } else {
+      line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 255, 0), 3, LINE_AA);
+    }
+  }
+
+  return img_grid;
+}
+
+double sawtooth(double x){
+  return 2.*atan(tan(x/2.));
+}
+
+double median(std::vector<double> scores) {
+  //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
+  size_t size = scores.size();
+
+  if (size == 0) {
+    return 0;  // undefined
+  } else {
+    sort(scores.begin(), scores.end());  // sort elements and take middle one
+
+    if (size % 2 == 0) {
+      return (scores[size / 2 - 1] + scores[size / 2]) / 2;
+    } else {
+      return scores[size / 2];
+    }
+  }
+}
+
+/* use op to select which field to be used for comparisson:
+**   1 = angle
+**   2 = angle4
+**   3 = m_x
+**   4 = m_y
+**   5 = d
+**   6 = dd
+*/
+double median(std::vector<line_t> lines, int op) {
+  size_t size = lines.size();
+
+  if (size == 0) {
+    return 0;  // undefined
+  } else {
+    sort(lines.begin(), lines.end(), [=](line_t l1, line_t l2) -> bool {
+      if (op == 1)
+        return l1.angle > l2.angle;
+      else if (op == 2)
+        return l1.angle4 > l2.angle4;
+      else if (op == 3)
+        return l1.m_x > l2.m_x;
+      else if (op == 4)
+        return l1.m_y > l2.m_y;
+      else if (op == 5)
+        return l1.d > l2.d;
+      else if (op == 6)
+        return l1.dd > l2.dd;
+      return false;  // if not an option, leave as is
+    });  // sort elements and take middle one
+
+    if (size % 2 == 0) {
+      if (op == 1)
+        return (lines[size / 2 - 1].angle + lines[size / 2].angle) / 2;
+      else if (op == 2)
+        return (lines[size / 2 - 1].angle4 + lines[size / 2].angle4) / 2;
+      else if (op == 3)
+        return (lines[size / 2 - 1].m_x + lines[size / 2].m_x) / 2;
+      else if (op == 4)
+        return (lines[size / 2 - 1].m_y + lines[size / 2].m_y) / 2;
+      else if (op == 5)
+        return (lines[size / 2 - 1].d + lines[size / 2].d) / 2;
+      else if (op == 6)
+        return (lines[size / 2 - 1].dd + lines[size / 2].dd) / 2;
+
+    } else {
+      if (op == 1)
+        return lines[size/2].angle;
+      else if (op == 2)
+        return lines[size/2].angle4;
+      else if (op == 3)
+        return lines[size/2].m_x;
+      else if (op == 4)
+        return lines[size/2].m_y;
+      else if (op == 5)
+        return lines[size/2].d;
+      else if (op == 6)
+        return lines[size/2].dd;
+    }
+
+    return 0;
+  }
+}
+
+double modulo(double a, double b) {
+  double r = a/b - floor(a/b);
+  if(r<0) {
+    r+=1;
+  }
+  return r*b;
+}
+
+int sign(double x) {
+  if(x < 0) {
+    return -1;
+  }
+  return 1;
 }
