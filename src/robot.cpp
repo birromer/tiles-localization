@@ -44,7 +44,7 @@ using namespace cv;
 
 // TODO: test different errors
 #define ERROR_PRED      0.1
-#define ERROR_OBS       0.2
+#define ERROR_OBS       0.3
 #define ERROR_OBS_ANGLE 0.1
 
 typedef struct line_struct{
@@ -525,7 +525,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
           line(src, l.p1, l.p2, Scalar(0, 255, 0), 3, LINE_AA);
 //          ROS_WARN("H) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/dist_lines, l.dd);
         }
-
       }
 
       double d_hat_h = dist_lines * median(bag_h, 6);
@@ -539,6 +538,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
           {a_hat, a_hat}
 //          {median_angle, median_angle}
       }).inflate(ERROR_OBS);
+
+      obs[2] = ibex::Interval(a_hat, a_hat).inflate(ERROR_OBS_ANGLE);
 
       Mat view_param_1 = generate_grid_1(dist_lines, obs);
       Mat view_param_2 = generate_grid_2(dist_lines, obs);
@@ -620,11 +621,11 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
     int y2 = l.p2.y - frame_height/2. + d_hat_v;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
-    int y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
+    int x1_temp = x1;//x1 * cos(a_hat) - y1 * sin(a_hat);
+    int y1_temp = y1;//x1 * sin(a_hat) + y1 * cos(a_hat);
 
-    int x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
-    int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
+    int x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);
+    int y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
@@ -692,11 +693,11 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
     int y2 = l.p2.y - frame_height/2. + d_hat_h;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);//+M_PI);
-    int y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);//+M_PI);
+    int x1_temp = x1;//x1 * cos(a_hat) - y1 * sin(a_hat);//+M_PI);
+    int y1_temp = y1;//x1 * sin(a_hat) + y1 * cos(a_hat);//+M_PI);
 
-    int x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);//+M_PI);
-    int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);//+M_PI);
+    int x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);//+M_PI);
+    int y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);//+M_PI);
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
