@@ -11,17 +11,27 @@ import pandas as pd
 
 
 if __name__ == "__main__":
-  file_path = "/home/birromer/ros/file_eq.csv"
+  file_yx= "/home/birromer/ros/file_eq_yx.csv"
+  file_yp= "/home/birromer/ros/file_eq_yp.csv"
 
-  data = pd.read_csv(file_path)
+  data_yx = pd.read_csv(file_yx)
+  data_yp = pd.read_csv(file_yp)
 
-  fig, axes = plt.subplots(nrows=2, ncols=1)
+  fig1, axes1 = plt.subplots(nrows=2, ncols=1)
+  fig2, axes2 = plt.subplots(nrows=2, ncols=1)
 
-  print(data)
+  print(data_yx)
 
-  data[["sim1_eq1", "sim1_eq2", "sim1_eq3"]].plot(ax=axes[0], label="Sim1")
-  data[["sim2_eq1", "sim2_eq2", "sim2_eq3"]].plot(ax=axes[1], label="Sim2")
-  axes[0].legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
-  axes[1].legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+  print(data_yp)
+
+  data_yx[["sim1_eq1", "sim1_eq2", "sim1_eq3"]].plot(ax=axes1[0], label="Sim1")
+  data_yx[["sim2_eq1", "sim2_eq2", "sim2_eq3"]].plot(ax=axes1[1], label="Sim2")
+  axes1[0].legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+  axes1[1].legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+
+  data_yp[["sim1_eq1", "sim1_eq2", "sim1_eq3"]].plot(ax=axes2[0], label="Sim1")
+  data_yp[["sim2_eq1", "sim2_eq2", "sim2_eq3"]].plot(ax=axes2[1], label="Sim2")
+  axes2[0].legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+  axes2[1].legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
 
   plt.show()
