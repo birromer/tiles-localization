@@ -7,6 +7,9 @@
 #include <codac-rob.h>
 #include <math.h>
 #include <stdarg.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
 
 using namespace cv;
 using namespace std;
@@ -19,6 +22,8 @@ using namespace std;
 
 #define NUM_IMGS 10
 #define IMG_FOLDER "/home/birromer/ros/dataset_tiles/"
+#define GT_FILE "/home/birromer/ros/gt.csv"
+#define SIM_FILE "/home/birromer/ros/test_sim.csv"
 
 typedef struct line_struct{
   Point2f p1;     // 1st point of the line
@@ -50,15 +55,27 @@ double frame_width=0, frame_height=0;
 const int dist_lines = 103.0;  //pixels between each pair of lines
 
 int main(int argc, char **argv) {
-
   int curr_img = 0;
   bool verbose = false;
 
-  for(int curr_img = 0; curr_img <= n_img; curr_img++) {
-    cout << "Processing image " << curr_img << "/" << NUM_IMGS << endl;
+  double pose_1, pose_2, pose_3;
+  ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
+//  ibex::IntervalVector pose(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
 
-    ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
-    ibex::IntervalVector pose(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
+  ifstream file_gt(GT_FILE);
+  ofstream file_sim(SIM_FILE);
+  file_sim << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
+
+  // Make sure the file is open
+  if(!myFile.is_open())
+    throw std::runtime_error("Could not open file");
+
+  std::string line, colname;
+
+  std::getline(file_gt, line);  // skip line with column names
+
+  while(getline(file_gt, line)) {
+    cout << "Processing image " << curr_img << "/" << NUM_IMGS << endl;
 
     // 1. preprocessing
     // 1.1 read the image
@@ -244,11 +261,38 @@ int main(int argc, char **argv) {
     }
 
     // 4 get the pose from the ground truth
+    stringstream ss(line);  // stringstream of the current line
+    vector<double> line_val;
+    double val;
 
+    // extract each value
+    while(ss >> val){
+        line_val.push_back(val);
+
+        if(ss.peek() == ',')
+          ss.ignore();  // ignore commas
+    }
+
+    pose_1 = line_vals[0];
+    pose_2 = line_vals[1];
+    pose_3 = line_vals[2];
 
     // 5 equivalency equations
+
     // ground truth and parameters should have near 0 value in the equivalency equations
+    sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1));
+    sim1_eq2 = sin(M_PI*(obs[1].mid()-pose_2));
+    sim1_eq3 = sin(obs[2].mid()-pose_3);
 
+    sim2_eq1 = sin(M_PI*(obs[0].mid()-pose_2));
+    sim2_eq2 = sin(M_PI*(obs[1].mid()-pose_1));
+    sim2_eq3 = cos(obs[2].mid()-pose_3);
 
+    file_sim << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
+
+    cout << "Equivalence equations 1:\nsin(pi*(y1-z1)) = " << sim1_eq1 << "\nsin(pi*(y2-z2)) = " << sim1_eq2 << "\nsin(y2-z2) = " << sim1_eq3 << endl;
+    cout << "Equivalence equations 2:\nsin(pi*(y1-z2)) = " << sim2_eq1 << "\nsin(pi*(y2-z1)) = " << sim2_eq2 << "\ncos(y2-z1) = " << sim2_eq3 << endl;
+
+    curr_img += 1;
   }  // end of loop for each image
 }

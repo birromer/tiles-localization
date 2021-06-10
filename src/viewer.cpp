@@ -45,6 +45,7 @@ ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);
 double pose_1, pose_2, pose_3;
 ofstream file_eq_yx;
 ofstream file_eq_yp;
+ofstream file_gt;
 
 void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
   float w_x, w_y, w_th;
@@ -107,6 +108,7 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
   ROS_INFO("[LOCALIZATION] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sim1_eq1, sim1_eq2, sim1_eq3);
   ROS_INFO("[LOCALIZATION] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sim2_eq1, sim2_eq2, sim2_eq3);
 
+  // comparing Y with pose
   sim1_eq1 = sin(M_PI*(y[0].mid()-pose_1));
   sim1_eq2 = sin(M_PI*(y[1].mid()-pose_2));
   sim1_eq3 = sin(y[2].mid()-pose_3);
@@ -117,12 +119,12 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
 
   file_eq_yp << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
 
-  // comparing Y with pose
-//  ROS_INFO("Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sin(M_PI*(y1-pose_1)), sin(M_PI*(y2-pose_2)), sin(y3-pose_3));
-//  ROS_INFO("Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sin(M_PI*(y1-pose_2)), sin(M_PI*(y2-pose_1)), cos(y3-pose_3));
+  ROS_INFO("[LOCALIZATION] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sim1_eq1, sim1_eq2, sim1_eq3);
+  ROS_INFO("[LOCALIZATION] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sim2_eq1, sim2_eq2, sim2_eq3);
+
+  file_gt << pose_1 << "," << pose_2 << "," << pose_3 << endl;
 
   // plot similarity equations
-
 }
 
 int main(int argc, char **argv){
@@ -132,11 +134,13 @@ int main(int argc, char **argv){
   vibes::axisLimits(-10, 10, -10, 10, "Map");
   fig_map.show();
 
-  file_eq_yx.open("/home/birromer/ros/file_eq_yx.csv", fstream::in | fstream::out | fstream::trunc);
-  file_eq_yp.open("/home/birromer/ros/file_eq_yp.csv", fstream::in | fstream::out | fstream::trunc);
+  file_eq_yx.open("/home/birromer/ros/eq_yx.csv", fstream::in | fstream::out | fstream::trunc);
+  file_eq_yp.open("/home/birromer/ros/eq_yp.csv", fstream::in | fstream::out | fstream::trunc);
+  file_gt.open("/home/birromer/ros/gt.csv", fstream::in | fstream::out | fstream::trunc);
 
   file_eq_yx << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
   file_eq_yp << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
+  file_gt << "x" << "," << "y" << "," << "theta" << endl;
 
   ros::init(argc, argv, "viewer_node");
 
