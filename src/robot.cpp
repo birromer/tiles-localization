@@ -561,7 +561,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       }
 
     } else {
-      ROS_WARN("Not enought good lines ([%ld])", lines_good.size());
+      ROS_WARN("Not enough good lines ([%ld])", lines_good.size());
 
     }
 
