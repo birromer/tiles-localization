@@ -11,6 +11,9 @@ add_compile_options(-std=c++11)
 ## is used, also find other catkin packages
 include(FindPkgConfig)
 
+# Adding ROOT
+  find_package(ROOT REQUIRED)
+
 # Adding Eigen3
 
   # In case you installed Eigen3 in a local directory, you need

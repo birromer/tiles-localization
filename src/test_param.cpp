@@ -10,6 +10,18 @@
 #include <fstream>
 #include <sstream>
 
+// headers for using root
+#include <thread>
+#include <chrono>
+#include <stdexcept>
+#include <memory>
+#include "TCanvas.h"
+#include "TGraph.h"
+#include "TApplication.h"
+#include "TAxis.h"
+
+using namespace std::chrono_literals;
+
 using namespace cv;
 using namespace std;
 
@@ -57,7 +69,41 @@ bool display_window = true;
 const int dist_lines = 103.0;  //pixels between each pair of lines
 
 int main(int argc, char **argv) {
+  // ------------------ ROOT setup ------------------ //
+  TApplication rootapp("viz", &argc, argv);
+
+  auto c1 = std::make_unique<TCanvas>("c1", "Equivalence equations");
+  c1->SetWindowSize(1550, 700);
+
+  // create the spectrogram
+  auto f1 = std::make_unique<TGraph>(NUM_IMGS);
+  f1->SetTitle("Set of equations 1");
+  f1->GetXaxis()->SetTitle("Iteration");
+  f1->GetYaxis()->SetTitle("Similarity score");
+  f1->SetMinimum(-1);
+  f1->SetMaximum(1);
+
+  // create the waveform plot
+  auto f2 = std::make_unique<TGraph>(NUM_IMGS);
+  f2->SetTitle("Set of equations 2");
+  f2->GetXaxis()->SetTitle("Iteration");
+  f2->GetYaxis()->SetTitle("Similarity score");
+  f2->SetMinimum(-1);
+  f2->SetMaximum(1);
+
+  // divide the canvas into two vertical sub-canvas
+  c1->Divide(1, 2);
+
+  // "Register" the plots for each canvas slot
+  c1->cd(1); // Set current canvas to canvas 1 (yes, 1 based indexing)
+  f1->Draw();
+  c1->cd(2); // Set current canvas to canvas 2
+  f2->Draw();
+  // ------------------------------------------------ //
+
   int curr_img = 0;
+
+  vector<vector<double>> sim_test_data;
 
   if(display_window) {
     cv::namedWindow("camera");
@@ -305,7 +351,24 @@ int main(int argc, char **argv) {
     cout << "Equivalence equations 1:\nsin(pi*(y1-z1)) = " << sim1_eq1 << "\nsin(pi*(y2-z2)) = " << sim1_eq2 << "\nsin(y2-z2) = " << sim1_eq3 << endl;
     cout << "Equivalence equations 2:\nsin(pi*(y1-z2)) = " << sim2_eq1 << "\nsin(pi*(y2-z1)) = " << sim2_eq2 << "\ncos(y2-z1) = " << sim2_eq3 << endl;
 
+    vector<double> s{sim1_eq1, sim1_eq2, sim1_eq3, sim2_eq1, sim2_eq2, sim2_eq3}
+    sim_test_data.push_back(s);
+
     curr_img += 1;
+
+    // redraw graph
+    for (int i=0; i < sim_test_data.size(); i++) {
+      f1->SetPoint(i, sim_test_data[i][0]);
+    }
+
+    // notify ROOT that the plots have been modified and needs update
+    c1->cd(1);
+    c1->Update();
+    c1->Pad()->Draw();
+    c1->cd(2);
+    c1->Update();
+    c1->Pad()->Draw();
+
   }  // end of loop for each image
 }
 
