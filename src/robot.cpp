@@ -37,10 +37,14 @@
 #include <codac-rob.h>
 #include <math.h>
 #include <stdarg.h>
+#include <sstream>
+#include <iomanip>
+#include <iostream>
 
 using namespace cv;
 
 #define MIN_GOOD_LINES 5
+#define IMG_FOLDER "/home/birromer/ros/data_tiles/dataset_tiles/"
 
 // TODO: test different errors
 #define ERROR_PRED      0.1
@@ -87,6 +91,8 @@ ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);        // observed param
 double compass, speed_x, speed_y, speed_z, speed_rho, speed_tht, speed_psi;  // input from the sensors
 double sim_time;       // simulation time from coppelia
 double prev_sim_time;  // previosu simulation time from coppelia
+
+int img_idx = 0;
 
 std::vector<line_t> base_grid_lines;
 bool base_grid_created = false;
@@ -350,6 +356,14 @@ void state_loc_callback(const tiles_loc::State::ConstPtr& msg) {
            state_loc[0].lb(), state_loc[0].ub(), state_loc[1].lb(), state_loc[1].ub(), state_loc[2].lb(), state_loc[2].ub());
 }
 
+string to_filename(int idx, int n_digits) {
+  ostringstream os;
+
+  os << setfill('0') << setw(n_digits) << idx;
+
+  return os.str();
+}
+
 void image_callback(const sensor_msgs::ImageConstPtr& msg) {
   Mat in;
 
@@ -360,6 +374,13 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     frame_height = in.size[0];
     frame_width = in.size[1];
     Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
+
+    char cimg[1000];
+    snprintf(cimg, 1000, "%s%06d.png", IMG_FOLDER, img_idx);
+    imwrite(cimg, in);
+    img_idx += 1;
+
+    std::cout << "SAVED IMAGE " << cimg << endl;
 
     // convert to greyscale for later computing borders
     Mat grey;

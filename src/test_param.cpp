@@ -299,6 +299,105 @@ int main(int argc, char **argv) {
   }  // end of loop for each image
 }
 
+double sawtooth(double x){
+  return 2.*atan(tan(x/2.));
+}
+
+double median(std::vector<double> scores) {
+  //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
+  size_t size = scores.size();
+
+  if (size == 0) {
+    return 0;  // undefined
+  } else {
+    sort(scores.begin(), scores.end());  // sort elements and take middle one
+
+    if (size % 2 == 0) {
+      return (scores[size / 2 - 1] + scores[size / 2]) / 2;
+    } else {
+      return scores[size / 2];
+    }
+  }
+}
+
+/* use op to select which field to be used for comparisson:
+**   1 = angle
+**   2 = angle4
+**   3 = m_x
+**   4 = m_y
+**   5 = d
+**   6 = dd
+*/
+double median(std::vector<line_t> lines, int op) {
+  size_t size = lines.size();
+
+  if (size == 0) {
+    return 0;  // undefined
+  } else {
+    sort(lines.begin(), lines.end(), [=](line_t l1, line_t l2) -> bool {
+      if (op == 1)
+        return l1.angle > l2.angle;
+      else if (op == 2)
+        return l1.angle4 > l2.angle4;
+      else if (op == 3)
+        return l1.m_x > l2.m_x;
+      else if (op == 4)
+        return l1.m_y > l2.m_y;
+      else if (op == 5)
+        return l1.d > l2.d;
+      else if (op == 6)
+        return l1.dd > l2.dd;
+      return false;  // if not an option, leave as is
+    });  // sort elements and take middle one
+
+    if (size % 2 == 0) {
+      if (op == 1)
+        return (lines[size / 2 - 1].angle + lines[size / 2].angle) / 2;
+      else if (op == 2)
+        return (lines[size / 2 - 1].angle4 + lines[size / 2].angle4) / 2;
+      else if (op == 3)
+        return (lines[size / 2 - 1].m_x + lines[size / 2].m_x) / 2;
+      else if (op == 4)
+        return (lines[size / 2 - 1].m_y + lines[size / 2].m_y) / 2;
+      else if (op == 5)
+        return (lines[size / 2 - 1].d + lines[size / 2].d) / 2;
+      else if (op == 6)
+        return (lines[size / 2 - 1].dd + lines[size / 2].dd) / 2;
+
+    } else {
+      if (op == 1)
+        return lines[size/2].angle;
+      else if (op == 2)
+        return lines[size/2].angle4;
+      else if (op == 3)
+        return lines[size/2].m_x;
+      else if (op == 4)
+        return lines[size/2].m_y;
+      else if (op == 5)
+        return lines[size/2].d;
+      else if (op == 6)
+        return lines[size/2].dd;
+    }
+
+    return 0;
+  }
+}
+
+double modulo(double a, double b) {
+  double r = a/b - floor(a/b);
+  if(r<0) {
+    r+=1;
+  }
+  return r*b;
+}
+
+int sign(double x) {
+  if(x < 0) {
+    return -1;
+  }
+  return 1;
+}
+
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
   double d_hat_h = obs[0].mid();
   double d_hat_v = obs[1].mid();
@@ -441,103 +540,4 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
   }
 
   return img_grid;
-}
-
-double sawtooth(double x){
-  return 2.*atan(tan(x/2.));
-}
-
-double median(std::vector<double> scores) {
-  //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
-  size_t size = scores.size();
-
-  if (size == 0) {
-    return 0;  // undefined
-  } else {
-    sort(scores.begin(), scores.end());  // sort elements and take middle one
-
-    if (size % 2 == 0) {
-      return (scores[size / 2 - 1] + scores[size / 2]) / 2;
-    } else {
-      return scores[size / 2];
-    }
-  }
-}
-
-/* use op to select which field to be used for comparisson:
-**   1 = angle
-**   2 = angle4
-**   3 = m_x
-**   4 = m_y
-**   5 = d
-**   6 = dd
-*/
-double median(std::vector<line_t> lines, int op) {
-  size_t size = lines.size();
-
-  if (size == 0) {
-    return 0;  // undefined
-  } else {
-    sort(lines.begin(), lines.end(), [=](line_t l1, line_t l2) -> bool {
-      if (op == 1)
-        return l1.angle > l2.angle;
-      else if (op == 2)
-        return l1.angle4 > l2.angle4;
-      else if (op == 3)
-        return l1.m_x > l2.m_x;
-      else if (op == 4)
-        return l1.m_y > l2.m_y;
-      else if (op == 5)
-        return l1.d > l2.d;
-      else if (op == 6)
-        return l1.dd > l2.dd;
-      return false;  // if not an option, leave as is
-    });  // sort elements and take middle one
-
-    if (size % 2 == 0) {
-      if (op == 1)
-        return (lines[size / 2 - 1].angle + lines[size / 2].angle) / 2;
-      else if (op == 2)
-        return (lines[size / 2 - 1].angle4 + lines[size / 2].angle4) / 2;
-      else if (op == 3)
-        return (lines[size / 2 - 1].m_x + lines[size / 2].m_x) / 2;
-      else if (op == 4)
-        return (lines[size / 2 - 1].m_y + lines[size / 2].m_y) / 2;
-      else if (op == 5)
-        return (lines[size / 2 - 1].d + lines[size / 2].d) / 2;
-      else if (op == 6)
-        return (lines[size / 2 - 1].dd + lines[size / 2].dd) / 2;
-
-    } else {
-      if (op == 1)
-        return lines[size/2].angle;
-      else if (op == 2)
-        return lines[size/2].angle4;
-      else if (op == 3)
-        return lines[size/2].m_x;
-      else if (op == 4)
-        return lines[size/2].m_y;
-      else if (op == 5)
-        return lines[size/2].d;
-      else if (op == 6)
-        return lines[size/2].dd;
-    }
-
-    return 0;
-  }
-}
-
-double modulo(double a, double b) {
-  double r = a/b - floor(a/b);
-  if(r<0) {
-    r+=1;
-  }
-  return r*b;
-}
-
-int sign(double x) {
-  if(x < 0) {
-    return -1;
-  }
-  return 1;
 }
