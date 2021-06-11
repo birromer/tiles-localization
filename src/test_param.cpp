@@ -19,7 +19,7 @@ using namespace std;
 #define ERROR_OBS       0.3
 #define ERROR_OBS_ANGLE 0.1
 
-#define NUM_IMGS 10
+#define NUM_IMGS 6697
 #define IMG_FOLDER "/home/birromer/ros/data_tiles/dataset_tiles/"
 #define GT_FILE "/home/birromer/ros/data_tiles/gt.csv"
 #define SIM_FILE "/home/birromer/ros/data_tiles/test_sim.csv"
@@ -49,14 +49,24 @@ ibex::IntervalVector get_obs(cv::Mat image);
 std::vector<line_t> base_grid_lines;
 bool base_grid_created = false;
 
-bool display_window;
 double frame_width=0, frame_height=0;
+
+bool verbose = true;
+bool display_window = true;
 
 const int dist_lines = 103.0;  //pixels between each pair of lines
 
 int main(int argc, char **argv) {
   int curr_img = 0;
-  bool verbose = false;
+
+  if(display_window) {
+    cv::namedWindow("camera");
+    cv::namedWindow("rotated");
+    cv::namedWindow("lines");
+    cv::namedWindow("view_param_1");
+    cv::namedWindow("view_param_2");
+    cv::startWindowThread();
+  }
 
   double pose_1, pose_2, pose_3;
   ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
