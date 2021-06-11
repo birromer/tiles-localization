@@ -20,9 +20,9 @@ using namespace std;
 #define ERROR_OBS_ANGLE 0.1
 
 #define NUM_IMGS 10
-#define IMG_FOLDER "/home/birromer/ros/dataset_tiles/"
-#define GT_FILE "/home/birromer/ros/gt.csv"
-#define SIM_FILE "/home/birromer/ros/test_sim.csv"
+#define IMG_FOLDER "/home/birromer/ros/data_tiles/dataset_tiles/"
+#define GT_FILE "/home/birromer/ros/data_tiles/gt.csv"
+#define SIM_FILE "/home/birromer/ros/data_tiles/test_sim.csv"
 
 typedef struct line_struct{
   Point2f p1;     // 1st point of the line
