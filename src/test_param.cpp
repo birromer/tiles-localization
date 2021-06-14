@@ -65,7 +65,7 @@ bool base_grid_created = false;
 double frame_width=0, frame_height=0;
 
 bool verbose = true;
-bool display_window = true;
+bool display_window = false;
 
 const int dist_lines = 103.0;  //pixels between each pair of lines
 
@@ -76,30 +76,64 @@ int main(int argc, char **argv) {
   auto c1 = std::make_unique<TCanvas>("c1", "Equivalence equations");
   c1->SetWindowSize(1550, 700);
 
-  // create the spectrogram
   auto f1 = std::make_unique<TGraph>(NUM_IMGS);
-  f1->SetTitle("Set of equations 1");
+  f1->SetTitle("sin(pi*(y1-z1))");
   f1->GetXaxis()->SetTitle("Iteration");
   f1->GetYaxis()->SetTitle("Similarity score");
   f1->SetMinimum(-1);
   f1->SetMaximum(1);
 
-  // create the waveform plot
   auto f2 = std::make_unique<TGraph>(NUM_IMGS);
-  f2->SetTitle("Set of equations 2");
+  f2->SetTitle("sin(pi*(y2-z2))");
   f2->GetXaxis()->SetTitle("Iteration");
   f2->GetYaxis()->SetTitle("Similarity score");
   f2->SetMinimum(-1);
   f2->SetMaximum(1);
 
+  auto f3 = std::make_unique<TGraph>(NUM_IMGS);
+  f3->SetTitle("sin(y3-z3)");
+  f3->GetXaxis()->SetTitle("Iteration");
+  f3->GetYaxis()->SetTitle("Similarity score");
+  f3->SetMinimum(-1);
+  f3->SetMaximum(1);
+
+  auto f4 = std::make_unique<TGraph>(NUM_IMGS);
+  f4->SetTitle("sin(pi*(y1-z2))");
+  f4->GetXaxis()->SetTitle("Iteration");
+  f4->GetYaxis()->SetTitle("Similarity score");
+  f4->SetMinimum(-1);
+  f4->SetMaximum(1);
+
+  auto f5 = std::make_unique<TGraph>(NUM_IMGS);
+  f5->SetTitle("sin(pi*(y2-z1))");
+  f5->GetXaxis()->SetTitle("Iteration");
+  f5->GetYaxis()->SetTitle("Similarity score");
+  f5->SetMinimum(-1);
+  f5->SetMaximum(1);
+
+  auto f6 = std::make_unique<TGraph>(NUM_IMGS);
+  f6->SetTitle("sin(y3-z3)");
+  f6->GetXaxis()->SetTitle("Iteration");
+  f6->GetYaxis()->SetTitle("Similarity score");
+  f6->SetMinimum(-1);
+  f6->SetMaximum(1);
+
   // divide the canvas into two vertical sub-canvas
-  c1->Divide(1, 2);
+  c1->Divide(2, 3);
 
   // "Register" the plots for each canvas slot
   c1->cd(1); // Set current canvas to canvas 1 (yes, 1 based indexing)
   f1->Draw();
-  c1->cd(2); // Set current canvas to canvas 2
+  c1->cd(3);
   f2->Draw();
+  c1->cd(5);
+  f3->Draw();
+  c1->cd(2);
+  f4->Draw();
+  c1->cd(4);
+  f5->Draw();
+  c1->cd(6);
+  f6->Draw();
   // ------------------------------------------------ //
 
   int curr_img = 0;
@@ -359,7 +393,27 @@ int main(int argc, char **argv) {
 
     // redraw graph
     for (int i=0; i < sim_test_data.size(); i++) {
-      f1->SetPoint(i, sim_test_data[i][0], 0);
+      f1->SetPoint(i, i, sim_test_data[i][0]);
+    }
+
+    for (int i=0; i < sim_test_data.size(); i++) {
+      f2->SetPoint(i, i, sim_test_data[i][3]);
+    }
+
+    for (int i=0; i < sim_test_data.size(); i++) {
+      f3->SetPoint(i, i, sim_test_data[i][2]);
+    }
+
+    for (int i=0; i < sim_test_data.size(); i++) {
+      f4->SetPoint(i, i, sim_test_data[i][3]);
+    }
+
+    for (int i=0; i < sim_test_data.size(); i++) {
+      f5->SetPoint(i, i, sim_test_data[i][4]);
+    }
+
+    for (int i=0; i < sim_test_data.size(); i++) {
+      f6->SetPoint(i, i, sim_test_data[i][5]);
     }
 
     // notify ROOT that the plots have been modified and needs update
@@ -367,6 +421,18 @@ int main(int argc, char **argv) {
     c1->Update();
     c1->Pad()->Draw();
     c1->cd(2);
+    c1->Update();
+    c1->Pad()->Draw();
+    c1->cd(3);
+    c1->Update();
+    c1->Pad()->Draw();
+    c1->cd(4);
+    c1->Update();
+    c1->Pad()->Draw();
+    c1->cd(5);
+    c1->Update();
+    c1->Pad()->Draw();
+    c1->cd(6);
     c1->Update();
     c1->Pad()->Draw();
 
