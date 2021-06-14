@@ -93,3 +93,5 @@ TAGS
 GTAGS
 GPATH
 GRTAGS
+
+py/mypy_cache
