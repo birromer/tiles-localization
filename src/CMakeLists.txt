@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.2.0)
-project(test_param)
+project(test_param LANGUAGES CXX)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
+set(CMAKE_CXX_STANDARD 17)
 
-#set(CMAKE_PREFIX_PATH "/opt/opencv3;/opt/ros/melodic;/home/birromer/Documents/tubex-lib/build_install")
+## Compile as C++17
+add_compile_options(-std=c++17)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -12,7 +12,14 @@ add_compile_options(-std=c++11)
 include(FindPkgConfig)
 
 # Adding ROOT
+#
   find_package(ROOT REQUIRED)
+  message(STATUS "Found ROOT version ${ROOT_VERSION}")
+  message(STATUS "  cc flags    : ${ROOT_CC_FLAGS}")
+  message(STATUS "  cxx flags   : ${ROOT_CXX_FLAGS}")
+  message(STATUS "  definitions : ${ROOT_DEFINITIONS}")
+  message(STATUS "  libraries   : ${ROOT_LIBRARIES}")
+  message(STATUS "  include dirs: ${ROOT_INLUDE_DIRS}")
 
 # Adding Eigen3
 
@@ -50,13 +57,13 @@ include(FindPkgConfig)
   find_package(OpenCV REQUIRED)
   include_directories(${OpenCV_INCLUDE_DIRS})
   message(STATUS "OpenCV library status:")
-  message(STATUS "    version: ${OpenCV_VERSION}")
-  message(STATUS "    libraries: ${OpenCV_LIBS}")
-  message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
+  message(STATUS "  version: ${OpenCV_VERSION}")
+  message(STATUS "  libraries: ${OpenCV_LIBS}")
+  message(STATUS "  include path: ${OpenCV_INCLUDE_DIRS}")
 
 # Compilation
 
   add_executable(${PROJECT_NAME} test_param.cpp)
   target_compile_options(${PROJECT_NAME} PUBLIC ${CODAC_CXX_FLAGS})
   target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${CODAC_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
-  target_link_libraries(${PROJECT_NAME} opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CODAC_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS})
+  target_link_libraries(${PROJECT_NAME} opencv_highgui ${ROOT_LIBRARIES} ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CODAC_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS})
