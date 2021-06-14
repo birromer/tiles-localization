@@ -1,4 +1,5 @@
 #include <opencv2/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include <ibex.h>
@@ -348,17 +349,17 @@ int main(int argc, char **argv) {
 
     file_sim << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
 
-    cout << "Equivalence equations 1:\nsin(pi*(y1-z1)) = " << sim1_eq1 << "\nsin(pi*(y2-z2)) = " << sim1_eq2 << "\nsin(y2-z2) = " << sim1_eq3 << endl;
-    cout << "Equivalence equations 2:\nsin(pi*(y1-z2)) = " << sim2_eq1 << "\nsin(pi*(y2-z1)) = " << sim2_eq2 << "\ncos(y2-z1) = " << sim2_eq3 << endl;
+    cout << "Equivalence equations 1:\nsin(pi*(y1-z1)) = " << sim1_eq1 << "\nsin(pi*(y2-z2)) = " << sim1_eq2 << "\nsin(y3-z3) = " << sim1_eq3 << endl;
+    cout << "Equivalence equations 2:\nsin(pi*(y1-z2)) = " << sim2_eq1 << "\nsin(pi*(y2-z1)) = " << sim2_eq2 << "\ncos(y3-z3) = " << sim2_eq3 << endl;
 
-    vector<double> s{sim1_eq1, sim1_eq2, sim1_eq3, sim2_eq1, sim2_eq2, sim2_eq3}
+    vector<double> s{sim1_eq1, sim1_eq2, sim1_eq3, sim2_eq1, sim2_eq2, sim2_eq3};
     sim_test_data.push_back(s);
 
     curr_img += 1;
 
     // redraw graph
     for (int i=0; i < sim_test_data.size(); i++) {
-      f1->SetPoint(i, sim_test_data[i][0]);
+      f1->SetPoint(i, sim_test_data[i][0], 0);
     }
 
     // notify ROOT that the plots have been modified and needs update

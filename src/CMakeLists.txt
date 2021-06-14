@@ -15,11 +15,7 @@ include(FindPkgConfig)
 #
   find_package(ROOT REQUIRED)
   message(STATUS "Found ROOT version ${ROOT_VERSION}")
-  message(STATUS "  cc flags    : ${ROOT_CC_FLAGS}")
-  message(STATUS "  cxx flags   : ${ROOT_CXX_FLAGS}")
-  message(STATUS "  definitions : ${ROOT_DEFINITIONS}")
   message(STATUS "  libraries   : ${ROOT_LIBRARIES}")
-  message(STATUS "  include dirs: ${ROOT_INLUDE_DIRS}")
 
 # Adding Eigen3
 
@@ -53,7 +49,6 @@ include(FindPkgConfig)
 
 # Adding OpenCV
 
-  set(OpenCV_DIR /opt/opencv3)
   find_package(OpenCV REQUIRED)
   include_directories(${OpenCV_INCLUDE_DIRS})
   message(STATUS "OpenCV library status:")
