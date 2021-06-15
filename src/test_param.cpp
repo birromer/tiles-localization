@@ -11,7 +11,8 @@
 #include <fstream>
 #include <sstream>
 
-#include <boost/program_options.hpp>
+#include <ncurses.h>  // for interactivity
+#include <boost/program_options.hpp>  // for command line options
 
 // headers for using root
 #include <thread>
@@ -111,9 +112,14 @@ int main(int argc, char **argv) {
     display_window = false;
     cout << "Display disabled" << endl;
   }
-  // ------------------------------------------------ //
+  // ---------------------------------------------- //
 
-  // ------------------ ROOT setup ------------------ //
+  // -------------- NCURSES setup ----------------- //
+  char kb_key;
+  initscr();
+  // ---------------------------------------------- //
+
+  // ----------------- ROOT setup ----------------- //
   TApplication rootapp("viz", &argc, argv);
 
   auto c1 = std::make_unique<TCanvas>("c1", "Equivalence equations");
@@ -193,19 +199,22 @@ int main(int argc, char **argv) {
     cv::startWindowThread();
   }
 
+
+
   double pose_1, pose_2, pose_3;
   ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
 //  ibex::IntervalVector pose(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
 
-  // start file to save testing values
+  // --------- start file with testing data ----------- //
   ofstream file_sim(SIM_FILE);
 
   if(!file_sim.is_open())
     throw std::runtime_error("Could not open SIM file");
 
   file_sim << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
+  // ------------------------------------------------ //
 
-  // open ground truth value and extract values
+  // ----------- get ground truth data -------------- //
   ifstream file_gt(GT_FILE);
 
   if(!file_gt.is_open())
@@ -232,6 +241,7 @@ int main(int argc, char **argv) {
     vector<double> pose{line_vals[0], line_vals[1], line_vals[2]};
     sim_ground_truth.push_back(pose);
   }
+  // ------------------------------------------------ //
 
   while(curr_img < NUM_IMGS) {
     cout << "Processing image " << curr_img << "/" << NUM_IMGS << endl;
@@ -505,7 +515,32 @@ int main(int argc, char **argv) {
     c1->Update();
     c1->Pad()->Draw();
 
-    curr_img += 1;
+    if (interactive) {
+      kb_key = getch();
+
+      if (kb_key == 32) {
+        printw("Paused.\n");
+
+        while (true) {
+          printw("Current image: %d", curr_img);
+          kb_key = getch();
+
+          if (kb_key == 104) {
+            curr_img -= 1;
+
+          } else if (kb_key == 108) {
+            curr_img += 1;
+
+          } else if (kb_key == 32) {
+            printw("Resumed.\n");
+            break;
+          }
+        }
+      }
+
+    } else {
+      curr_img += 1;
+    }
   }  // end of loop for each image
 }
 
@@ -748,6 +783,9 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
       line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 255, 0), 3, LINE_AA);
     }
   }
+
+  printw("Exited with success\n");
+  endwin();  // finish interactive mode
 
   return img_grid;
 }
