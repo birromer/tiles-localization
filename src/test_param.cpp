@@ -79,6 +79,11 @@ const int dist_lines = 103.0;  //pixels between each pair of lines
 namespace po = boost::program_options;  // for argument parsing
 
 int main(int argc, char **argv) {
+  // -------------- NCURSES setup ----------------- //
+  char kb_key;
+  initscr();
+  // ---------------------------------------------- //
+
   // -------------- BOOST options setup -------------- //
   // Declare the supported options.
   po::options_description desc("Execution options");
@@ -93,30 +98,26 @@ int main(int argc, char **argv) {
   po::notify(vm);
 
   if (vm.count("help")) {
-      cout << desc << endl;
-      return 1;
+    printw("%s",desc);
+    return 1;
   }
 
   if (vm.count("interactive")) {
     interactive = true;
-    cout << "Interactive mode enabled" << endl;
+    printw("Interactive mode enabled\n");
   } else {
     interactive = false;
-    cout << "Interactive disabled" << endl;
+    printw("Interactive disabled\n");
   }
 
   if (vm.count("display")) {
     display_window = true;
-    cout << "Display enabled" << endl;
+    printw("Display enabled\n");
   } else {
     display_window = false;
-    cout << "Display disabled" << endl;
+    printw("Display disabled\n");
   }
-  // ---------------------------------------------- //
 
-  // -------------- NCURSES setup ----------------- //
-  char kb_key;
-  initscr();
   // ---------------------------------------------- //
 
   // ----------------- ROOT setup ----------------- //
@@ -244,7 +245,7 @@ int main(int argc, char **argv) {
   // ------------------------------------------------ //
 
   while(curr_img < NUM_IMGS) {
-    cout << "Processing image " << curr_img << "/" << NUM_IMGS << endl;
+    printw("Processing image %d/%d\n", curr_img, NUM_IMGS);
 
     // 1. preprocessing
     // 1.1 read the image
@@ -371,7 +372,7 @@ int main(int argc, char **argv) {
 
     Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
     if(lines_good.size() > MIN_GOOD_LINES) {
-      cout << "Found " << lines_good.size() << " good lines" << endl;
+      printw("Found %d good lines\n", lines_good.size());
       std::vector<line_t> bag_h, bag_v;
       double x1, y1, x2, y2;
       double angle_new;
@@ -421,7 +422,7 @@ int main(int argc, char **argv) {
       double d_hat_h = dist_lines * median(bag_h, 6);
       double d_hat_v = dist_lines * median(bag_v, 6);
 
-      cout << "PARAMETERS -> d_hat_h = " << d_hat_h << " | d_hat_v = " << d_hat_v << " | a_hat = " << a_hat << endl;
+//      printw("PARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", d_hat_h, d_hat_v, a_hat);;
 
       obs = ibex::IntervalVector({
           {d_hat_h, d_hat_h},
@@ -432,7 +433,7 @@ int main(int argc, char **argv) {
       obs[2] = ibex::Interval(a_hat, a_hat).inflate(ERROR_OBS_ANGLE);
 
     } else {
-      cout << "Not enough good lines (" << lines_good.size() << ")" << endl;
+      printw("Not enough good lines (%d)\n", lines_good.size());
     }
 
     // 3 generate the representation of the observed parameters
@@ -465,35 +466,41 @@ int main(int argc, char **argv) {
 
     file_sim << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
 
-    cout << "Equivalence equations 1:\nsin(pi*(y1-z1)) = " << sim1_eq1 << "\nsin(pi*(y2-z2)) = " << sim1_eq2 << "\nsin(y3-z3) = " << sim1_eq3 << endl;
-    cout << "Equivalence equations 2:\nsin(pi*(y1-z2)) = " << sim2_eq1 << "\nsin(pi*(y2-z1)) = " << sim2_eq2 << "\ncos(y3-z3) = " << sim2_eq3 << endl;
+    printw("Equivalence equations 1:\nsin(pi*(y1-z1)) = %f\nsin(pi*(y2-z2)) = %f\nsin(y3-z3) = %f\n", sim1_eq1, sim1_eq2, sim1_eq3);
+    printw("Equivalence equations 2:\nsin(pi*(y1-z2)) = %f\nsin(pi*(y2-z1)) = %f\ncos(y3-z3) = %f\n", sim2_eq1, sim2_eq2, sim2_eq3);
 
     vector<double> s{sim1_eq1, sim1_eq2, sim1_eq3, sim2_eq1, sim2_eq2, sim2_eq3};
 
     if (sim_test_data.size() == curr_img){
       sim_test_data.push_back(s);
     } else {
-      sim_test_data[curr_img] = s;
+      sim_test_data.at(curr_img) = s;
     }
 
     // redraw graph
-    for (int i=0; i < curr_img; i++)
-      f1->SetPoint(i, i, sim_test_data[i][0]);
-
-    for (int i=0; i < curr_img; i++)
-      f2->SetPoint(i, i, sim_test_data[i][3]);
-
-    for (int i=0; i < curr_img; i++)
-      f3->SetPoint(i, i, sim_test_data[i][2]);
-
-    for (int i=0; i < curr_img; i++)
-      f4->SetPoint(i, i, sim_test_data[i][3]);
-
-    for (int i=0; i < curr_img; i++)
-      f5->SetPoint(i, i, sim_test_data[i][4]);
-
-    for (int i=0; i < curr_img; i++)
-      f6->SetPoint(i, i, sim_test_data[i][5]);
+    for (int i=0; i < curr_img; i++) {
+      if (i < curr_img) {
+        f1->SetPoint(i, i, sim_test_data[i][0]);
+        f2->SetPoint(i, i, sim_test_data[i][3]);
+        f3->SetPoint(i, i, sim_test_data[i][2]);
+        f4->SetPoint(i, i, sim_test_data[i][3]);
+        f5->SetPoint(i, i, sim_test_data[i][4]);
+        f6->SetPoint(i, i, sim_test_data[i][5]);
+      } else {
+        f1->SetPoint(i, i, 0);
+        f2->SetPoint(i, i, 0);
+        f3->SetPoint(i, i, 0);
+        f4->SetPoint(i, i, 0);
+        f5->SetPoint(i, i, 0);
+        f6->SetPoint(i, i, 0);
+      }
+    }
+    f1->RemovePoint(curr_img+1);
+    f2->RemovePoint(curr_img+1);
+    f3->RemovePoint(curr_img+1);
+    f4->RemovePoint(curr_img+1);
+    f5->RemovePoint(curr_img+1);
+    f6->RemovePoint(curr_img+1);
 
     // notify ROOT that the plots have been modified and needs update
     c1->cd(1);
@@ -518,30 +525,25 @@ int main(int argc, char **argv) {
     if (interactive) {
       kb_key = getch();
 
-      if (kb_key == 32) {
-        printw("Paused.\n");
-
-        while (true) {
-          printw("Current image: %d", curr_img);
-          kb_key = getch();
-
-          if (kb_key == 104) {
-            curr_img -= 1;
-
-          } else if (kb_key == 108) {
-            curr_img += 1;
-
-          } else if (kb_key == 32) {
-            printw("Resumed.\n");
-            break;
-          }
+      if (kb_key == 104) {
+        if (curr_img > 0) {
+          curr_img -= 1;
+          sim_test_data.pop_back();
         }
+      } else if (kb_key == 108) {
+        if (curr_img < NUM_IMGS)
+          curr_img += 1;
       }
-
     } else {
       curr_img += 1;
     }
+
+    printw("\n");
+    refresh();
   }  // end of loop for each image
+
+  printw("Exited with success\n");
+  endwin();  // finish interactive mode
 }
 
 double sawtooth(double x){
@@ -783,9 +785,6 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
       line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 255, 0), 3, LINE_AA);
     }
   }
-
-  printw("Exited with success\n");
-  endwin();  // finish interactive mode
 
   return img_grid;
 }
