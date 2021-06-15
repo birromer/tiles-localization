@@ -67,6 +67,8 @@ bool base_grid_created = false;
 
 double frame_width=0, frame_height=0;
 
+//bool paused = false;
+
 bool verbose = true;
 bool display_window = false;
 
@@ -142,6 +144,7 @@ int main(int argc, char **argv) {
   int curr_img = 0;
 
   vector<vector<double>> sim_test_data;
+  vector<vector<double>> sim_ground_truth;
 
   if(display_window) {
     cv::namedWindow("camera");
@@ -156,21 +159,43 @@ int main(int argc, char **argv) {
   ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
 //  ibex::IntervalVector pose(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
 
-  ifstream file_gt(GT_FILE);
+  // start file to save testing values
   ofstream file_sim(SIM_FILE);
-  file_sim << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
-
-  if(!file_gt.is_open())
-    throw std::runtime_error("Could not open GT file");
 
   if(!file_sim.is_open())
     throw std::runtime_error("Could not open SIM file");
+
+  file_sim << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
+
+  // open ground truth value and extract values
+  ifstream file_gt(GT_FILE);
+
+  if(!file_gt.is_open())
+    throw std::runtime_error("Could not open GT file");
 
   std::string line_content, colname;
 
   std::getline(file_gt, line_content);  // skip line with column names
 
   while(getline(file_gt, line_content)) {
+    // get the pose from the ground truth
+    stringstream ss(line_content);  // stringstream of the current line
+    vector<double> line_vals;
+    double val;
+
+    // extract each value
+    while(ss >> val){
+        line_vals.push_back(val);
+
+        if(ss.peek() == ',')
+          ss.ignore();  // ignore commas
+    }
+
+    vector<double> pose{line_vals[0], line_vals[1], line_vals[2]};
+    sim_ground_truth.push_back(pose);
+  }
+
+  while(curr_img < NUM_IMGS) {
     cout << "Processing image " << curr_img << "/" << NUM_IMGS << endl;
 
     // 1. preprocessing
@@ -375,24 +400,12 @@ int main(int argc, char **argv) {
     }
 
     // 4 get the pose from the ground truth
-    stringstream ss(line_content);  // stringstream of the current line
-    vector<double> line_vals;
-    double val;
-
-    // extract each value
-    while(ss >> val){
-        line_vals.push_back(val);
-
-        if(ss.peek() == ',')
-          ss.ignore();  // ignore commas
-    }
-
-    pose_1 = line_vals[0];
-    pose_2 = line_vals[1];
-    pose_3 = line_vals[2];
+    // access the vector where it is stored
+    double pose_1 = sim_ground_truth[curr_img][0];
+    double pose_2 = sim_ground_truth[curr_img][1];
+    double pose_3 = sim_ground_truth[curr_img][2];
 
     // 5 equivalency equations
-
     // ground truth and parameters should have near 0 value in the equivalency equations
     double sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1));
     double sim1_eq2 = sin(M_PI*(obs[1].mid()-pose_2));
@@ -408,34 +421,31 @@ int main(int argc, char **argv) {
     cout << "Equivalence equations 2:\nsin(pi*(y1-z2)) = " << sim2_eq1 << "\nsin(pi*(y2-z1)) = " << sim2_eq2 << "\ncos(y3-z3) = " << sim2_eq3 << endl;
 
     vector<double> s{sim1_eq1, sim1_eq2, sim1_eq3, sim2_eq1, sim2_eq2, sim2_eq3};
-    sim_test_data.push_back(s);
 
-    curr_img += 1;
+    if (sim_test_data.size() == curr_img){
+      sim_test_data.push_back(s);
+    } else {
+      sim_test_data[curr_img] = s;
+    }
 
     // redraw graph
-    for (int i=0; i < sim_test_data.size(); i++) {
+    for (int i=0; i < curr_img; i++)
       f1->SetPoint(i, i, sim_test_data[i][0]);
-    }
 
-    for (int i=0; i < sim_test_data.size(); i++) {
+    for (int i=0; i < curr_img; i++)
       f2->SetPoint(i, i, sim_test_data[i][3]);
-    }
 
-    for (int i=0; i < sim_test_data.size(); i++) {
+    for (int i=0; i < curr_img; i++)
       f3->SetPoint(i, i, sim_test_data[i][2]);
-    }
 
-    for (int i=0; i < sim_test_data.size(); i++) {
+    for (int i=0; i < curr_img; i++)
       f4->SetPoint(i, i, sim_test_data[i][3]);
-    }
 
-    for (int i=0; i < sim_test_data.size(); i++) {
+    for (int i=0; i < curr_img; i++)
       f5->SetPoint(i, i, sim_test_data[i][4]);
-    }
 
-    for (int i=0; i < sim_test_data.size(); i++) {
+    for (int i=0; i < curr_img; i++)
       f6->SetPoint(i, i, sim_test_data[i][5]);
-    }
 
     // notify ROOT that the plots have been modified and needs update
     c1->cd(1);
@@ -457,6 +467,7 @@ int main(int argc, char **argv) {
     c1->Update();
     c1->Pad()->Draw();
 
+    curr_img += 1;
   }  // end of loop for each image
 }
 

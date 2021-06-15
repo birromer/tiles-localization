@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 ## Compile as C++17
 add_compile_options(-std=c++17)
+add_compile_options(-ggdb)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
