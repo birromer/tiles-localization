@@ -538,8 +538,7 @@ int main(int argc, char **argv) {
       curr_img += 1;
     }
 
-    printw("\n");
-    refresh();
+    clear();
   }  // end of loop for each image
 
   printw("Exited with success\n");
