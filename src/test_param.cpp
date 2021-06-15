@@ -11,6 +11,8 @@
 #include <fstream>
 #include <sstream>
 
+#include <boost/program_options.hpp>
+
 // headers for using root
 #include <thread>
 #include <chrono>
@@ -67,14 +69,50 @@ bool base_grid_created = false;
 
 double frame_width=0, frame_height=0;
 
-//bool paused = false;
-
 bool verbose = true;
+bool interactive = false;
 bool display_window = false;
 
 const int dist_lines = 103.0;  //pixels between each pair of lines
 
+namespace po = boost::program_options;  // for argument parsing
+
 int main(int argc, char **argv) {
+  // -------------- BOOST options setup -------------- //
+  // Declare the supported options.
+  po::options_description desc("Execution options");
+
+  desc.add_options()
+    ("help", "produce help message")
+    ("interactive,i", "let frame by frame view")
+    ("display,d", "display processed frames");
+
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+
+  if (vm.count("help")) {
+      cout << desc << endl;
+      return 1;
+  }
+
+  if (vm.count("interactive")) {
+    interactive = true;
+    cout << "Interactive mode enabled" << endl;
+  } else {
+    interactive = false;
+    cout << "Interactive disabled" << endl;
+  }
+
+  if (vm.count("display")) {
+    display_window = true;
+    cout << "Display enabled" << endl;
+  } else {
+    display_window = false;
+    cout << "Display disabled" << endl;
+  }
+  // ------------------------------------------------ //
+
   // ------------------ ROOT setup ------------------ //
   TApplication rootapp("viz", &argc, argv);
 

@@ -57,9 +57,15 @@ include(FindPkgConfig)
   message(STATUS "  libraries: ${OpenCV_LIBS}")
   message(STATUS "  include path: ${OpenCV_INCLUDE_DIRS}")
 
+# Adding BOOST
+  find_package(Boost REQUIRED COMPONENTS program_options)
+  message(STATUS "Found BOOST version ${Boost_VERSION}")
+  message(STATUS "  libraries: ${Boost_LIBRARIES}")
+
+
 # Compilation
 
   add_executable(${PROJECT_NAME} test_param.cpp)
   target_compile_options(${PROJECT_NAME} PUBLIC ${CODAC_CXX_FLAGS})
   target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${CODAC_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
-  target_link_libraries(${PROJECT_NAME} opencv_highgui ${ROOT_LIBRARIES} ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CODAC_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS})
+  target_link_libraries(${PROJECT_NAME} opencv_highgui ${ROOT_LIBRARIES} ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CODAC_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
