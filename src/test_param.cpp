@@ -62,6 +62,9 @@ ibex::IntervalVector get_obs(cv::Mat image);
 std::vector<line_t> base_grid_lines;
 bool base_grid_created = false;
 
+//double prev_a_hat;  // a_hat of the previous iteration
+//int quart_state = 0;  // in which quarter of the plane is the current angle
+
 double frame_width=0, frame_height=0;
 
 bool verbose = true;
@@ -203,8 +206,7 @@ int main(int argc, char **argv) {
     std::vector<Vec4i> detected_lines;
     HoughLinesP(morph, detected_lines, 1, CV_PI/180., 60, 120, 50);
 
-    // 2 extract parameters
-    // from the angles of the lines from the hough transform, as said in luc's paper
+    // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
     std::vector<double> lines_m_x, lines_m_y, filtered_m_x, filtered_m_y;  // x and y components of the points in M
     double x_hat, y_hat, a_hat;
@@ -273,7 +275,26 @@ int main(int argc, char **argv) {
 
     x_hat = median(filtered_m_x);
     y_hat = median(filtered_m_y);
+
+//    prev_a_hat = a_hat;
     a_hat = atan2(y_hat, x_hat) * 1/4;
+
+//    if ((a_hat - prev_a_hat) < (-M_PI/2 + 0.1))
+//      quart_state += 1;
+//    else if ((a_hat - prev_a_hat) > (M_PI/2 - 0.1))
+//      quart_state -= 1;
+//
+//    if (quart_state > 3)
+//      quart_state = 0;
+//    else if (quart_state < 0)
+//      quart_state = 3;
+//
+//    if (quart_state == 1)
+//      a_hat -= M_PI/2;
+//    else if (quart_state == 2)
+//      a_hat += M_PI;
+//    else if (quart_state == 3)
+//      a_hat += M_PI/2;
 
     Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
     if(lines_good.size() > MIN_GOOD_LINES) {
