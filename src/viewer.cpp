@@ -45,7 +45,7 @@ ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);
 double pose_1, pose_2, pose_3;
 ofstream file_eq_yx;
 ofstream file_eq_yp;
-ofstream file_gt;
+//ofstream file_gt;
 
 void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
   float w_x, w_y, w_th;
@@ -90,9 +90,9 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
   ibex::IntervalVector x = state_loc;
   ibex::IntervalVector y = observation;
 
-  ROS_WARN("Using state: x1 [%f] | x2 [%f] | x3 [%f]", x[0].mid(), x[1].mid(), x[2].mid());
-  ROS_WARN("Using parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
-  ROS_WARN("Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
+  ROS_WARN("[VIEWER] Using state: x1 [%f] | x2 [%f] | x3 [%f]", x[0].mid(), x[1].mid(), x[2].mid());
+  ROS_WARN("[VIEWER] Using parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
+  ROS_WARN("[VIEWER] Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
   // comparing Y with X
   double sim1_eq1 = sin(M_PI*(y[0].mid()-x[0].mid()));
@@ -105,8 +105,8 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
 
   file_eq_yx << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
 
-  ROS_INFO("[LOCALIZATION] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sim1_eq1, sim1_eq2, sim1_eq3);
-  ROS_INFO("[LOCALIZATION] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sim2_eq1, sim2_eq2, sim2_eq3);
+  ROS_INFO("[VIEWER] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sim1_eq1, sim1_eq2, sim1_eq3);
+  ROS_INFO("[VIEWER] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sim2_eq1, sim2_eq2, sim2_eq3);
 
   // comparing Y with pose
   sim1_eq1 = sin(M_PI*(y[0].mid()-pose_1));
@@ -119,10 +119,10 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
 
   file_eq_yp << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
 
-  ROS_INFO("[LOCALIZATION] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sim1_eq1, sim1_eq2, sim1_eq3);
-  ROS_INFO("[LOCALIZATION] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sim2_eq1, sim2_eq2, sim2_eq3);
+  ROS_INFO("[VIEWER] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sim1_eq1, sim1_eq2, sim1_eq3);
+  ROS_INFO("[VIEWER] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sim2_eq1, sim2_eq2, sim2_eq3);
 
-  file_gt << pose_1 << "," << pose_2 << "," << pose_3 << endl;
+//  file_gt << pose_1 << "," << pose_2 << "," << pose_3 << endl;
 
   // plot similarity equations
 }
@@ -136,11 +136,11 @@ int main(int argc, char **argv){
 
   file_eq_yx.open("/home/birromer/ros/data_tiles/eq_yx.csv", fstream::in | fstream::out | fstream::trunc);
   file_eq_yp.open("/home/birromer/ros/data_tiles/eq_yp.csv", fstream::in | fstream::out | fstream::trunc);
-  file_gt.open("/home/birromer/ros/data_tiles/gt.csv", fstream::in | fstream::out | fstream::trunc);
+//  file_gt.open("/home/birromer/ros/data_tiles/gt.csv", fstream::in | fstream::out | fstream::trunc);
 
   file_eq_yx << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
   file_eq_yp << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
-  file_gt << "x" << "," << "y" << "," << "theta" << endl;
+//  file_gt << "x" << "," << "y" << "," << "theta" << endl;
 
   ros::init(argc, argv, "viewer_node");
 
@@ -157,6 +157,7 @@ int main(int argc, char **argv){
   vibes::endDrawing();
   file_eq_yx.close();
   file_eq_yp.close();
+//  file_gt.close();
 
   return 0;
 }

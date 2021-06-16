@@ -20,6 +20,7 @@
 #include "geometry_msgs/Pose.h"
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/PoseStamped.h"
+#include "tf/tf.h"
 
 #include "std_msgs/Float64.h"
 #include "std_msgs/Int32.h"
@@ -40,6 +41,7 @@
 #include <sstream>
 #include <iomanip>
 #include <iostream>
+#include <fstream>
 
 using namespace cv;
 
@@ -84,6 +86,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg);
 void speed_callback(const geometry_msgs::Pose::ConstPtr& msg);
 void compass_callback(const std_msgs::Float64::ConstPtr& msg);
 void time_callback(const std_msgs::Float64::ConstPtr& msg);
+void pose_callback(const geometry_msgs::Pose& msg); // NOTE: temporary for dataset
 
 // node communication related variables
 ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);  // robot state from the localization method
@@ -106,6 +109,11 @@ double frame_width=0, frame_height=0;
 
 const int dist_lines = 103.0;  //pixels between each pair of lines
 
+// NOTE: TEMPORARY FOR CREATING DATASET
+double pose_1, pose_2, pose_3;
+ofstream file_gt;
+// ------------------------------
+
 int main(int argc, char **argv) {
   ros::init(argc, argv, "robot_node");
   ros::NodeHandle n;
@@ -113,6 +121,11 @@ int main(int argc, char **argv) {
   ros::Rate loop_rate(50);  // 50Hz frequency
 
   double dt;
+
+  // NOTE: TEMPORARY FOR CREATING DATASET
+  file_gt.open("/home/birromer/ros/data_tiles/gt.csv", fstream::in | fstream::out | fstream::trunc);
+  file_gt << "x" << "," << "y" << "," << "theta" << endl;
+  // ------------------------------
 
   // read initial values from the launcher
   ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);          // current state of the robot
@@ -158,6 +171,9 @@ int main(int argc, char **argv) {
 
   // subscriber to the updated state from the localization subsystem
   ros::Subscriber sub_loc = n.subscribe("state_loc", 1000, state_loc_callback);
+
+  // NOTE: Temporary for logging dataset
+  ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
   // ------------------ //
 
   // --- publishers --- //
@@ -205,6 +221,7 @@ int main(int argc, char **argv) {
     loop_rate.sleep();
   }
 
+  file_gt.close();
   return 0;
 }
 
@@ -375,12 +392,15 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     frame_width = in.size[1];
     Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
 
+    // NOTE: TEMPORARY FOR CREATING DATASET
     char cimg[1000];
     snprintf(cimg, 1000, "%s%06d.png", IMG_FOLDER, img_idx);
     imwrite(cimg, in);
     img_idx += 1;
 
     std::cout << "SAVED IMAGE " << cimg << endl;
+    file_gt << pose_1 << "," << pose_2 << "," << pose_3 << endl;
+    // ------------------------------------
 
     // convert to greyscale for later computing borders
     Mat grey;
@@ -432,7 +452,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       m_y = sin(4*line_angle);
 
       // smallest radius of a circle with a point belonging to the line with origin in 0
-      d = ((p2_x-p1_x)*(p1_y) - (p1_x)*(p2_y-p1_y)) / (pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
+      d = ((p2_x-p1_x)*(p1_y) - (p1_x)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
       // decimal distance, displacement between the lines
       dd = (d/dist_lines - floor(d/dist_lines));
@@ -861,4 +881,10 @@ void speed_callback(const geometry_msgs::Pose::ConstPtr& msg) {
   speed_psi = msg->orientation.z;
 
   ROS_INFO("[ROBOT] Received current speed in x, y and z: [%f] [%f] [%f] | rho, theta and psi: [%f] [%f] [%f]", speed_x, speed_y, speed_z, speed_rho, speed_tht, speed_psi);
+}
+
+void pose_callback(const geometry_msgs::Pose& msg){
+  pose_1 = msg.position.x;
+  pose_2 = msg.position.y;
+  pose_3 = tf::getYaw(msg.orientation);
 }

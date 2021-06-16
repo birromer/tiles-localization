@@ -37,7 +37,7 @@ using namespace codac;
 #define ERROR_OBS       0.3
 #define ERROR_OBS_ANGLE 0.1
 
-#define NUM_IMGS 6697
+#define NUM_IMGS 13758
 #define IMG_FOLDER "/home/birromer/ros/data_tiles/dataset_tiles/"
 #define GT_FILE "/home/birromer/ros/data_tiles/gt.csv"
 #define SIM_FILE "/home/birromer/ros/data_tiles/test_sim.csv"
@@ -67,8 +67,8 @@ void ShowManyImages(string title, int nArgs, ...);
 std::vector<line_t> base_grid_lines;
 bool base_grid_created = false;
 
-//double prev_a_hat;  // a_hat of the previous iteration
-//int quart_state = 0;  // in which quarter of the plane is the current angle
+double prev_a_hat;  // a_hat of the previous iteration
+int quart_state = 0;  // in which quarter of the plane is the current angle
 
 double frame_width=0, frame_height=0;
 
@@ -302,7 +302,6 @@ int main(int argc, char **argv) {
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
-    std::vector<double> lines_m_x, lines_m_y, filtered_m_x, filtered_m_y;  // x and y components of the points in M
     double x_hat, y_hat, a_hat;
 
     // structures for storing the lines information
@@ -324,7 +323,7 @@ int main(int argc, char **argv) {
       m_y = sin(4*line_angle);
 
       // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0
-      d = ((p2_x-p1_x)*(p1_y) - (p1_x)*(p2_y-p1_y)) / (pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
+      d = ((p2_x-p1_x)*p1_y - p1_x*(p2_y-p1_y)) / (pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
       // 2.1.2 decimal distance, displacement between the lines
       dd = (d/dist_lines - floor(d/dist_lines));
@@ -355,9 +354,6 @@ int main(int argc, char **argv) {
     // 2.2 filter lines with bad orientation
     for (line_t l : lines) {
       if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
-        filtered_m_x.push_back(l.m_x);
-        filtered_m_y.push_back(l.m_y);
-
         line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
         lines_good.push_back(l);
 
@@ -370,25 +366,25 @@ int main(int argc, char **argv) {
     x_hat = median(lines_good, 3);
     y_hat = median(lines_good, 4);
 
-//    prev_a_hat = a_hat;
+    prev_a_hat = a_hat;
     a_hat = atan2(y_hat, x_hat) * 1/4;
 
-//    if ((a_hat - prev_a_hat) < (-M_PI/2 + 0.1))
-//      quart_state += 1;
-//    else if ((a_hat - prev_a_hat) > (M_PI/2 - 0.1))
-//      quart_state -= 1;
-//
-//    if (quart_state > 3)
-//      quart_state = 0;
-//    else if (quart_state < 0)
-//      quart_state = 3;
-//
-//    if (quart_state == 1)
-//      a_hat -= M_PI/2;
-//    else if (quart_state == 2)
-//      a_hat += M_PI;
-//    else if (quart_state == 3)
-//      a_hat += M_PI/2;
+    if ((a_hat - prev_a_hat) < (-M_PI/2 + 0.1))
+      quart_state += 1;
+    else if ((a_hat - prev_a_hat) > (M_PI/2 - 0.1))
+      quart_state -= 1;
+
+    if (quart_state > 3)
+      quart_state = 0;
+    else if (quart_state < 0)
+      quart_state = 3;
+
+    if (quart_state == 1)
+      a_hat -= M_PI/2;
+    else if (quart_state == 2)
+      a_hat += M_PI;
+    else if (quart_state == 3)
+      a_hat += M_PI/2;
 
     Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
     if(lines_good.size() > MIN_GOOD_LINES) {
