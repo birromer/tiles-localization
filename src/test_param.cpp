@@ -28,10 +28,12 @@ using namespace std::chrono_literals;
 
 using namespace cv;
 using namespace std;
+using namespace ibex;
+using namespace codac;
 
 #define MIN_GOOD_LINES 5
 
-#define ERROR_PRED      0.1
+#define ERROR_PRED      0.2
 #define ERROR_OBS       0.3
 #define ERROR_OBS_ANGLE 0.1
 
@@ -73,6 +75,7 @@ double frame_width=0, frame_height=0;
 bool verbose = true;
 bool interactive = false;
 bool display_window = false;
+bool intervals = false;
 
 const int dist_lines = 103.0;  //pixels between each pair of lines
 
@@ -90,8 +93,9 @@ int main(int argc, char **argv) {
 
   desc.add_options()
     ("help", "produce help message")
-    ("interactive,i", "let frame by frame view")
-    ("display,d", "display processed frames");
+    ("interactive", "let frame by frame view")
+    ("intervals", "let frame by frame view")
+    ("display", "display processed frames");
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -118,6 +122,23 @@ int main(int argc, char **argv) {
     printw("Display disabled\n");
   }
 
+  if (vm.count("intervals")) {
+    intervals = true;
+    printw("Display intervals enabled\n");
+  } else {
+    intervals = false;
+    printw("Display intervals disabled\n");
+  }
+  // ---------------------------------------------- //
+
+  // ----------------- VIBES setup ----------------- //
+  if (intervals) {
+    vibes::beginDrawing();
+    VIBesFigMap fig_map("Map");
+    vibes::setFigureProperties("Map",vibesParams("x", 10, "y", -10, "width", 700, "height", 700));
+    vibes::axisLimits(-10, 10, -10, 10, "Map");
+    fig_map.show();
+  }
   // ---------------------------------------------- //
 
   // ----------------- ROOT setup ----------------- //
@@ -201,11 +222,9 @@ int main(int argc, char **argv) {
     cv::startWindowThread();
   }
 
-
-
   double pose_1, pose_2, pose_3;
-  ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
-//  ibex::IntervalVector pose(3, ibex::Interval::ALL_REALS);  // observed parameters from the image
+  ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);    // observed parameters from the image
+  ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);  // working state from prediction (in this case gt)
 
   // --------- start file with testing data ----------- //
   ofstream file_sim(SIM_FILE);
@@ -456,6 +475,12 @@ int main(int argc, char **argv) {
     double pose_2 = sim_ground_truth[curr_img][1];
     double pose_3 = sim_ground_truth[curr_img][2];
 
+    state = ibex::IntervalVector({
+        {pose_1, pose_1},
+        {pose_2, pose_2},
+        {pose_3, pose_3}
+    }).inflate(ERROR_PRED);
+
     // 5 equivalency equations
     // ground truth and parameters should have near 0 value in the equivalency equations
     double sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1));
@@ -524,6 +549,43 @@ int main(int argc, char **argv) {
     c1->Update();
     c1->Pad()->Draw();
 
+    if (intervals) {
+      ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
+      ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
+
+      box0[0] = state[0], box0[1] = state[1], box0[2] = state[2], box0[3] = obs[0], box0[4] = obs[1], box0[5] = obs[2];
+      box1[0] = state[0], box1[1] = state[1], box1[2] = state[2], box1[3] = obs[0], box1[4] = obs[1], box1[5] = obs[2];
+
+      ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
+      ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
+
+      ibex::CtcFwdBwd c1(f1);
+      ibex::CtcFwdBwd c2(f2);
+
+      c1.contract(box0);
+      c2.contract(box1);
+
+      ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
+      box[0] = box0[0] | box1[0];
+      box[1] = box0[1] | box1[1];
+      box[2] = box0[2] | box1[2];
+
+      if(box[0].is_empty() or box[1].is_empty()) {
+        printw("Could not contract the state (!!!).");
+      }
+
+      // draw ground truth
+      vibes::drawVehicle(pose_1, pose_2, pose_3*180./M_PI, 0.3, "pink");  // draw ground truth
+
+      // draw the predicted state (in this case is the ground truth, as we're testing only the parameters)
+      vibes::drawBox(state.subvector(0, 1), "green");
+      vibes::drawVehicle(state[0].mid(), state[1].mid(), (state[2].mid())*180./M_PI, 0.3, "green");
+
+      // draw the contracted state
+      vibes::drawBox(box.subvector(0, 1), "blue");
+      vibes::drawVehicle(box[0].mid(), box[1].mid(), (box[2].mid())*180./M_PI, 0.3, "blue");
+    }
+
     if (interactive) {
       kb_key = getch();
 
@@ -543,8 +605,10 @@ int main(int argc, char **argv) {
     clear();
   }  // end of loop for each image
 
+  endwin();  // finish ncurses mode
+  if (intervals)
+    vibes::endDrawing();  // close vibes drawing
   printw("Exited with success\n");
-  endwin();  // finish interactive mode
 }
 
 double sawtooth(double x){

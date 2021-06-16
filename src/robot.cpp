@@ -47,7 +47,7 @@ using namespace cv;
 #define IMG_FOLDER "/home/birromer/ros/data_tiles/dataset_tiles/"
 
 // TODO: test different errors
-#define ERROR_PRED      0.1
+#define ERROR_PRED      0.2
 #define ERROR_OBS       0.3
 #define ERROR_OBS_ANGLE 0.1
 
@@ -432,7 +432,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       m_y = sin(4*line_angle);
 
       // smallest radius of a circle with a point belonging to the line with origin in 0
-      d = ((p2_x-p1_x)*(p1_y)-(p1_x)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x, 2)+pow(p2_y-p1_y, 2));
+      d = ((p2_x-p1_x)*(p1_y) - (p1_x)*(p2_y-p1_y)) / (pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
       // decimal distance, displacement between the lines
       dd = (d/dist_lines - floor(d/dist_lines));
@@ -475,8 +475,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       }
     }
 
-    x_hat = median(filtered_m_x);
-    y_hat = median(filtered_m_y);
+    x_hat = median(lines_good, 3);
+    y_hat = median(lines_good, 4);
 
     prev_a_hat = a_hat;
     a_hat = atan2(y_hat, x_hat) * 1/4;
