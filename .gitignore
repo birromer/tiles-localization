@@ -94,4 +94,5 @@ GTAGS
 GPATH
 GRTAGS
 
-py/.mypy_cache
+py/.mypy_cache/
+src/build/
