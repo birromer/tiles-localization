@@ -323,7 +323,7 @@ int main(int argc, char **argv) {
       m_y = sin(4*line_angle);
 
       // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0
-      d = ((p2_x-p1_x)*p1_y - p1_x*(p2_y-p1_y)) / (pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
+      d = ((p2_x-p1_x)*p1_y - p1_x*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
       // 2.1.2 decimal distance, displacement between the lines
       dd = (d/dist_lines - floor(d/dist_lines));
