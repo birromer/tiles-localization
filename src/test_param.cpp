@@ -56,7 +56,6 @@ double sawtooth(double x);
 double modulo(double a, double b);
 int sign(double x);
 double median(std::vector<line_t> lines, int op);
-double median(std::vector<double> scores);
 
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs);
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs);
@@ -163,7 +162,7 @@ int main(int argc, char **argv) {
   f5->SetMaximum(1);
 
   auto f6 = std::make_unique<TGraph>(NUM_IMGS);
-  f6->SetTitle("sin(y3-z3)");
+  f6->SetTitle("cos(y3-z3)");
   f6->GetXaxis()->SetTitle("Iteration");
   f6->GetYaxis()->SetTitle("Similarity score");
   f6->SetMinimum(-1);
@@ -306,7 +305,7 @@ int main(int argc, char **argv) {
       m_y = sin(4*line_angle);
 
       // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0
-      d = ((p2_x-p1_x)*(p1_y)-(p1_x)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x, 2)+pow(p2_y-p1_y, 2));
+      d = ((p2_x-p1_x)*(p1_y) - (p1_x)*(p2_y-p1_y)) / (pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
       // 2.1.2 decimal distance, displacement between the lines
       dd = (d/dist_lines - floor(d/dist_lines));
@@ -349,8 +348,8 @@ int main(int argc, char **argv) {
       }
     }
 
-    x_hat = median(filtered_m_x);
-    y_hat = median(filtered_m_y);
+    x_hat = median(lines_good, 3);
+    y_hat = median(lines_good, 4);
 
 //    prev_a_hat = a_hat;
     a_hat = atan2(y_hat, x_hat) * 1/4;
@@ -550,23 +549,6 @@ int main(int argc, char **argv) {
 
 double sawtooth(double x){
   return 2.*atan(tan(x/2.));
-}
-
-double median(std::vector<double> scores) {
-  //https://stackoverflow.com/questions/2114797/compute-median-of-values-stored-in-vector-c
-  size_t size = scores.size();
-
-  if (size == 0) {
-    return 0;  // undefined
-  } else {
-    sort(scores.begin(), scores.end());  // sort elements and take middle one
-
-    if (size % 2 == 0) {
-      return (scores[size / 2 - 1] + scores[size / 2]) / 2;
-    } else {
-      return scores[size / 2];
-    }
-  }
 }
 
 /* use op to select which field to be used for comparisson:
