@@ -484,7 +484,7 @@ int main(int argc, char **argv) {
     for (int i=0; i < curr_img; i++) {
       if (i < curr_img) {
         f1->SetPoint(i, i, sim_test_data[i][0]);
-        f2->SetPoint(i, i, sim_test_data[i][3]);
+        f2->SetPoint(i, i, sim_test_data[i][1]);
         f3->SetPoint(i, i, sim_test_data[i][2]);
         f4->SetPoint(i, i, sim_test_data[i][3]);
         f5->SetPoint(i, i, sim_test_data[i][4]);
