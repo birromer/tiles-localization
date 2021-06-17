@@ -40,7 +40,7 @@ using namespace codac;
 #define NUM_IMGS 13758
 #define IMG_FOLDER "/home/birromer/ros/data_tiles/dataset_tiles/"
 #define GT_FILE "/home/birromer/ros/data_tiles/gt.csv"
-#define SIM_FILE "/home/birromer/ros/data_tiles/test_sim.csv"
+string sim_file = "/home/birromer/ros/data_tiles/test_sim.csv";
 
 typedef struct line_struct{
   Point2f p1;     // 1st point of the line
@@ -77,14 +77,14 @@ bool interactive = false;
 bool display_window = false;
 bool intervals = false;
 
-const int dist_lines = 103.0;  //pixels between each pair of lines
+double dist_lines = 103.0;  //pixels between each pair of lines
 
 namespace po = boost::program_options;  // for argument parsing
 
 int main(int argc, char **argv) {
   // -------------- NCURSES setup ----------------- //
   char kb_key;
-  initscr();
+//  initscr();
   // ---------------------------------------------- //
 
   // -------------- BOOST options setup -------------- //
@@ -94,17 +94,21 @@ int main(int argc, char **argv) {
   desc.add_options()
     ("help", "produce help message")
     ("interactive", "let frame by frame view")
-    ("intervals", "let frame by frame view")
-    ("display", "display processed frames");
+    ("intervals", "display intervals contraction")
+    ("display", "display processed frames")
+    ("dist-lines", po::value<double>(&dist_lines), "distance between lines")
+    ("output-file", po::value<string>(), "output file");
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
   po::notify(vm);
 
   if (vm.count("help")) {
-    printw("%s",desc);
+    cout << desc << endl;
     return 1;
   }
+
+  initscr();
 
   if (vm.count("interactive")) {
     interactive = true;
@@ -129,6 +133,17 @@ int main(int argc, char **argv) {
     intervals = false;
     printw("Display intervals disabled\n");
   }
+
+  if (vm.count("output-file")) {
+    sim_file = vm["output-file"].as<string>();
+    printw("Output file specified by user: %c\n", sim_file);
+  } else {
+    printw("Output file default: %s\n", sim_file);
+  }
+
+  printw("Distance between lines is %f\n", dist_lines);
+
+  printw(" ================== Testing start ==================\n");
   // ---------------------------------------------- //
 
   // ----------------- VIBES setup ----------------- //
@@ -227,7 +242,7 @@ int main(int argc, char **argv) {
   ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);  // working state from prediction (in this case gt)
 
   // --------- start file with testing data ----------- //
-  ofstream file_sim(SIM_FILE);
+  ofstream file_sim(sim_file);
 
   if(!file_sim.is_open())
     throw std::runtime_error("Could not open SIM file");
@@ -332,7 +347,7 @@ int main(int argc, char **argv) {
         .p1     = cv::Point(p1_x, p1_y),
         .p2     = cv::Point(p2_x, p2_y),
         .angle  = line_angle,
-        .angle4 = line_angle4,
+        .angle4 = line_angle4,  // this is the one to be used as the angle of the line
         .m_x    = m_x,
         .m_y    = m_y,
         .d      = d,
@@ -366,25 +381,25 @@ int main(int argc, char **argv) {
     x_hat = median(lines_good, 3);
     y_hat = median(lines_good, 4);
 
-    prev_a_hat = a_hat;
+//    prev_a_hat = a_hat;
     a_hat = atan2(y_hat, x_hat) * 1/4;
 
-    if ((a_hat - prev_a_hat) < (-M_PI/2 + 0.1))
-      quart_state += 1;
-    else if ((a_hat - prev_a_hat) > (M_PI/2 - 0.1))
-      quart_state -= 1;
-
-    if (quart_state > 3)
-      quart_state = 0;
-    else if (quart_state < 0)
-      quart_state = 3;
-
-    if (quart_state == 1)
-      a_hat -= M_PI/2;
-    else if (quart_state == 2)
-      a_hat += M_PI;
-    else if (quart_state == 3)
-      a_hat += M_PI/2;
+//    if ((a_hat - prev_a_hat) < (-M_PI/2 + 0.1))
+//      quart_state += 1;
+//    else if ((a_hat - prev_a_hat) > (M_PI/2 - 0.1))
+//      quart_state -= 1;
+//
+//    if (quart_state > 3)
+//      quart_state = 0;
+//    else if (quart_state < 0)
+//      quart_state = 3;
+//
+//    if (quart_state == 1)
+//      a_hat -= M_PI/2;
+//    else if (quart_state == 2)
+//      a_hat += M_PI;
+//    else if (quart_state == 3)
+//      a_hat += M_PI/2;
 
     Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
     if(lines_good.size() > MIN_GOOD_LINES) {
