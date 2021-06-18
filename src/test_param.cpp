@@ -61,11 +61,18 @@ double median(std::vector<line_t> lines, int op);
 
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs);
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs);
+cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::IntervalVector obs);
 ibex::IntervalVector get_obs(cv::Mat image);
 void ShowManyImages(string title, int nArgs, ...);
 
+// variables for the images from the observation
 std::vector<line_t> base_grid_lines;
 bool base_grid_created = false;
+
+// variables for the global frame from the state and the observation
+std::vector<line_t> base_global_frame_lines;
+bool base_global_frame_created = false;
+cv::Mat base_global_frame;
 
 double prev_a_hat;  // a_hat of the previous iteration
 int quart_state = 0;  // in which quarter of the plane is the current angle
@@ -229,6 +236,7 @@ int main(int argc, char **argv) {
 
   if(display_window) {
     cv::namedWindow("steps");
+    cv::namedWindow("global_frame");
     cv::startWindowThread();
   }
 
@@ -290,33 +298,33 @@ int main(int argc, char **argv) {
     Mat grey;
     cvtColor(in, grey, COLOR_BGR2GRAY);
 
-    // create a skeleton representation, trying to diminish number of detected lines
-    cv::Mat img = grey;
-    cv::threshold(img, img, 127, 255, cv::THRESH_BINARY);
-
-    cv::Mat skel(img.size(), CV_8UC1, cv::Scalar(0));
-    cv::Mat temp(img.size(), CV_8UC1);
-
-    cv::Mat element_skel = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
-
-    bool done;
-    do
-    {
-      cv::morphologyEx(img, temp, cv::MORPH_OPEN, element_skel);
-      cv::bitwise_not(temp, temp);
-      cv::bitwise_and(img, temp, temp);
-      cv::bitwise_or(skel, temp, skel);
-      cv::erode(img, img, element_skel);
-
-      double max;
-      cv::minMaxLoc(img, 0, &max);
-      done = (max == 0);
-    } while (!done);
+//    // create a skeleton representation, trying to diminish number of detected lines
+//    cv::Mat img = grey;
+//    cv::threshold(img, img, 127, 255, cv::THRESH_BINARY);
+//
+//    cv::Mat skel(img.size(), CV_8UC1, cv::Scalar(0));
+//    cv::Mat temp(img.size(), CV_8UC1);
+//
+//    cv::Mat element_skel = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
+//
+//    bool done;
+//    do
+//    {
+//      cv::morphologyEx(img, temp, cv::MORPH_OPEN, element_skel);
+//      cv::bitwise_not(temp, temp);
+//      cv::bitwise_and(img, temp, temp);
+//      cv::bitwise_or(skel, temp, skel);
+//      cv::erode(img, img, element_skel);
+//
+//      double max;
+//      cv::minMaxLoc(img, 0, &max);
+//      done = (max == 0);
+//    } while (!done);
 
     // 1.3 compute the gradient image in x and y with the laplacian for the borders
     Mat grad;
-    Laplacian(skel, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
-//    Laplacian(grey, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
+//    Laplacian(skel, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
+    Laplacian(grey, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
 
     // 1.4 detect edges, 50 and 255 as thresholds 1 and 2
     Mat edges;
@@ -491,9 +499,11 @@ int main(int argc, char **argv) {
     // 3 generate the representation of the observed parameters
     Mat view_param_1 = generate_grid_1(dist_lines, obs);
     Mat view_param_2 = generate_grid_2(dist_lines, obs);
+    Mat view_global_frame = generate_global_frame(dist_lines, state, obs);
 
     if(display_window) {
       ShowManyImages("steps", 5, in, src, rot, view_param_1, view_param_2);
+      cv::imshow("global_frame", view_global_frame);
     }
 
     // 4 get the pose from the ground truth
@@ -598,7 +608,7 @@ int main(int argc, char **argv) {
       box[2] = box0[2] | box1[2];
 
       if(box[0].is_empty() or box[1].is_empty()) {
-        printw("Could not contract the state (!!!).");
+        printw("Could not contract the state (!!!).\n");
       }
 
       // draw ground truth
@@ -728,7 +738,7 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
   int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
 
   if (!base_grid_created) {
-    // center of the image, where tiles start with zero displacement
+    // center of the image, where tiles start with zero displacement, the (0,0)
     int center_x = frame_width/2.;
     int center_y = frame_height/2.;
 
@@ -967,4 +977,75 @@ void ShowManyImages(string title, int nArgs, ...) {
 
   // End the number of arguments
   va_end(args);
+}
+
+cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::IntervalVector obs) {
+  double d_hat_h = obs[0].mid();
+  double d_hat_v = obs[1].mid();
+  double a_hat   = obs[2].mid();
+
+  double state_1 = state[0].mid();
+  double state_2 = state[1].mid();
+  double state_3 = state[2].mid();
+
+  int n_lines = 11;
+  int max_dim = dist_lines * (n_lines) + dist_lines/2;  // largest dimension so that always show something inside the picture
+
+  if (!base_global_frame_created) {
+    // center of the image, where tiles start with zero displacement
+    double center_x = max_dim/2.;
+    double center_y = max_dim/2.;
+
+    // create a line every specified number of pixels, starting in a multiple from 0
+    int pos_x = center_x - (n_lines/2)*dist_lines;
+    while (pos_x <= max_dim) {
+      line_t ln = {
+        .p1     = cv::Point(pos_x, -max_dim),
+        .p2     = cv::Point(pos_x, max_dim),
+        .side   = 1  // 0 horizontal, 1 vertical
+      };
+      base_global_frame_lines.push_back(ln);
+      pos_x += dist_lines;
+    }
+
+    int pos_y = center_y - (n_lines/2)*dist_lines;
+    while (pos_y <= max_dim) {
+      line_t ln = {
+        .p1     = cv::Point(-max_dim, pos_y),
+        .p2     = cv::Point(max_dim, pos_y),
+        .side   = 0  // 0 horizontal, 1 vertical
+      };
+      base_global_frame_lines.push_back(ln);
+      pos_y += dist_lines;
+    }
+
+    base_global_frame = cv::Mat::zeros(max_dim, max_dim, CV_8UC3);
+
+    int count_lin = 1;
+    for (line_t l : base_global_frame_lines) {
+      printf("[linha %d]p1: (%.2f,%.2f) | p2: (%.2f, %.2f)\n", count_lin, l.p1.x, l.p1.y, l.p2.x, l.p2.y);
+      count_lin += 1;
+
+      Scalar color;
+      if (l.side == 1) {
+        if (l.p1.x == center_x)
+          color = Scalar(0, 0, 255);
+        else
+          color = Scalar(255, 0, 0);
+      } else {
+        if (l.p1.y == center_y)
+          color = Scalar(0, 0, 255);
+        else
+          color = Scalar(0, 255, 0);
+      }
+
+      line(base_global_frame, cv::Point(l.p1.x, l.p1.y), cv::Point(l.p2.x, l.p2.y), color, 3, LINE_AA);
+    }
+
+    base_global_frame_created = true;
+  }
+
+  cv::Mat global_frame = base_global_frame;
+
+  return global_frame;
 }
