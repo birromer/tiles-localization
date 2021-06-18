@@ -54,6 +54,13 @@ typedef struct line_struct{
   int side;       // 0 if horizontal, 1 if vertical
 } line_t;
 
+typedef struct robot_struct{
+  Point2f p1;     // 1st point of the robot triangle
+  Point2f p2;     // 2nd point of the robot triangle
+  Point2f p3;     // 2nd point of the robot triangle
+  double angle;
+} robot_t;
+
 double sawtooth(double x);
 double modulo(double a, double b);
 int sign(double x);
@@ -62,7 +69,10 @@ double median(std::vector<line_t> lines, int op);
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs);
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs);
 cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::IntervalVector obs);
-ibex::IntervalVector get_obs(cv::Mat image);
+
+robot_t rotate_robot(robot_t robot, double theta);
+robot_t translate_robot(robot_t robot, double dx, double dy);
+
 void ShowManyImages(string title, int nArgs, ...);
 
 // variables for the images from the observation
@@ -73,11 +83,13 @@ bool base_grid_created = false;
 std::vector<line_t> base_global_frame_lines;
 bool base_global_frame_created = false;
 cv::Mat base_global_frame;
+robot_t base_robot;
 
 double prev_a_hat;  // a_hat of the previous iteration
 int quart_state = 0;  // in which quarter of the plane is the current angle
 
 double frame_width=0, frame_height=0;
+int max_dim;
 
 bool verbose = true;
 bool interactive = false;
@@ -499,17 +511,11 @@ int main(int argc, char **argv) {
     // 3 generate the representation of the observed parameters
     Mat view_param_1 = generate_grid_1(dist_lines, obs);
     Mat view_param_2 = generate_grid_2(dist_lines, obs);
-    Mat view_global_frame = generate_global_frame(dist_lines, state, obs);
-
-    if(display_window) {
-      ShowManyImages("steps", 5, in, src, rot, view_param_1, view_param_2);
-      cv::imshow("global_frame", view_global_frame);
-    }
 
     // 4 get the pose from the ground truth
     // access the vector where it is stored
-    double pose_1 = sim_ground_truth[curr_img][0];
-    double pose_2 = sim_ground_truth[curr_img][1];
+    double pose_1 = sim_ground_truth[curr_img][0] * dist_lines;
+    double pose_2 = sim_ground_truth[curr_img][1] * dist_lines;
     double pose_3 = sim_ground_truth[curr_img][2];
 
     state = ibex::IntervalVector({
@@ -517,6 +523,11 @@ int main(int argc, char **argv) {
         {pose_2, pose_2},
         {pose_3, pose_3}
     }).inflate(ERROR_PRED);
+
+    printw("POSE -> x1 = %f | x2 = %f | x3 = %f\n", pose_1, pose_2, pose_3);
+
+    // global frame with observed parameter and pose
+    Mat view_global_frame = generate_global_frame(dist_lines, state, obs);
 
     // 5 equivalency equations
     // ground truth and parameters should have near 0 value in the equivalency equations
@@ -585,6 +596,12 @@ int main(int argc, char **argv) {
     c1->cd(6);
     c1->Update();
     c1->Pad()->Draw();
+
+    // display steps and global frame
+    if(display_window) {
+      ShowManyImages("steps", 5, in, src, rot, view_param_1, view_param_2);
+      cv::imshow("global_frame", view_global_frame);
+    }
 
     if (intervals) {
       ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
@@ -774,17 +791,17 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
 
   for (line_t l : grid_lines) {
     //translation in order to center lines around 0
-    int x1 = l.p1.x - frame_width/2.  + d_hat_h;
-    int y1 = l.p1.y - frame_height/2. + d_hat_v;
-    int x2 = l.p2.x - frame_width/2.  + d_hat_h;
-    int y2 = l.p2.y - frame_height/2. + d_hat_v;
+    double x1 = l.p1.x - frame_width/2.  + d_hat_h;
+    double y1 = l.p1.y - frame_height/2. + d_hat_v;
+    double x2 = l.p2.x - frame_width/2.  + d_hat_h;
+    double y2 = l.p2.y - frame_height/2. + d_hat_v;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);// x1;//
-    int y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);// y1;//
+    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);// x1;//
+    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);// y1;//
 
-    int x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);// x2;//
-    int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);// y2;//
+    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);// x2;//
+    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);// y2;//
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
@@ -846,17 +863,17 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
 
   for (line_t l : grid_lines) {
     //translation in order to center lines around 0
-    int x1 = l.p1.x - frame_width/2.  + d_hat_v;
-    int y1 = l.p1.y - frame_height/2. + d_hat_h;
-    int x2 = l.p2.x - frame_width/2.  + d_hat_v;
-    int y2 = l.p2.y - frame_height/2. + d_hat_h;
+    double x1 = l.p1.x - frame_width/2.  + d_hat_v;
+    double y1 = l.p1.y - frame_height/2. + d_hat_h;
+    double x2 = l.p2.x - frame_width/2.  + d_hat_v;
+    double y2 = l.p2.y - frame_height/2. + d_hat_h;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    int x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);//x1;//
-    int y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);//y1;//
+    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);//x1;//
+    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);//y1;//
 
-    int x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);//x2;//
-    int y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);//y2;//
+    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);//x2;//
+    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);//y2;//
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
@@ -979,6 +996,58 @@ void ShowManyImages(string title, int nArgs, ...) {
   va_end(args);
 }
 
+robot_t rotate_robot(robot_t robot, double theta) {
+    double x1 = robot.p1.x - max_dim/2.;
+    double y1 = robot.p1.y - max_dim/2.;
+
+    double x2 = robot.p2.x - max_dim/2.;
+    double y2 = robot.p2.y - max_dim/2.;
+
+    double x3 = robot.p3.x - max_dim/2.;
+    double y3 = robot.p3.y - max_dim/2.;
+
+    // applies the 2d rotation to the line, making it either horizontal or vertical
+    double x1_temp = x1 * cos(-theta) - y1 * sin(-theta);
+    double y1_temp = x1 * sin(-theta) + y1 * cos(-theta);
+
+    double x2_temp = x2 * cos(-theta) - y2 * sin(-theta);
+    double y2_temp = x2 * sin(-theta) + y2 * cos(-theta);
+
+    double x3_temp = x3 * cos(-theta) - y3 * sin(-theta);
+    double y3_temp = x3 * sin(-theta) + y3 * cos(-theta);
+
+    // translates the image back and adds displacement
+    x1 = x1_temp + max_dim/2.;
+    y1 = y1_temp + max_dim/2.;
+
+    x2 = x2_temp + max_dim/2.;
+    y2 = y2_temp + max_dim/2.;
+
+    x3 = x3_temp + max_dim/2.;
+    y3 = y3_temp + max_dim/2.;
+
+  robot_t robot_rot = {
+    .p1     = cv::Point(x1, y1),
+    .p2     = cv::Point(x2, y2),
+    .p3     = cv::Point(x3, y3),
+    .angle  = theta,
+  };
+
+  return robot_rot;
+}
+
+robot_t translate_robot(robot_t robot, double dx, double dy) {
+  // applies the 2d rotation to the lines
+  robot_t robot_trans = {
+    .p1     = cv::Point(robot.p1.x + dx, robot.p1.y + dy ),
+    .p2     = cv::Point(robot.p2.x + dx, robot.p2.y + dy ),
+    .p3     = cv::Point(robot.p3.x + dx, robot.p3.y + dy ),
+    .angle  = robot.angle,
+  };
+
+  return robot_trans;
+}
+
 cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::IntervalVector obs) {
   double d_hat_h = obs[0].mid();
   double d_hat_v = obs[1].mid();
@@ -989,7 +1058,7 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   double state_3 = state[2].mid();
 
   int n_lines = 11;
-  int max_dim = dist_lines * (n_lines) + dist_lines/2;  // largest dimension so that always show something inside the picture
+  max_dim = dist_lines * (n_lines) + dist_lines/2.;  // largest dimension so that always show something inside the picture
 
   if (!base_global_frame_created) {
     // center of the image, where tiles start with zero displacement
@@ -1023,7 +1092,6 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
 
     int count_lin = 1;
     for (line_t l : base_global_frame_lines) {
-      printf("[linha %d]p1: (%.2f,%.2f) | p2: (%.2f, %.2f)\n", count_lin, l.p1.x, l.p1.y, l.p2.x, l.p2.y);
       count_lin += 1;
 
       Scalar color;
@@ -1042,10 +1110,46 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
       line(base_global_frame, cv::Point(l.p1.x, l.p1.y), cv::Point(l.p2.x, l.p2.y), color, 3, LINE_AA);
     }
 
+    base_robot = {
+      .p1     = cv::Point(center_x + 0, center_y - 25),
+      .p2     = cv::Point(center_x + 0, center_y + 25),
+      .p3     = cv::Point(center_x + 60, center_y + 0),
+      .angle  = 0,
+    };
+
     base_global_frame_created = true;
   }
 
-  cv::Mat global_frame = base_global_frame;
+  cv::Mat global_frame = base_global_frame.clone();
+//  printw("Base robot p1 (%.2f,%.2f) | p2 (%.2f,%.2f) | p3 (%.2f,%.2f) | angle (%.2f)\n", base_robot.p1.x, base_robot.p1.y, base_robot.p2.x, base_robot.p2.y, base_robot.p3.x, base_robot.p3.y, base_robot.angle);
+
+//  robot_t robot_obs = {
+//    .p1     = base_robot.p1,
+//    .p2     = base_robot.p2,
+//    .p3     = base_robot.p3,
+//    .angle  = base_robot.angle,
+//  };
+//  robot_obs = rotate_robot(robot_obs, a_hat);
+//  robot_obs = translate_robot(robot_obs, d_hat_h, d_hat_v);
+//
+//  // yellow
+//  line(global_frame, cv::Point(robot_obs.p1.x, robot_obs.p1.y), cv::Point(robot_obs.p2.x, robot_obs.p2.y), Scalar(0, 255, 255), 1, LINE_AA);
+//  line(global_frame, cv::Point(robot_obs.p2.x, robot_obs.p2.y), cv::Point(robot_obs.p3.x, robot_obs.p3.y), Scalar(0, 255, 255), 1, LINE_AA);
+//  line(global_frame, cv::Point(robot_obs.p3.x, robot_obs.p3.y), cv::Point(robot_obs.p1.x, robot_obs.p1.y), Scalar(0, 255, 255), 1, LINE_AA);
+
+  robot_t robot_state = {
+    .p1     = base_robot.p1,
+    .p2     = base_robot.p2,
+    .p3     = base_robot.p3,
+    .angle  = base_robot.angle,
+  };
+  robot_state = rotate_robot(robot_state, state_3);     // rotate the robot from the origin
+//  robot_state = translate_robot(robot_state, state_1, state_2);  // translate according to state
+
+  // light blue
+   line(global_frame, cv::Point(robot_state.p1.x, robot_state.p1.y), cv::Point(robot_state.p2.x, robot_state.p2.y), Scalar(255, 255, 0), 1, LINE_AA);
+   line(global_frame, cv::Point(robot_state.p2.x, robot_state.p2.y), cv::Point(robot_state.p3.x, robot_state.p3.y), Scalar(255, 255, 0), 1, LINE_AA);
+   line(global_frame, cv::Point(robot_state.p3.x, robot_state.p3.y), cv::Point(robot_state.p1.x, robot_state.p1.y), Scalar(255, 255, 0), 1, LINE_AA);
 
   return global_frame;
 }
