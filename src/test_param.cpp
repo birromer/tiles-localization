@@ -514,8 +514,9 @@ int main(int argc, char **argv) {
 
     // 4 get the pose from the ground truth
     // access the vector where it is stored
-    double pose_1 = sim_ground_truth[curr_img][0] * dist_lines;
-    double pose_2 = sim_ground_truth[curr_img][1] * dist_lines;
+    // TODO: test if really that pose and doesnt have to be scaled according to pixel distance for the comparisson to be true
+    double pose_1 = sim_ground_truth[curr_img][0];// * dist_lines;
+    double pose_2 = sim_ground_truth[curr_img][1];// * dist_lines;
     double pose_3 = sim_ground_truth[curr_img][2];
 
     state = ibex::IntervalVector({
@@ -1039,9 +1040,9 @@ robot_t rotate_robot(robot_t robot, double theta) {
 robot_t translate_robot(robot_t robot, double dx, double dy) {
   // applies the 2d rotation to the lines
   robot_t robot_trans = {
-    .p1     = cv::Point(robot.p1.x + dx, robot.p1.y + dy ),
-    .p2     = cv::Point(robot.p2.x + dx, robot.p2.y + dy ),
-    .p3     = cv::Point(robot.p3.x + dx, robot.p3.y + dy ),
+    .p1     = cv::Point(robot.p1.x + dx, robot.p1.y - dy ),
+    .p2     = cv::Point(robot.p2.x + dx, robot.p2.y - dy ),
+    .p3     = cv::Point(robot.p3.x + dx, robot.p3.y - dy ),
     .angle  = robot.angle,
   };
 
@@ -1123,19 +1124,19 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   cv::Mat global_frame = base_global_frame.clone();
 //  printw("Base robot p1 (%.2f,%.2f) | p2 (%.2f,%.2f) | p3 (%.2f,%.2f) | angle (%.2f)\n", base_robot.p1.x, base_robot.p1.y, base_robot.p2.x, base_robot.p2.y, base_robot.p3.x, base_robot.p3.y, base_robot.angle);
 
-//  robot_t robot_obs = {
-//    .p1     = base_robot.p1,
-//    .p2     = base_robot.p2,
-//    .p3     = base_robot.p3,
-//    .angle  = base_robot.angle,
-//  };
-//  robot_obs = rotate_robot(robot_obs, a_hat);
-//  robot_obs = translate_robot(robot_obs, d_hat_h, d_hat_v);
-//
-//  // yellow
-//  line(global_frame, cv::Point(robot_obs.p1.x, robot_obs.p1.y), cv::Point(robot_obs.p2.x, robot_obs.p2.y), Scalar(0, 255, 255), 1, LINE_AA);
-//  line(global_frame, cv::Point(robot_obs.p2.x, robot_obs.p2.y), cv::Point(robot_obs.p3.x, robot_obs.p3.y), Scalar(0, 255, 255), 1, LINE_AA);
-//  line(global_frame, cv::Point(robot_obs.p3.x, robot_obs.p3.y), cv::Point(robot_obs.p1.x, robot_obs.p1.y), Scalar(0, 255, 255), 1, LINE_AA);
+  robot_t robot_obs = {
+    .p1     = base_robot.p1,
+    .p2     = base_robot.p2,
+    .p3     = base_robot.p3,
+    .angle  = base_robot.angle,
+  };
+  robot_obs = rotate_robot(robot_obs, a_hat);
+  robot_obs = translate_robot(robot_obs, d_hat_h, d_hat_v);
+
+  // yellow
+  line(global_frame, cv::Point(robot_obs.p1.x, robot_obs.p1.y), cv::Point(robot_obs.p2.x, robot_obs.p2.y), Scalar(0, 255, 255), 1, LINE_AA);
+  line(global_frame, cv::Point(robot_obs.p2.x, robot_obs.p2.y), cv::Point(robot_obs.p3.x, robot_obs.p3.y), Scalar(0, 255, 255), 1, LINE_AA);
+  line(global_frame, cv::Point(robot_obs.p3.x, robot_obs.p3.y), cv::Point(robot_obs.p1.x, robot_obs.p1.y), Scalar(0, 255, 255), 1, LINE_AA);
 
   robot_t robot_state = {
     .p1     = base_robot.p1,
@@ -1144,7 +1145,7 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
     .angle  = base_robot.angle,
   };
   robot_state = rotate_robot(robot_state, state_3);     // rotate the robot from the origin
-//  robot_state = translate_robot(robot_state, state_1, state_2);  // translate according to state
+  robot_state = translate_robot(robot_state, state_1*dist_lines, state_2*dist_lines);  // translate according to state
 
   // light blue
    line(global_frame, cv::Point(robot_state.p1.x, robot_state.p1.y), cv::Point(robot_state.p2.x, robot_state.p2.y), Scalar(255, 255, 0), 1, LINE_AA);
