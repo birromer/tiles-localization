@@ -228,11 +228,6 @@ int main(int argc, char **argv) {
   vector<vector<double>> sim_ground_truth;
 
   if(display_window) {
-    //cv::namedWindow("camera");
-    //cv::namedWindow("rotated");
-    //cv::namedWindow("lines");
-    //cv::namedWindow("view_param_1");
-    //cv::namedWindow("view_param_2");
     cv::namedWindow("steps");
     cv::startWindowThread();
   }
@@ -295,25 +290,49 @@ int main(int argc, char **argv) {
     Mat grey;
     cvtColor(in, grey, COLOR_BGR2GRAY);
 
+    // create a skeleton representation, trying to diminish number of detected lines
+    cv::Mat img = grey;
+    cv::threshold(img, img, 127, 255, cv::THRESH_BINARY);
+
+    cv::Mat skel(img.size(), CV_8UC1, cv::Scalar(0));
+    cv::Mat temp(img.size(), CV_8UC1);
+
+    cv::Mat element_skel = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
+
+    bool done;
+    do
+    {
+      cv::morphologyEx(img, temp, cv::MORPH_OPEN, element_skel);
+      cv::bitwise_not(temp, temp);
+      cv::bitwise_and(img, temp, temp);
+      cv::bitwise_or(skel, temp, skel);
+      cv::erode(img, img, element_skel);
+
+      double max;
+      cv::minMaxLoc(img, 0, &max);
+      done = (max == 0);
+    } while (!done);
+
     // 1.3 compute the gradient image in x and y with the laplacian for the borders
     Mat grad;
-    Laplacian(grey, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
+    Laplacian(skel, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
+//    Laplacian(grey, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
 
     // 1.4 detect edges, 50 and 255 as thresholds 1 and 2
     Mat edges;
     Canny(grad, edges, 50, 255, 3);
 
-    // 1.5 close and dilate lines for some noise removal
-    Mat morph;
-    int morph_elem = 0;
-    int morph_size = 0;
-    Mat element = getStructuringElement(morph_elem, Size(2*morph_size + 1, 2*morph_size+1), cv::Point(morph_size, morph_size));
-    morphologyEx(edges, edges, MORPH_CLOSE, element);
-    dilate(edges, morph, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
+//    // 1.5 close and dilate lines for some noise removal
+//    Mat morph;
+//    int morph_elem = 0;
+//    int morph_size = 0;
+//    Mat element = getStructuringElement(morph_elem, Size(2*morph_size + 1, 2*morph_size+1), cv::Point(morph_size, morph_size));
+//    morphologyEx(edges, edges, MORPH_CLOSE, element);
+//    dilate(edges, morph, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
 
     // 1.6 detect lines using the hough transform
     std::vector<Vec4i> detected_lines;
-    HoughLinesP(morph, detected_lines, 1, CV_PI/180., 60, 120, 50);
+    HoughLinesP(edges, detected_lines, 1, CV_PI/180., 60, 120, 50);
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
@@ -474,11 +493,6 @@ int main(int argc, char **argv) {
     Mat view_param_2 = generate_grid_2(dist_lines, obs);
 
     if(display_window) {
-//      cv::imshow("camera", in);
-//      cv::imshow("lines", src);
-//      cv::imshow("rotated", rot);
-//      cv::imshow("view_param_1", view_param_1);
-//      cv::imshow("view_param_2", view_param_2);
       ShowManyImages("steps", 5, in, src, rot, view_param_1, view_param_2);
     }
 
