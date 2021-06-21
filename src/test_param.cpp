@@ -1068,10 +1068,10 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   double state_2 = state[1].mid();
   double state_3 = state[2].mid();
 
-  int n_lines = 11;
-  max_dim = dist_lines * (n_lines) + dist_lines/2.;  // largest dimension so that always show something inside the picture
-
   if (!base_global_frame_created) {
+    int n_lines = 11;
+    max_dim = dist_lines * (n_lines) + dist_lines/2.;  // largest dimension so that always show something inside the picture
+
     // center of the image, where tiles start with zero displacement
     double center_x = max_dim/2.;
     double center_y = max_dim/2.;
@@ -1122,9 +1122,9 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
     }
 
     base_robot = {
-      .p1     = cv::Point(center_x + 0, center_y - 25),
-      .p2     = cv::Point(center_x + 0, center_y + 25),
-      .p3     = cv::Point(center_x + 60, center_y + 0),
+      .p1     = cv::Point(center_x - 20, center_y - 25),
+      .p2     = cv::Point(center_x - 20, center_y + 25),
+      .p3     = cv::Point(center_x + 40, center_y + 0),
       .angle  = 0,
     };
 
@@ -1144,9 +1144,10 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   robot_obs = translate_robot(robot_obs, d_hat_h, d_hat_v);
 
   // yellow
-  line(global_frame, cv::Point(robot_obs.p1.x, robot_obs.p1.y), cv::Point(robot_obs.p2.x, robot_obs.p2.y), Scalar(0, 255, 255), 1, LINE_AA);
-  line(global_frame, cv::Point(robot_obs.p2.x, robot_obs.p2.y), cv::Point(robot_obs.p3.x, robot_obs.p3.y), Scalar(0, 255, 255), 1, LINE_AA);
-  line(global_frame, cv::Point(robot_obs.p3.x, robot_obs.p3.y), cv::Point(robot_obs.p1.x, robot_obs.p1.y), Scalar(0, 255, 255), 1, LINE_AA);
+  line(global_frame, robot_obs.p1, robot_obs.p2, Scalar(0, 255, 255), 1, LINE_AA);
+  line(global_frame, robot_obs.p2, robot_obs.p3, Scalar(0, 255, 255), 1, LINE_AA);
+  line(global_frame, robot_obs.p3, robot_obs.p1, Scalar(0, 255, 255), 1, LINE_AA);
+  circle(global_frame, robot_obs.p1/3 + robot_obs.p2/3 + robot_obs.p3/3, 4, Scalar(0, 255, 255), 1);
 
   robot_t robot_state = {
     .p1     = base_robot.p1,
@@ -1158,9 +1159,10 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   robot_state = translate_robot(robot_state, state_1*dist_lines, state_2*dist_lines);  // translate according to state
 
   // light blue
-   line(global_frame, cv::Point(robot_state.p1.x, robot_state.p1.y), cv::Point(robot_state.p2.x, robot_state.p2.y), Scalar(255, 255, 0), 1, LINE_AA);
-   line(global_frame, cv::Point(robot_state.p2.x, robot_state.p2.y), cv::Point(robot_state.p3.x, robot_state.p3.y), Scalar(255, 255, 0), 1, LINE_AA);
-   line(global_frame, cv::Point(robot_state.p3.x, robot_state.p3.y), cv::Point(robot_state.p1.x, robot_state.p1.y), Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, robot_state.p1, robot_state.p2, Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, robot_state.p2, robot_state.p3, Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, robot_state.p3, robot_state.p1, Scalar(255, 255, 0), 1, LINE_AA);
+  circle(global_frame, robot_state.p1/3 + robot_state.p2/3 + robot_state.p3/3, 4, Scalar(255, 255, 0), 1);
 
   return global_frame;
 }
