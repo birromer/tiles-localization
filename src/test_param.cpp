@@ -38,9 +38,13 @@ using namespace codac;
 #define ERROR_OBS_ANGLE 0.1
 
 #define NUM_IMGS 13758
-#define IMG_FOLDER "/home/birromer/ros/data_tiles/dataset_tiles/"
-#define GT_FILE "/home/birromer/ros/data_tiles/gt.csv"
-string sim_file = "/home/birromer/ros/data_tiles/test_sim.csv";
+
+//#define IMG_FOLDER "/home/birromer/ros/data_tiles/dataset_tiles/"
+//#define GT_FILE "/home/birromer/ros/data_tiles/gt.csv"
+//string sim_file = "/home/birromer/ros/data_tiles/test_sim.csv";
+#define IMG_FOLDER "/home/birromer/data_tiles_backup/dataset_tiles/"
+#define GT_FILE "/home/birromer/data_tiles_backup/gt.csv"
+string sim_file = "/home/birromer/data_tiles_backup/test_sim.csv";
 
 typedef struct line_struct{
   Point2f p1;     // 1st point of the line
@@ -753,17 +757,19 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
   double d_hat_v = obs[1].mid();
   double a_hat   = obs[2].mid();
 
+  int n_lines = 5;
   int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
 
   if (!base_grid_created) {
-    // center of the image, where tiles start with zero displacement, the (0,0)
+    // center of the image, where tiles start with zero displacement
     int center_x = frame_width/2.;
     int center_y = frame_height/2.;
 
     // create a line every specified number of pixels
     // adds one before and one after because occluded areas may appear
-    int pos_x = (center_x % dist_lines) - 2*dist_lines;
-    while (pos_x < frame_width + 2*dist_lines) {
+//    int pos_x = (center_x % dist_lines) - 2*dist_lines;
+    int pos_x = center_x - (n_lines/2)*dist_lines;
+    while (pos_x <= frame_width + (n_lines/2)*dist_lines) {
       line_t ln = {
         .p1     = cv::Point(pos_x, -max_dim),
         .p2     = cv::Point(pos_x, max_dim),
@@ -773,8 +779,9 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
       pos_x += dist_lines;
     }
 
-    int pos_y = (center_y % dist_lines) - 2*dist_lines;
-    while (pos_y < frame_height + 2*dist_lines) {
+//    int pos_y = (center_y % dist_lines) - 2*dist_lines;
+    int pos_y = center_y - (n_lines/2)*dist_lines;
+    while (pos_y <= frame_height + (n_lines/2)*dist_lines) {
       line_t ln = {
         .p1     = cv::Point(-max_dim, pos_y),
         .p2     = cv::Point(max_dim, pos_y),
@@ -825,6 +832,7 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
   double d_hat_v = obs[1].mid();
   double a_hat   = obs[2].mid();
 
+  int n_lines = 5;
   int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
 
   if (!base_grid_created) {
@@ -834,8 +842,9 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
 
     // create a line every specified number of pixels
     // adds one before and one after because occluded areas may appear
-    int pos_x = (center_x % dist_lines) - 2*dist_lines;
-    while (pos_x < frame_width + 2*dist_lines) {
+//    int pos_x = (center_x % dist_lines) - 2*dist_lines;
+    int pos_x = center_x - (n_lines/2)*dist_lines;
+    while (pos_x <= frame_width + (n_lines/2)*dist_lines) {
       line_t ln = {
         .p1     = cv::Point(pos_x, -max_dim),
         .p2     = cv::Point(pos_x, max_dim),
@@ -845,8 +854,9 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
       pos_x += dist_lines;
     }
 
-    int pos_y = (center_y % dist_lines) - 2*dist_lines;
-    while (pos_y < frame_height + 2*dist_lines) {
+//    int pos_y = (center_y % dist_lines) - 2*dist_lines;
+    int pos_y = center_y - (n_lines/2)*dist_lines;
+    while (pos_y <= frame_height + (n_lines/2)*dist_lines) {
       line_t ln = {
         .p1     = cv::Point(-max_dim, pos_y),
         .p2     = cv::Point(max_dim, pos_y),

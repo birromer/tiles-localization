@@ -629,7 +629,7 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
     // adds one before and one after because occluded areas may appear
 //    int pos_x = (center_x % dist_lines) - 2*dist_lines;
     int pos_x = center_x - (n_lines/2)*dist_lines;
-    while (pos_x < frame_width + (n_lines/2)*dist_lines) {
+    while (pos_x <= frame_width + (n_lines/2)*dist_lines) {
       line_t ln = {
         .p1     = cv::Point(pos_x, -max_dim),
         .p2     = cv::Point(pos_x, max_dim),
@@ -641,7 +641,7 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
 
 //    int pos_y = (center_y % dist_lines) - 2*dist_lines;
     int pos_y = center_y - (n_lines/2)*dist_lines;
-    while (pos_y < frame_height + (n_lines/2)*dist_lines) {
+    while (pos_y <= frame_height + (n_lines/2)*dist_lines) {
       line_t ln = {
         .p1     = cv::Point(-max_dim, pos_y),
         .p2     = cv::Point(max_dim, pos_y),
@@ -693,6 +693,7 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
   double a_hat   = obs[2].mid();
 
   int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
+  int n_lines = 5;
 
   if (!base_grid_created) {
     // center of the image, where tiles start with zero displacement
@@ -701,8 +702,8 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
 
     // create a line every specified number of pixels
     // adds one before and one after because occluded areas may appear
-    int pos_x = (center_x % dist_lines) - 2*dist_lines;
-    while (pos_x < frame_width + 2*dist_lines) {
+    int pos_x = center_x - (n_lines/2)*dist_lines;
+    while (pos_x <= frame_width + (n_lines/2)*dist_lines) {
       line_t ln = {
         .p1     = cv::Point(pos_x, -max_dim),
         .p2     = cv::Point(pos_x, max_dim),
@@ -712,8 +713,9 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
       pos_x += dist_lines;
     }
 
-    int pos_y = (center_y % dist_lines) - 2*dist_lines;
-    while (pos_y < frame_height + 2*dist_lines) {
+//    int pos_y = (center_y % dist_lines) - 2*dist_lines;
+    int pos_y = center_y - (n_lines/2)*dist_lines;
+    while (pos_y <= frame_height + (n_lines/2)*dist_lines) {
       line_t ln = {
         .p1     = cv::Point(-max_dim, pos_y),
         .p2     = cv::Point(max_dim, pos_y),
