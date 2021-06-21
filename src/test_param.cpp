@@ -384,9 +384,8 @@ int main(int argc, char **argv) {
       d = ((p2_x-p1_x)*p1_y - p1_x*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
       // 2.1.2 decimal distance, displacement between the lines
-      dd = (d/dist_lines - floor(d/dist_lines));
-//      dd = ((d/dist_lines + 0.5*dist_lines) - (floor(d/dist_lines) + 0.5*dist_lines)) - 0.5*dist_lines;
-//      dd = (d+0.5) - floor(d+0.5) - 0.5;
+      dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
+//      dd = (d/dist_lines - floor(d/dist_lines));
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -1139,20 +1138,35 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   cv::Mat global_frame = base_global_frame.clone();
 //  printw("Base robot p1 (%.2f,%.2f) | p2 (%.2f,%.2f) | p3 (%.2f,%.2f) | angle (%.2f)\n", base_robot.p1.x, base_robot.p1.y, base_robot.p2.x, base_robot.p2.y, base_robot.p3.x, base_robot.p3.y, base_robot.angle);
 
-  robot_t robot_obs = {
+  robot_t robot_obs_1 = {
     .p1     = base_robot.p1,
     .p2     = base_robot.p2,
     .p3     = base_robot.p3,
     .angle  = base_robot.angle,
   };
-  robot_obs = rotate_robot(robot_obs, a_hat);
-  robot_obs = translate_robot(robot_obs, d_hat_h*dist_lines, d_hat_v*dist_lines);
+  robot_obs_1 = rotate_robot(robot_obs_1, a_hat);
+  robot_obs_1 = translate_robot(robot_obs_1, d_hat_h*dist_lines, d_hat_v*dist_lines);
 
   // yellow
-  line(global_frame, robot_obs.p1, robot_obs.p2, Scalar(0, 255, 255), 1, LINE_AA);
-  line(global_frame, robot_obs.p2, robot_obs.p3, Scalar(0, 255, 255), 1, LINE_AA);
-  line(global_frame, robot_obs.p3, robot_obs.p1, Scalar(0, 255, 255), 1, LINE_AA);
-  circle(global_frame, robot_obs.p1/3 + robot_obs.p2/3 + robot_obs.p3/3, 4, Scalar(0, 255, 255), 1);
+  line(global_frame, robot_obs_1.p1, robot_obs_1.p2, Scalar(0, 255, 255), 1, LINE_AA);
+  line(global_frame, robot_obs_1.p2, robot_obs_1.p3, Scalar(0, 255, 255), 1, LINE_AA);
+  line(global_frame, robot_obs_1.p3, robot_obs_1.p1, Scalar(0, 255, 255), 1, LINE_AA);
+  circle(global_frame, robot_obs_1.p1/3 + robot_obs_1.p2/3 + robot_obs_1.p3/3, 4, Scalar(0, 255, 255), 1);
+
+  robot_t robot_obs_2 = {
+    .p1     = base_robot.p1,
+    .p2     = base_robot.p2,
+    .p3     = base_robot.p3,
+    .angle  = base_robot.angle,
+  };
+  robot_obs_2 = rotate_robot(robot_obs_2, a_hat+M_PI/2.);
+  robot_obs_2 = translate_robot(robot_obs_2, d_hat_v*dist_lines, d_hat_h*dist_lines);
+
+  // yellow
+  line(global_frame, robot_obs_2.p1, robot_obs_2.p2, Scalar(0, 69, 255), 1, LINE_AA);
+  line(global_frame, robot_obs_2.p2, robot_obs_2.p3, Scalar(0, 69, 255), 1, LINE_AA);
+  line(global_frame, robot_obs_2.p3, robot_obs_2.p1, Scalar(0, 69, 255), 1, LINE_AA);
+  circle(global_frame, robot_obs_2.p1/3 + robot_obs_2.p2/3 + robot_obs_2.p3/3, 4, Scalar(0, 255, 255), 1);
 
   robot_t robot_state = {
     .p1     = base_robot.p1,
