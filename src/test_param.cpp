@@ -346,13 +346,13 @@ int main(int argc, char **argv) {
     Mat edges;
     Canny(grad, edges, 50, 255, 3);
 
-//    // 1.5 close and dilate lines for some noise removal
-//    Mat morph;
-//    int morph_elem = 0;
-//    int morph_size = 0;
-//    Mat element = getStructuringElement(morph_elem, Size(2*morph_size + 1, 2*morph_size+1), cv::Point(morph_size, morph_size));
-//    morphologyEx(edges, edges, MORPH_CLOSE, element);
-//    dilate(edges, morph, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
+    // 1.5 close and dilate lines for some noise removal
+    Mat morph;
+    int morph_elem = 0;
+    int morph_size = 0;
+    Mat element = getStructuringElement(morph_elem, Size(2*morph_size + 1, 2*morph_size+1), cv::Point(morph_size, morph_size));
+    morphologyEx(edges, edges, MORPH_CLOSE, element);
+    dilate(edges, morph, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
 
     // 1.6 detect lines using the hough transform
     std::vector<Vec4i> detected_lines;
@@ -381,7 +381,7 @@ int main(int argc, char **argv) {
       m_y = sin(4*line_angle);
 
       // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
-      d = ((p2_x-p1_x)*(p1_y-frame_height/2) - (p1_x-frame_width/2)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
+      d = ((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
       // 2.1.2 decimal distance, displacement between the lines
       dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
@@ -426,7 +426,7 @@ int main(int argc, char **argv) {
     y_hat = median(lines_good, 4);
 
 //    prev_a_hat = a_hat;
-    a_hat = atan2(y_hat, x_hat) * 1/4;
+    a_hat = atan2(y_hat, x_hat) * 1./4.;
 
 //    if (a_hat > 0 && prev_a_hat < 0)
 //      quart_state -= 1;
@@ -517,7 +517,6 @@ int main(int argc, char **argv) {
 
     // 4 get the pose from the ground truth
     // access the vector where it is stored
-    // TODO: test if really that pose and doesnt have to be scaled according to pixel distance for the comparisson to be true
     double pose_1 = sim_ground_truth[curr_img][0];// + 0.300971;
     double pose_2 = sim_ground_truth[curr_img][1];// - 0.26699;
     double pose_3 = sim_ground_truth[curr_img][2];
@@ -604,7 +603,7 @@ int main(int argc, char **argv) {
 
     // display steps and global frame
     if(display_window) {
-      ShowManyImages("steps", 5, in, src, rot, view_param_1, view_param_2);
+      ShowManyImages("steps", 4, in, src, view_param_1, view_param_2);//, rot
       cv::imshow("global_frame", view_global_frame);
     }
 
@@ -830,7 +829,7 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
   double d_hat_h = obs[1].mid() * dist_lines;  // parameters have to be scaled to be shown in pixels
   double d_hat_v = obs[0].mid() * dist_lines;
-  double a_hat   = obs[2].mid() + M_PI;
+  double a_hat   = obs[2].mid() + M_PI/2.;
 
   int n_lines = 5;
   int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
@@ -1049,6 +1048,7 @@ robot_t rotate_robot(robot_t robot, double theta) {
 
 robot_t translate_robot(robot_t robot, double dx, double dy) {
   // applies the 2d rotation to the lines
+  // dy negative as image progresses downwards
   robot_t robot_trans = {
     .p1     = cv::Point(robot.p1.x + dx, robot.p1.y - dy ),
     .p2     = cv::Point(robot.p2.x + dx, robot.p2.y - dy ),
@@ -1116,7 +1116,6 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
           color = Scalar(0, 0, 255);
         else
           color = Scalar(255, 0, 0);
-
       }
 
       line(base_global_frame, cv::Point(l.p1.x, l.p1.y), cv::Point(l.p2.x, l.p2.y), color, 3, LINE_AA);
@@ -1179,7 +1178,7 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   line(global_frame, robot_state.p3, robot_state.p1, Scalar(255, 255, 0), 1, LINE_AA);
   circle(global_frame, robot_state.p1/3 + robot_state.p2/3 + robot_state.p3/3, 4, Scalar(255, 255, 0), 1);
 
-  circle(global_frame, Point2f(max_dim, max_dim), 15, Scalar(255, 255, 255), 3);
+//  circle(global_frame, Point2f(max_dim, max_dim), 15, Scalar(255, 255, 255), 3);
 
   return global_frame;
 }
