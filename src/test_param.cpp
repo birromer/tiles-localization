@@ -33,18 +33,18 @@ using namespace codac;
 
 #define MIN_GOOD_LINES 5
 
-#define ERROR_PRED      0.1
-#define ERROR_OBS       0.1
+#define ERROR_PRED      0.3
+#define ERROR_OBS       0.3
 #define ERROR_OBS_ANGLE 0.03
 
 #define NUM_IMGS 13758
 
-//#define IMG_FOLDER "/home/birromer/ros/data_tiles/dataset_tiles/"
-//#define GT_FILE "/home/birromer/ros/data_tiles/gt.csv"
-//string sim_file = "/home/birromer/ros/data_tiles/test_sim.csv";
-#define IMG_FOLDER "/home/birromer/data_tiles_backup/dataset_tiles/"
-#define GT_FILE "/home/birromer/data_tiles_backup/gt.csv"
-string sim_file = "/home/birromer/data_tiles_backup/test_sim.csv";
+#define IMG_FOLDER "/home/birromer/ros/data_tiles/dataset_tiles/"
+#define GT_FILE "/home/birromer/ros/data_tiles/gt.csv"
+string sim_file = "/home/birromer/ros/data_tiles/test_sim.csv";
+//#define IMG_FOLDER "/home/birromer/data_tiles_backup/dataset_tiles/"
+//#define GT_FILE "/home/birromer/data_tiles_backup/gt.csv"
+//string sim_file = "/home/birromer/data_tiles_backup/test_sim.csv";
 
 typedef struct line_struct{
   Point2f p1;     // 1st point of the line
@@ -380,8 +380,8 @@ int main(int argc, char **argv) {
       m_x = cos(4*line_angle);
       m_y = sin(4*line_angle);
 
-      // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0
-      d = ((p2_x-p1_x)*p1_y - p1_x*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
+      // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
+      d = ((p2_x-p1_x)*(p1_y-frame_height/2) - (p1_x-frame_width/2)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
       // 2.1.2 decimal distance, displacement between the lines
       dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
@@ -499,11 +499,6 @@ int main(int argc, char **argv) {
       double d_hat_h = median(bag_h, 6);
       double d_hat_v = median(bag_v, 6);
 
-//      d_hat_h = (d_hat_h+0.5)-floor(d_hat_h+0.5)-0.5;
-//      d_hat_v = (d_hat_v+0.5)-floor(d_hat_v+0.5)-0.5;
-
-      printw("PARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", d_hat_h, d_hat_v, a_hat);;
-
       obs = ibex::IntervalVector({
           {d_hat_h, d_hat_h},
           {d_hat_v, d_hat_v},
@@ -523,8 +518,8 @@ int main(int argc, char **argv) {
     // 4 get the pose from the ground truth
     // access the vector where it is stored
     // TODO: test if really that pose and doesnt have to be scaled according to pixel distance for the comparisson to be true
-    double pose_1 = sim_ground_truth[curr_img][0];// * dist_lines;
-    double pose_2 = sim_ground_truth[curr_img][1];// * dist_lines;
+    double pose_1 = sim_ground_truth[curr_img][0];// + 0.300971;
+    double pose_2 = sim_ground_truth[curr_img][1];// - 0.26699;
     double pose_3 = sim_ground_truth[curr_img][2];
 
     state = ibex::IntervalVector({
@@ -533,7 +528,8 @@ int main(int argc, char **argv) {
         {pose_3, pose_3}
     }).inflate(ERROR_PRED);
 
-    printw("POSE -> x1 = %f | x2 = %f | x3 = %f\n", pose_1, pose_2, pose_3);
+    printw("\nPARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", obs[0].mid(), obs[1].mid(), obs[2].mid());;
+    printw("POSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
 
     // global frame with observed parameter and pose
     Mat view_global_frame = generate_global_frame(dist_lines, state, obs);
@@ -550,8 +546,8 @@ int main(int argc, char **argv) {
 
     file_sim << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
 
-    printw("Equivalence equations 1:\nsin(pi*(y1-z1)) = %f\nsin(pi*(y2-z2)) = %f\nsin(y3-z3) = %f\n", sim1_eq1, sim1_eq2, sim1_eq3);
-    printw("Equivalence equations 2:\nsin(pi*(y1-z2)) = %f\nsin(pi*(y2-z1)) = %f\ncos(y3-z3) = %f\n", sim2_eq1, sim2_eq2, sim2_eq3);
+    printw("\nEquivalence equations 1:\n  sin(pi*(y1-z1)) = %f\n  sin(pi*(y2-z2)) = %f\n  sin(y3-z3) = %f\n", sim1_eq1, sim1_eq2, sim1_eq3);
+    printw("\nEquivalence equations 2:\n  sin(pi*(y1-z2)) = %f\n  sin(pi*(y2-z1)) = %f\n  cos(y3-z3) = %f\n", sim2_eq1, sim2_eq2, sim2_eq3);
 
     vector<double> s{sim1_eq1, sim1_eq2, sim1_eq3, sim2_eq1, sim2_eq2, sim2_eq3};
 
@@ -832,9 +828,9 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
 }
 
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
-  double d_hat_h = obs[0].mid() * dist_lines;  // parameters have to be scaled to be shown in pixels
-  double d_hat_v = obs[1].mid() * dist_lines;
-  double a_hat   = obs[2].mid();
+  double d_hat_h = obs[1].mid() * dist_lines;  // parameters have to be scaled to be shown in pixels
+  double d_hat_v = obs[0].mid() * dist_lines;
+  double a_hat   = obs[2].mid() + M_PI;
 
   int n_lines = 5;
   int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
@@ -878,17 +874,17 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
 
   for (line_t l : grid_lines) {
     //translation in order to center lines around 0
-    double x1 = l.p1.x - frame_width/2. ;// + d_hat_v;
-    double y1 = l.p1.y - frame_height/2.;// + d_hat_h;
-    double x2 = l.p2.x - frame_width/2. ;// + d_hat_v;
-    double y2 = l.p2.y - frame_height/2.;// + d_hat_h;
+    double x1 = l.p1.x - frame_width/2. ;
+    double y1 = l.p1.y - frame_height/2.;
+    double x2 = l.p2.x - frame_width/2. ;
+    double y2 = l.p2.y - frame_height/2.;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);//x1;//
-    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);//y1;//
+    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
+    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
 
-    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);//x2;//
-    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);//y2;//
+    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
+    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. + d_hat_h);
@@ -1103,7 +1099,7 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
       pos_y += dist_lines;
     }
 
-    base_global_frame = cv::Mat::zeros(max_dim, max_dim, CV_8UC3);
+    base_global_frame = cv::Mat::zeros(max_dim+10, max_dim+10, CV_8UC3);
 
     int count_lin = 1;
     for (line_t l : base_global_frame_lines) {
@@ -1136,7 +1132,6 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   }
 
   cv::Mat global_frame = base_global_frame.clone();
-//  printw("Base robot p1 (%.2f,%.2f) | p2 (%.2f,%.2f) | p3 (%.2f,%.2f) | angle (%.2f)\n", base_robot.p1.x, base_robot.p1.y, base_robot.p2.x, base_robot.p2.y, base_robot.p3.x, base_robot.p3.y, base_robot.angle);
 
   robot_t robot_obs_1 = {
     .p1     = base_robot.p1,
@@ -1144,7 +1139,7 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
     .p3     = base_robot.p3,
     .angle  = base_robot.angle,
   };
-  robot_obs_1 = rotate_robot(robot_obs_1, a_hat);
+  robot_obs_1 = rotate_robot(robot_obs_1, a_hat);  // rotate already centered at the origin
   robot_obs_1 = translate_robot(robot_obs_1, d_hat_h*dist_lines, d_hat_v*dist_lines);
 
   // yellow
@@ -1159,14 +1154,14 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
     .p3     = base_robot.p3,
     .angle  = base_robot.angle,
   };
-  robot_obs_2 = rotate_robot(robot_obs_2, a_hat+M_PI/2.);
+  robot_obs_2 = rotate_robot(robot_obs_2, a_hat+M_PI/2.);  // rotate already centered at the origin
   robot_obs_2 = translate_robot(robot_obs_2, d_hat_v*dist_lines, d_hat_h*dist_lines);
 
-  // yellow
+  // orange
   line(global_frame, robot_obs_2.p1, robot_obs_2.p2, Scalar(0, 69, 255), 1, LINE_AA);
   line(global_frame, robot_obs_2.p2, robot_obs_2.p3, Scalar(0, 69, 255), 1, LINE_AA);
   line(global_frame, robot_obs_2.p3, robot_obs_2.p1, Scalar(0, 69, 255), 1, LINE_AA);
-  circle(global_frame, robot_obs_2.p1/3 + robot_obs_2.p2/3 + robot_obs_2.p3/3, 4, Scalar(0, 255, 255), 1);
+  circle(global_frame, robot_obs_2.p1/3 + robot_obs_2.p2/3 + robot_obs_2.p3/3, 4, Scalar(0, 69, 255), 1);
 
   robot_t robot_state = {
     .p1     = base_robot.p1,
@@ -1174,7 +1169,7 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
     .p3     = base_robot.p3,
     .angle  = base_robot.angle,
   };
-  robot_state = rotate_robot(robot_state, state_3);     // rotate the robot from the origin
+  robot_state = rotate_robot(robot_state, state_3);  // rotate already centered at the origin
   robot_state = translate_robot(robot_state, state_1*dist_lines, state_2*dist_lines);  // translate according to state
 
   // light blue
@@ -1182,6 +1177,8 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   line(global_frame, robot_state.p2, robot_state.p3, Scalar(255, 255, 0), 1, LINE_AA);
   line(global_frame, robot_state.p3, robot_state.p1, Scalar(255, 255, 0), 1, LINE_AA);
   circle(global_frame, robot_state.p1/3 + robot_state.p2/3 + robot_state.p3/3, 4, Scalar(255, 255, 0), 1);
+
+  circle(global_frame, Point2f(max_dim, max_dim), 15, Scalar(255, 255, 255), 3);
 
   return global_frame;
 }
