@@ -1110,12 +1110,13 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
         if (l.p1.x == center_x)
           color = Scalar(0, 0, 255);
         else
-          color = Scalar(255, 0, 0);
+          color = Scalar(0, 255, 0);
       } else {
         if (l.p1.y == center_y)
           color = Scalar(0, 0, 255);
         else
-          color = Scalar(0, 255, 0);
+          color = Scalar(255, 0, 0);
+
       }
 
       line(base_global_frame, cv::Point(l.p1.x, l.p1.y), cv::Point(l.p2.x, l.p2.y), color, 3, LINE_AA);
