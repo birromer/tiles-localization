@@ -33,8 +33,8 @@ using namespace codac;
 
 #define MIN_GOOD_LINES 5
 
-#define ERROR_PRED      0.3
-#define ERROR_OBS       0.3
+#define ERROR_PRED      0.1
+#define ERROR_OBS       0.25
 #define ERROR_OBS_ANGLE 0.03
 
 #define NUM_IMGS 13758
@@ -381,7 +381,7 @@ int main(int argc, char **argv) {
       m_y = sin(4*line_angle);
 
       // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
-      d = ((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
+      d = abs((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
       // 2.1.2 decimal distance, displacement between the lines
       dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
