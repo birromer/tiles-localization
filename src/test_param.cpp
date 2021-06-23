@@ -89,9 +89,6 @@ bool base_global_frame_created = false;
 cv::Mat base_global_frame;
 robot_t base_robot;
 
-double prev_a_hat;  // a_hat of the previous iteration
-int quart_state = 0;  // in which quarter of the plane is the current angle
-
 double frame_width=0, frame_height=0;
 int max_dim;
 
@@ -355,12 +352,13 @@ int main(int argc, char **argv) {
     dilate(edges, morph, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
 
     // 1.6 detect lines using the hough transform
-//    std::vector<Vec4i> detected_lines;
-    std::vector<Vec3i> detected_lines;
-    HoughLinesP(edges, detected_lines, 1, CV_PI/180., 60, 120, 50);
-//    HoughLines(edges, detected_lines, 1, CV_PI/180., 60, 120, 50);
+    std::vector<Vec4i> detected_lines;
+//    HoughLinesP(edges, detected_lines, 1, CV_PI/180., 60, 120, 50); // rho, theta, threshold, minLineLength, maxLineGap
+    HoughLinesP(edges, detected_lines, 1, CV_PI/180., 60, 100, 50); // rho, theta, threshold, minLineLength, maxLineGap
 
     // 1.7 filter lines and create single representation for multiple similar
+    for(int i=0; i<detected_lines.size(); i++) {
+    }
 
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
@@ -390,7 +388,6 @@ int main(int argc, char **argv) {
 
       // 2.1.2 decimal distance, displacement between the lines
       dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
-//      dd = (d/dist_lines - floor(d/dist_lines));
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -430,27 +427,7 @@ int main(int argc, char **argv) {
     x_hat = median(lines_good, 3);
     y_hat = median(lines_good, 4);
 
-//    prev_a_hat = a_hat;
     a_hat = atan2(y_hat, x_hat) * 1./4.;
-
-//    if (a_hat > 0 && prev_a_hat < 0)
-//      quart_state -= 1;
-//    else if (a_hat < 0 && prev_a_hat > 0)
-//      quart_state += 1;
-//
-//    if (quart_state > 3)
-//      quart_state = 0;
-//    else if (quart_state < 0)
-//      quart_state = 3;
-//
-//    if (quart_state == 1)
-//      a_hat -= M_PI/2;
-//    else if (quart_state == 2)
-//      a_hat += M_PI;
-//    else if (quart_state == 3)
-//      a_hat += M_PI/2;
-//
-//    printw("CURRENT QUART STATE = %d\n", quart_state);
 
     Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
     if(lines_good.size() > MIN_GOOD_LINES) {
@@ -468,9 +445,6 @@ int main(int argc, char **argv) {
         y2 = l.p2.y - frame_height/2.0f;
 
         // 2.3.1 applies the 2d rotation to the line, making it either horizontal or vertical
-//        if (l.angle > M_PI/2 && l.angle < M_PI || l.angle > 3*M_PI/2 && l.angle < 2*M_PI)
-//          a_hat -= M_PI/2;
-
         double x1_temp = x1 * cos(-a_hat) - y1 * sin(-a_hat);
         double y1_temp = x1 * sin(-a_hat) + y1 * cos(-a_hat);
 
