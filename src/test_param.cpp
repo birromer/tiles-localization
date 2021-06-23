@@ -356,9 +356,9 @@ int main(int argc, char **argv) {
 
     // 1.6 detect lines using the hough transform
 //    std::vector<Vec4i> detected_lines;
-    std::vector<Vec3i> detected_lines;
-    HoughLinesP(edges, detected_lines, 1, CV_PI/180., 60, 120, 50);
-//    HoughLines(edges, detected_lines, 1, CV_PI/180., 60, 120, 50);
+    vector<Vec2f> detected_lines;
+//    HoughLinesP(edges, detected_lines, 1, CV_PI/180., 60, 120, 50);
+    HoughLines(edges, detected_lines, 1, CV_PI/180., 60, 120, 50);
 
     // 1.7 filter lines and create single representation for multiple similar
 
@@ -375,26 +375,24 @@ int main(int argc, char **argv) {
 
     // 2.1 extract the informations from the good detected lines
     for(int i=0; i<detected_lines.size(); i++) {
-      Vec4i l = detected_lines[i];
-      double p1_x = l[0], p1_y = l[1];
-      double p2_x = l[2], p2_y = l[3];
+      Vec2f l = detected_lines[i];
 
-      line_angle = atan2(p2_y - p1_y, p2_x - p1_x);               // get the angle of the line from the existing points
+      double d = l[0];
+      double line_angle = l[1];
+
       line_angle4 = modulo(line_angle+M_PI/4., M_PI/2.)-M_PI/4.;  // compress image between [-pi/4, pi/4]
 
       m_x = cos(4*line_angle);
       m_y = sin(4*line_angle);
 
-      // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
-      d = abs((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
-
-      // 2.1.2 decimal distance, displacement between the lines
       dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
-//      dd = (d/dist_lines - floor(d/dist_lines));
+
+      double p1_x = (d - 0*sin(line_angle))/cos(line_angle);
+      double p2_x = (d - frame_height*sin(line_angle))/cos(line_angle);
 
       line_t ln = {
-        .p1     = cv::Point(p1_x, p1_y),
-        .p2     = cv::Point(p2_x, p2_y),
+        .p1     = cv::Point(p1_x, 0),
+        .p2     = cv::Point(p2_x, frame_height),
         .angle  = line_angle,
         .angle4 = line_angle4,  // this is the one to be used as the angle of the line
         .m_x    = m_x,
@@ -488,12 +486,12 @@ int main(int argc, char **argv) {
         angle_new = atan2(y2-y1, x2-x1);
 
         // 2.3.4 determine if the lines are horizontal or vertical
-        if (abs(cos(angle_new)) < 0.2) {  // vertical
+        if (abs(cos(angle_new)) < 0.1) {  // vertical
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
           bag_v.push_back(l);
 
-        } else if (abs(sin(angle_new)) < 0.2) {  // horizontal
+        } else if (abs(sin(angle_new)) < 0.1) {  // horizontal
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
           bag_h.push_back(l);
           line(src, l.p1, l.p2, Scalar(0, 255, 0), 3, LINE_AA);
@@ -501,8 +499,8 @@ int main(int argc, char **argv) {
       }
 
       // 2.4 get displacements parameters
-      double d_hat_h = median(bag_h, 6);
-      double d_hat_v = median(bag_v, 6);
+      double d_hat_h = median(bag_v, 6);
+      double d_hat_v = median(bag_h, 6);
 
       obs = ibex::IntervalVector({
           {d_hat_h, d_hat_h},
