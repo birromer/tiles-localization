@@ -33,7 +33,7 @@ using namespace codac;
 
 #define MIN_GOOD_LINES 5
 
-#define ERROR_PRED      0.1
+#define ERROR_PRED      0.25
 #define ERROR_OBS       0.25
 #define ERROR_OBS_ANGLE 0.03
 
@@ -355,8 +355,13 @@ int main(int argc, char **argv) {
     dilate(edges, morph, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
 
     // 1.6 detect lines using the hough transform
-    std::vector<Vec4i> detected_lines;
+//    std::vector<Vec4i> detected_lines;
+    std::vector<Vec3i> detected_lines;
     HoughLinesP(edges, detected_lines, 1, CV_PI/180., 60, 120, 50);
+//    HoughLines(edges, detected_lines, 1, CV_PI/180., 60, 120, 50);
+
+    // 1.7 filter lines and create single representation for multiple similar
+
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
@@ -403,7 +408,7 @@ int main(int argc, char **argv) {
       lines.push_back(ln);
     }
 
-    // 1.7.2 median of the components of the lines
+    // 2.1.3 median of the components of the lines
     x_hat = median(lines, 3);
     y_hat = median(lines, 4);
 
