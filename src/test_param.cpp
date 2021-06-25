@@ -353,13 +353,24 @@ int main(int argc, char **argv) {
 
     // 1.6 detect lines using the hough transform
     std::vector<Vec4i> detected_lines;
-//    HoughLinesP(edges, detected_lines, 1, CV_PI/180., 60, 120, 50); // rho, theta, threshold, minLineLength, maxLineGap
     HoughLinesP(edges, detected_lines, 1, CV_PI/180., 60, 100, 50); // rho, theta, threshold, minLineLength, maxLineGap
+//    HoughLinesP(edges, detected_lines, 1, CV_PI/180., 60, 120, 50); // rho, theta, threshold, minLineLength, maxLineGap
 
-    // 1.7 filter lines and create single representation for multiple similar
+    // 1.7 filter lines and create single representation of multiple similar ones
+    std::vector<Vec4i> limit_lines;
     for(int i=0; i<detected_lines.size(); i++) {
-    }
+      double p1_x = detected_lines[i][0], p1_y = detected_lines[i][1];
+      double p2_x = detected_lines[i][2], p2_y = detected_lines[i][3];
 
+      double a = (p2_y - p1_y) / (p2_x - p1_x);
+      double b = p1_y - a * p1_x;
+
+      double new_p1_x = (0 - b)/a;
+      double new_p2_x = (frame_height - b)/a;
+
+      Vec4i p(new_p1_x, 0, new_p2_x, frame_height);
+      limit_lines.push_back(p);
+    }
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
@@ -372,8 +383,8 @@ int main(int argc, char **argv) {
     double line_angle, line_angle4, d, dd, m_x, m_y;
 
     // 2.1 extract the informations from the good detected lines
-    for(int i=0; i<detected_lines.size(); i++) {
-      Vec4i l = detected_lines[i];
+    for(int i=0; i<limit_lines.size(); i++) {
+      Vec4i l = limit_lines[i];
       double p1_x = l[0], p1_y = l[1];
       double p2_x = l[2], p2_y = l[3];
 
