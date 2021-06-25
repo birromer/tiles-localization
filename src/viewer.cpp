@@ -134,9 +134,9 @@ int main(int argc, char **argv){
   vibes::axisLimits(-10, 10, -10, 10, "Map");
   fig_map.show();
 
-  file_eq_yx.open("/home/birromer/ros/data_tiles/eq_yx.csv", fstream::in | fstream::out | fstream::trunc);
-  file_eq_yp.open("/home/birromer/ros/data_tiles/eq_yp.csv", fstream::in | fstream::out | fstream::trunc);
-//  file_gt.open("/home/birromer/ros/data_tiles/gt.csv", fstream::in | fstream::out | fstream::trunc);
+  file_eq_yx.open("/home/birromer/ros/data_tiles/temp/eq_yx.csv", fstream::in | fstream::out | fstream::trunc);
+  file_eq_yp.open("/home/birromer/ros/data_tiles/temp/eq_yp.csv", fstream::in | fstream::out | fstream::trunc);
+//  file_gt.open("/home/birromer/ros/data_tiles/temp/gt.csv", fstream::in | fstream::out | fstream::trunc);
 
   file_eq_yx << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
   file_eq_yp << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;

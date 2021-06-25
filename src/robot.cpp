@@ -46,7 +46,7 @@
 using namespace cv;
 
 #define MIN_GOOD_LINES 5
-#define IMG_FOLDER "/home/birromer/ros/data_tiles/dataset_tiles/"
+#define IMG_FOLDER "/home/birromer/ros/data_tiles/not_centered/dataset_tiles/"
 
 // TODO: test different errors
 #define ERROR_PRED      0.2
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
   double dt;
 
   // NOTE: TEMPORARY FOR CREATING DATASET
-  file_gt.open("/home/birromer/ros/data_tiles/gt.csv", fstream::in | fstream::out | fstream::trunc);
+  file_gt.open("/home/birromer/ros/data_tiles/not_centered/gt.csv", fstream::in | fstream::out | fstream::trunc);
   file_gt << "x" << "," << "y" << "," << "theta" << endl;
   // ------------------------------
 
@@ -427,36 +427,36 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     HoughLinesP(morph, detected_lines, 1, CV_PI/180., 60, 100, 50);
 
     std::vector<Vec4i> limit_lines;
-//    for(int i=0; i<detected_lines.size(); i++) {
-//      double p1_x = detected_lines[i][0], p1_y = detected_lines[i][1];
-//      double p2_x = detected_lines[i][2], p2_y = detected_lines[i][3];
-//
-//      double a = (p2_y - p1_y) / (p2_x - p1_x);
-//      double b = p1_y - a * p1_x;
-//
-//      double new_p1_y = 1;
-//      double new_p1_x = (new_p1_y - b)/a;
-//
-//      double new_p2_y = frame_height-1;
-//      double new_p2_x = (new_p2_y - b)/a;
-//
-//      if (new_p1_x > frame_width){
-//        new_p1_x = frame_width-1;
-//      } else if (new_p1_x < 0){
-//        new_p1_x = 1;
-//      }
-//      new_p1_y = a * new_p1_x + b;
-//
-//      if (new_p2_x > frame_width){
-//        new_p2_x = frame_width-1;
-//      } else if (new_p2_x < 0){
-//        new_p2_x = 1;
-//      }
-//      new_p2_y = a * new_p2_x + b;
-//
-//      Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
-//      limit_lines.push_back(p);
-//    }
+    for(int i=0; i<detected_lines.size(); i++) {
+      double p1_x = detected_lines[i][0], p1_y = detected_lines[i][1];
+      double p2_x = detected_lines[i][2], p2_y = detected_lines[i][3];
+
+      double a = (p2_y - p1_y) / (p2_x - p1_x);
+      double b = p1_y - a * p1_x;
+
+      double new_p1_y = 1;
+      double new_p1_x = (new_p1_y - b)/a;
+
+      double new_p2_y = frame_height-1;
+      double new_p2_x = (new_p2_y - b)/a;
+
+      if (new_p1_x > frame_width){
+        new_p1_x = frame_width-1;
+      } else if (new_p1_x < 0){
+        new_p1_x = 1;
+      }
+      new_p1_y = a * new_p1_x + b;
+
+      if (new_p2_x > frame_width){
+        new_p2_x = frame_width-1;
+      } else if (new_p2_x < 0){
+        new_p2_x = 1;
+      }
+      new_p2_y = a * new_p2_x + b;
+
+      Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
+      limit_lines.push_back(p);
+    }
      limit_lines = detected_lines;
 
     // from the angles of the lines from the hough transform, as said in luc's paper
@@ -533,24 +533,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     prev_a_hat = a_hat;
     a_hat = atan2(y_hat, x_hat) * 1/4;
-//    median_angle = median(lines_good, 2);
-
-//    if ((a_hat - prev_a_hat) < (-M_PI/2 + 0.1))
-//      quart_state += 1;
-//    else if ((a_hat - prev_a_hat) > (M_PI/2 - 0.1))
-//      quart_state -= 1;
-//
-//    if (quart_state > 3)
-//      quart_state = 0;
-//    else if (quart_state < 0)
-//      quart_state = 3;
-//
-//    if (quart_state == 1)
-//      a_hat -= M_PI/2;
-//    else if (quart_state == 2)
-//      a_hat += M_PI;
-//    else if (quart_state == 3)
-//      a_hat += M_PI/2;
 
     if(lines_good.size() > MIN_GOOD_LINES) {
       ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
