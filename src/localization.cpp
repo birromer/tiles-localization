@@ -130,6 +130,10 @@ int main(int argc, char **argv) {
       x[2] = box[2];
     }
 
+      x[0] = ibex::Interval(pose_1, pose_1).inflate(0.1);
+      x[1] = ibex::Interval(pose_2, pose_2).inflate(0.1);
+      x[2] = ibex::Interval(pose_3, pose_3).inflate(0.1);
+
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_loc_msg = state_to_msg(x);
     pub_state_loc.publish(state_loc_msg);

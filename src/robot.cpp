@@ -424,22 +424,40 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     // detect lines using the hough transform
     std::vector<Vec4i> detected_lines;
-    HoughLinesP(morph, detected_lines, 1, CV_PI/180., 60, 120, 50);
+    HoughLinesP(morph, detected_lines, 1, CV_PI/180., 60, 100, 50);
 
     std::vector<Vec4i> limit_lines;
-    for(int i=0; i<detected_lines.size(); i++) {
-      double p1_x = detected_lines[i][0], p1_y = detected_lines[i][1];
-      double p2_x = detected_lines[i][2], p2_y = detected_lines[i][3];
-
-      double a = (p2_y - p1_y) / (p2_x - p1_x);
-      double b = p1_y - a * p1_x;
-
-      double new_p1_x = (0 - b)/a;
-      double new_p2_x = (frame_height - b)/a;
-
-      Vec4i p(new_p1_x, 0, new_p2_x, frame_height);
-      limit_lines.push_back(p);
-    }
+//    for(int i=0; i<detected_lines.size(); i++) {
+//      double p1_x = detected_lines[i][0], p1_y = detected_lines[i][1];
+//      double p2_x = detected_lines[i][2], p2_y = detected_lines[i][3];
+//
+//      double a = (p2_y - p1_y) / (p2_x - p1_x);
+//      double b = p1_y - a * p1_x;
+//
+//      double new_p1_y = 1;
+//      double new_p1_x = (new_p1_y - b)/a;
+//
+//      double new_p2_y = frame_height-1;
+//      double new_p2_x = (new_p2_y - b)/a;
+//
+//      if (new_p1_x > frame_width){
+//        new_p1_x = frame_width-1;
+//      } else if (new_p1_x < 0){
+//        new_p1_x = 1;
+//      }
+//      new_p1_y = a * new_p1_x + b;
+//
+//      if (new_p2_x > frame_width){
+//        new_p2_x = frame_width-1;
+//      } else if (new_p2_x < 0){
+//        new_p2_x = 1;
+//      }
+//      new_p2_y = a * new_p2_x + b;
+//
+//      Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
+//      limit_lines.push_back(p);
+//    }
+     limit_lines = detected_lines;
 
     // from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ase of computation
@@ -579,8 +597,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         }
       }
 
-      double d_hat_h = dist_lines * median(bag_h, 6);
-      double d_hat_v = dist_lines * median(bag_v, 6);
+      double d_hat_h = median(bag_h, 6);
+      double d_hat_v = median(bag_v, 6);
 
       ROS_WARN("PARAMETERS -> d_hat_h = [%f] | d_hat_v = [%f] | a_hat = [%f]", d_hat_h, d_hat_v, a_hat);
 
