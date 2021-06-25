@@ -426,6 +426,21 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     std::vector<Vec4i> detected_lines;
     HoughLinesP(morph, detected_lines, 1, CV_PI/180., 60, 120, 50);
 
+    std::vector<Vec4i> limit_lines;
+    for(int i=0; i<detected_lines.size(); i++) {
+      double p1_x = detected_lines[i][0], p1_y = detected_lines[i][1];
+      double p2_x = detected_lines[i][2], p2_y = detected_lines[i][3];
+
+      double a = (p2_y - p1_y) / (p2_x - p1_x);
+      double b = p1_y - a * p1_x;
+
+      double new_p1_x = (0 - b)/a;
+      double new_p2_x = (frame_height - b)/a;
+
+      Vec4i p(new_p1_x, 0, new_p2_x, frame_height);
+      limit_lines.push_back(p);
+    }
+
     // from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ase of computation
     std::vector<double> lines_m_x, lines_m_y, filtered_m_x, filtered_m_y;  // x and y components of the points in M
@@ -440,8 +455,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //    double median_angle;
 
     // extract the informations from the good detected lines
-    for(int i=0; i<detected_lines.size(); i++) {
-      Vec4i l = detected_lines[i];
+    for(int i=0; i<limit_lines.size(); i++) {
+      Vec4i l = limit_lines[i];
       double p1_x = l[0], p1_y = l[1];
       double p2_x = l[2], p2_y = l[3];
 
@@ -451,17 +466,17 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       m_x = cos(4*line_angle);
       m_y = sin(4*line_angle);
 
-      // smallest radius of a circle with a point belonging to the line with origin in 0
-      d = ((p2_x-p1_x)*(p1_y) - (p1_x)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
+      // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
+      d = abs((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
-      // decimal distance, displacement between the lines
-      dd = (d/dist_lines - floor(d/dist_lines));
+      // 2.1.2 decimal distance, displacement between the lines
+      dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
         .p2     = cv::Point(p2_x, p2_y),
         .angle  = line_angle,
-        .angle4 = line_angle4,
+        .angle4 = line_angle4,  // this is the one to be used as the angle of the line
         .m_x    = m_x,
         .m_y    = m_y,
         .d      = d,
@@ -532,10 +547,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         y1 = l.p1.y - frame_height/2.0f;
         x2 = l.p2.x - frame_width/2.0f;
         y2 = l.p2.y - frame_height/2.0f;
-
-        // applies the 2d rotation to the line, making it either horizontal or vertical
-//        if (l.angle > M_PI/2 && l.angle < M_PI || l.angle > 3*M_PI/2 && l.angle < 2*M_PI)
-//          a_hat -= M_PI/2;
 
         double x1_temp = x1 * cos(-a_hat) - y1 * sin(-a_hat);
         double y1_temp = x1 * sin(-a_hat) + y1 * cos(-a_hat);
@@ -613,8 +624,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 }
 
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
-  double d_hat_h = obs[0].mid();
-  double d_hat_v = obs[1].mid();
+  double d_hat_h = obs[0].mid() * dist_lines;  // parameters have to be scaled for being shown in pixels
+  double d_hat_v = obs[1].mid() * dist_lines;
   double a_hat   = obs[2].mid();
 
   int n_lines = 5;
@@ -659,23 +670,23 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
 
   for (line_t l : grid_lines) {
     //translation in order to center lines around 0
-    int x1 = l.p1.x - frame_width/2.  + d_hat_h;
-    int y1 = l.p1.y - frame_height/2. + d_hat_v;
-    int x2 = l.p2.x - frame_width/2.  + d_hat_h;
-    int y2 = l.p2.y - frame_height/2. + d_hat_v;
+    double x1 = l.p1.x - frame_width/2. ;// + d_hat_h;
+    double y1 = l.p1.y - frame_height/2.;// + d_hat_v;
+    double x2 = l.p2.x - frame_width/2. ;// + d_hat_h;
+    double y2 = l.p2.y - frame_height/2.;// + d_hat_v;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    int x1_temp = x1;//x1 * cos(a_hat) - y1 * sin(a_hat);
-    int y1_temp = y1;//x1 * sin(a_hat) + y1 * cos(a_hat);
+    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);// x1;//
+    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);// y1;//
 
-    int x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);
-    int y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);
+    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);// x2;//
+    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);// y2;//
 
     // translates the image back and adds displacement
-    x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
-    y1 = (y1_temp + frame_height/2.);// + d_hat_v);
-    x2 = (x2_temp + frame_width/2. );//+ d_hat_h);
-    y2 = (y2_temp + frame_height/2.);// + d_hat_v);
+    x1 = x1_temp + frame_width/2. + d_hat_h;
+    y1 = y1_temp + frame_height/2. + d_hat_v;
+    x2 = x2_temp + frame_width/2. + d_hat_h;
+    y2 = y2_temp + frame_height/2. + d_hat_v;
 
     if (l.side == 1) {
       line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 0, 0), 3, LINE_AA);
@@ -688,12 +699,12 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
 }
 
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
-  double d_hat_h = obs[0].mid();
-  double d_hat_v = obs[1].mid();
-  double a_hat   = obs[2].mid();
+  double d_hat_h = obs[1].mid() * dist_lines;  // parameters have to be scaled to be shown in pixels
+  double d_hat_v = obs[0].mid() * dist_lines;
+  double a_hat   = obs[2].mid() + M_PI/2.;
 
-  int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
   int n_lines = 5;
+  int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
 
   if (!base_grid_created) {
     // center of the image, where tiles start with zero displacement
@@ -702,6 +713,7 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
 
     // create a line every specified number of pixels
     // adds one before and one after because occluded areas may appear
+//    int pos_x = (center_x % dist_lines) - 2*dist_lines;
     int pos_x = center_x - (n_lines/2)*dist_lines;
     while (pos_x <= frame_width + (n_lines/2)*dist_lines) {
       line_t ln = {
@@ -733,23 +745,23 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
 
   for (line_t l : grid_lines) {
     //translation in order to center lines around 0
-    int x1 = l.p1.x - frame_width/2.  + d_hat_v;
-    int y1 = l.p1.y - frame_height/2. + d_hat_h;
-    int x2 = l.p2.x - frame_width/2.  + d_hat_v;
-    int y2 = l.p2.y - frame_height/2. + d_hat_h;
+    double x1 = l.p1.x - frame_width/2. ;
+    double y1 = l.p1.y - frame_height/2.;
+    double x2 = l.p2.x - frame_width/2. ;
+    double y2 = l.p2.y - frame_height/2.;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    int x1_temp = x1;//x1 * cos(a_hat) - y1 * sin(a_hat);//+M_PI);
-    int y1_temp = y1;//x1 * sin(a_hat) + y1 * cos(a_hat);//+M_PI);
+    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
+    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
 
-    int x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);//+M_PI);
-    int y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);//+M_PI);
+    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
+    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
 
     // translates the image back and adds displacement
-    x1 = (x1_temp + frame_width/2. );//+ d_hat_h);
-    y1 = (y1_temp + frame_height/2.);// + d_hat_v);
-    x2 = (x2_temp + frame_width/2. );//+ d_hat_h);
-    y2 = (y2_temp + frame_height/2.);// + d_hat_v);
+    x1 = x1_temp + frame_width/2. + d_hat_h;
+    y1 = y1_temp + frame_height/2. + d_hat_v;
+    x2 = x2_temp + frame_width/2. + d_hat_h;
+    y2 = y2_temp + frame_height/2. + d_hat_v;
 
     if (l.side == 1) {
       line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 0, 0), 3, LINE_AA);
@@ -804,11 +816,11 @@ void ShowManyImages(string title, int nArgs, ...) {
   }
   else if (nArgs == 5 || nArgs == 6) {
       w = 3; h = 2;
-      size = 200;
+      size = 300;
   }
   else if (nArgs == 7 || nArgs == 8) {
       w = 4; h = 2;
-      size = 200;
+      size = 300;
   }
   else {
       w = 4; h = 3;
