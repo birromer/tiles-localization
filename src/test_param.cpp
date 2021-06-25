@@ -39,12 +39,8 @@ using namespace codac;
 
 #define NUM_IMGS 13758
 
-#define IMG_FOLDER "/home/birromer/ros/data_tiles/dataset_tiles/"
-#define GT_FILE "/home/birromer/ros/data_tiles/gt.csv"
-string sim_file = "/home/birromer/ros/data_tiles/test_sim.csv";
-//#define IMG_FOLDER "/home/birromer/data_tiles_backup/dataset_tiles/"
-//#define GT_FILE "/home/birromer/data_tiles_backup/gt.csv"
-//string sim_file = "/home/birromer/data_tiles_backup/test_sim.csv";
+#define DATASET "not_centered"
+string path_test;
 
 typedef struct line_struct{
   Point2f p1;     // 1st point of the line
@@ -155,10 +151,13 @@ int main(int argc, char **argv) {
   }
 
   if (vm.count("output-file")) {
-    sim_file = vm["output-file"].as<string>();
-    printw("Output file specified by user: %c\n", sim_file);
+    path_test = vm["output-file"].as<string>();
+    printw("Output file specified by user: %c\n", path_test);
   } else {
-    printw("Output file default: %s\n", sim_file);
+    char temp[1000];
+    snprintf(temp, 1000, "/home/birromer/ros/data_tiles/%s/test_sim.csv", DATASET);
+    path_test = string(temp);
+    printw("Output file default: %s\n", path_test);
   }
 
   printw("Distance between lines is %f\n", dist_lines);
@@ -254,11 +253,14 @@ int main(int argc, char **argv) {
   }
 
   double pose_1, pose_2, pose_3;
+  double offset_pose_1, offset_pose_2;
+  bool first_pose = true;
   ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);    // observed parameters from the image
   ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);  // working state from prediction (in this case gt)
 
   // --------- start file with testing data ----------- //
-  ofstream file_sim(sim_file);
+
+  ofstream file_sim(path_test);
 
   if(!file_sim.is_open())
     throw std::runtime_error("Could not open SIM file");
@@ -267,7 +269,9 @@ int main(int argc, char **argv) {
   // ------------------------------------------------ //
 
   // ----------- get ground truth data -------------- //
-  ifstream file_gt(GT_FILE);
+  char path_gt[1000];
+  snprintf(path_gt, 1000, "/home/birromer/ros/data_tiles/%s/gt.csv", DATASET);
+  ifstream file_gt(path_gt);
 
   if(!file_gt.is_open())
     throw std::runtime_error("Could not open GT file");
@@ -290,7 +294,13 @@ int main(int argc, char **argv) {
           ss.ignore();  // ignore commas
     }
 
-    vector<double> pose{line_vals[0], line_vals[1], line_vals[2]};
+    if (first_pose) {
+      offset_pose_1 = -line_vals[0];
+      offset_pose_2 = -line_vals[1];
+      first_pose = false;
+    }
+
+    vector<double> pose{line_vals[0] + offset_pose_1, line_vals[1] + offset_pose_2, line_vals[2]};
     sim_ground_truth.push_back(pose);
   }
   // ------------------------------------------------ //
@@ -300,9 +310,9 @@ int main(int argc, char **argv) {
 
     // 1. preprocessing
     // 1.1 read the image
-    char cimg[1000];
-    snprintf(cimg, 1000, "%s%06d.png", IMG_FOLDER, curr_img);
-    string ref_filename(cimg);
+    char path_img[1000];
+    snprintf(path_img, 1000, "/home/birromer/ros/data_tiles/%s/dataset_tiles/%06d.png", DATASET, curr_img);
+    string ref_filename(path_img);
     Mat in = imread(ref_filename);
     frame_height = in.size[0];
     frame_width = in.size[1];
@@ -507,8 +517,8 @@ int main(int argc, char **argv) {
 
     // 4 get the pose from the ground truth
     // access the vector where it is stored
-    double pose_1 = sim_ground_truth[curr_img][0];// + 0.300971;
-    double pose_2 = sim_ground_truth[curr_img][1];// - 0.26699;
+    double pose_1 = sim_ground_truth[curr_img][0];
+    double pose_2 = sim_ground_truth[curr_img][1];
     double pose_3 = sim_ground_truth[curr_img][2];
 
     state = ibex::IntervalVector({
