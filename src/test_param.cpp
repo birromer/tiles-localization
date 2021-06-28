@@ -37,10 +37,12 @@ using namespace codac;
 #define ERROR_OBS       0.25
 #define ERROR_OBS_ANGLE 0.03
 
-#define NUM_IMGS 13758
-
 #define DATASET "centered"
 string path_test;
+
+int num_imgs = 13758;
+
+
 
 typedef struct line_struct{
   Point2f p1;     // 1st point of the line
@@ -176,47 +178,53 @@ int main(int argc, char **argv) {
   // ---------------------------------------------- //
 
   // ----------------- ROOT setup ----------------- //
+  if (DATASET == "centered") {
+    num_imgs = 7496;
+  } else if (DATASET == "not_centerd") {
+    num_imgs = 9698;
+  }
+
   TApplication rootapp("viz", &argc, argv);
 
   auto c1 = std::make_unique<TCanvas>("c1", "Equivalence equations");
   c1->SetWindowSize(1550, 700);
 
-  auto f1 = std::make_unique<TGraph>(NUM_IMGS);
+  auto f1 = std::make_unique<TGraph>(num_imgs);
   f1->SetTitle("sin(pi*(y1-z1))");
   f1->GetXaxis()->SetTitle("Iteration");
   f1->GetYaxis()->SetTitle("Similarity score");
   f1->SetMinimum(-1);
   f1->SetMaximum(1);
 
-  auto f2 = std::make_unique<TGraph>(NUM_IMGS);
+  auto f2 = std::make_unique<TGraph>(num_imgs);
   f2->SetTitle("sin(pi*(y2-z2))");
   f2->GetXaxis()->SetTitle("Iteration");
   f2->GetYaxis()->SetTitle("Similarity score");
   f2->SetMinimum(-1);
   f2->SetMaximum(1);
 
-  auto f3 = std::make_unique<TGraph>(NUM_IMGS);
+  auto f3 = std::make_unique<TGraph>(num_imgs);
   f3->SetTitle("sin(y3-z3)");
   f3->GetXaxis()->SetTitle("Iteration");
   f3->GetYaxis()->SetTitle("Similarity score");
   f3->SetMinimum(-1);
   f3->SetMaximum(1);
 
-  auto f4 = std::make_unique<TGraph>(NUM_IMGS);
+  auto f4 = std::make_unique<TGraph>(num_imgs);
   f4->SetTitle("sin(pi*(y1-z2))");
   f4->GetXaxis()->SetTitle("Iteration");
   f4->GetYaxis()->SetTitle("Similarity score");
   f4->SetMinimum(-1);
   f4->SetMaximum(1);
 
-  auto f5 = std::make_unique<TGraph>(NUM_IMGS);
+  auto f5 = std::make_unique<TGraph>(num_imgs);
   f5->SetTitle("sin(pi*(y2-z1))");
   f5->GetXaxis()->SetTitle("Iteration");
   f5->GetYaxis()->SetTitle("Similarity score");
   f5->SetMinimum(-1);
   f5->SetMaximum(1);
 
-  auto f6 = std::make_unique<TGraph>(NUM_IMGS);
+  auto f6 = std::make_unique<TGraph>(num_imgs);
   f6->SetTitle("cos(y3-z3)");
   f6->GetXaxis()->SetTitle("Iteration");
   f6->GetYaxis()->SetTitle("Similarity score");
@@ -305,8 +313,8 @@ int main(int argc, char **argv) {
   }
   // ------------------------------------------------ //
 
-  while(curr_img < NUM_IMGS) {
-    printw("Processing image %d/%d\n", curr_img, NUM_IMGS);
+  while(curr_img < num_imgs) {
+    printw("Processing image %d/%d\n", curr_img, num_imgs);
 
     // 1. preprocessing
     // 1.1 read the image
@@ -427,11 +435,11 @@ int main(int argc, char **argv) {
 
       // 2.1.2 decimal distance, displacement between the lines
 //      dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
-      dd = (d/dist_lines) - (floor(d/dist_lines));
+      dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
 
-      if (dd >= 0.5){
-        dd -= 1.0;
-      }
+//      if (dd >= 0.5){
+//        dd -= 1.0;
+//      }
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -507,10 +515,22 @@ int main(int argc, char **argv) {
         if (abs(cos(angle_new)) < 0.2) {  // vertical
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
+
+          if (l.dd >= 0.5) {  // this maps image to [-0.5, 0.5] from right to left  / bottom to top
+            l.dd = -l.dd + 1.0;
+          } else {
+            l.dd = -l.dd;
+          }
+
           bag_v.push_back(l);
 
         } else if (abs(sin(angle_new)) < 0.2) {  // horizontal
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
+
+          if (l.dd >= 0.5) {  // this maps image to [-0.5, 0.5], from left to right  / top to bottom
+            l.dd = l.dd - 1.0;
+          }
+
           bag_h.push_back(l);
           line(src, l.p1, l.p2, Scalar(0, 255, 0), 3, LINE_AA);
         }
@@ -674,7 +694,7 @@ int main(int argc, char **argv) {
           sim_test_data.pop_back();
         }
       } else if (kb_key == 108) {
-        if (curr_img < NUM_IMGS)
+        if (curr_img < num_imgs)
           curr_img += 1;
       }
     } else {
