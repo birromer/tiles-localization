@@ -457,7 +457,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
       limit_lines.push_back(p);
     }
-     limit_lines = detected_lines;
+    //limit_lines = detected_lines;
 
     // from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ase of computation
