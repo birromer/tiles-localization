@@ -39,7 +39,7 @@ using namespace codac;
 
 #define NUM_IMGS 13758
 
-#define DATASET "not_centered"
+#define DATASET "centered"
 string path_test;
 
 typedef struct line_struct{
@@ -375,12 +375,30 @@ int main(int argc, char **argv) {
       double a = (p2_y - p1_y) / (p2_x - p1_x);
       double b = p1_y - a * p1_x;
 
-      double new_p1_x = (0 - b)/a;
-      double new_p2_x = (frame_height - b)/a;
+      double new_p1_y = 1;
+      double new_p1_x = (new_p1_y - b)/a;
 
-      Vec4i p(new_p1_x, 0, new_p2_x, frame_height);
+      double new_p2_y = frame_height-1;
+      double new_p2_x = (new_p2_y - b)/a;
+
+      if (new_p1_x > frame_width){
+        new_p1_x = frame_width-1;
+      } else if (new_p1_x < 0){
+        new_p1_x = 1;
+      }
+      new_p1_y = a * new_p1_x + b;
+
+      if (new_p2_x > frame_width){
+        new_p2_x = frame_width-1;
+      } else if (new_p2_x < 0){
+        new_p2_x = 1;
+      }
+      new_p2_y = a * new_p2_x + b;
+
+      Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
       limit_lines.push_back(p);
     }
+    //limit_lines = detected_lines;
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
