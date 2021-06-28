@@ -594,6 +594,7 @@ int main(int argc, char **argv) {
       printw("Could not contract the state (!!!).\n");
     } else {
       printw("CONTRACTION->      x1 = %f |      x2 = %f |    x3 = %f\n", box[0].mid(), box[1].mid(), box[2].mid());
+      printw("\n Distance from center to truth: %.2f cm\n", sqrt(pow(pose_1 - box[0].mid(), 2) + pow(pose_2 - box[1].mid(), 2))*100);
     }
 
     if (intervals) {
@@ -1115,6 +1116,11 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   double box_2 = box[1].mid();
   double box_3 = box[2].mid();
 
+  double b1_ub = box[0].ub()*dist_lines;  // already added here dist_lines because only used for display directly
+  double b1_lb = box[0].lb()*dist_lines;
+  double b2_ub = box[1].ub()*dist_lines;
+  double b2_lb = box[1].lb()*dist_lines;
+
   if (!base_global_frame_created) {
     int n_lines = 11;
     max_dim = dist_lines * (n_lines) + dist_lines/2.;  // largest dimension so that always show something inside the picture
@@ -1180,6 +1186,7 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
 
   cv::Mat global_frame = base_global_frame.clone();
 
+  // draw observation representations
   robot_t robot_obs_1 = {
     .p1     = base_robot.p1,
     .p2     = base_robot.p2,
@@ -1210,6 +1217,7 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   line(global_frame, robot_obs_2.p3, robot_obs_2.p1, Scalar(0, 69, 255), 1, LINE_AA);
   circle(global_frame, robot_obs_2.p1/3 + robot_obs_2.p2/3 + robot_obs_2.p3/3, 4, Scalar(0, 69, 255), 1);
 
+  // draw ground truth
   robot_t robot_state = {
     .p1     = base_robot.p1,
     .p2     = base_robot.p2,
@@ -1223,8 +1231,9 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   line(global_frame, robot_state.p1, robot_state.p2, Scalar(130, 200, 0), 1, LINE_AA);
   line(global_frame, robot_state.p2, robot_state.p3, Scalar(130, 200, 0), 1, LINE_AA);
   line(global_frame, robot_state.p3, robot_state.p1, Scalar(130, 200, 0), 1, LINE_AA);
-  circle(global_frame, robot_state.p1/3 + robot_state.p2/3 + robot_state.p3/3, 4, Scalar(255, 255, 0), 1);
+  circle(global_frame, robot_state.p1/3 + robot_state.p2/3 + robot_state.p3/3, 4, Scalar(130, 200, 0), 1);
 
+  // draw contracted state
   robot_t robot_box = {
     .p1     = base_robot.p1,
     .p2     = base_robot.p2,
@@ -1240,7 +1249,11 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   line(global_frame, robot_box.p3, robot_box.p1, Scalar(255, 255, 0), 1, LINE_AA);
   circle(global_frame, robot_box.p1/3 + robot_box.p2/3 + robot_box.p3/3, 4, Scalar(255, 255, 0), 1);
 
-//  circle(global_frame, Point2f(max_dim, max_dim), 15, Scalar(255, 255, 255), 3);
+  line(global_frame, Point2f(max_dim/2.+b1_lb, max_dim/2.-b2_lb), Point2f(max_dim/2.+b1_ub, max_dim/2.-b2_lb), Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, Point2f(max_dim/2.+b1_lb, max_dim/2.-b2_ub), Point2f(max_dim/2.+b1_ub, max_dim/2.-b2_ub), Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, Point2f(max_dim/2.+b1_lb, max_dim/2.-b2_lb), Point2f(max_dim/2.+b1_lb, max_dim/2.-b2_ub), Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, Point2f(max_dim/2.+b1_ub, max_dim/2.-b2_lb), Point2f(max_dim/2.+b1_ub, max_dim/2.-b2_ub), Scalar(255, 255, 0), 1, LINE_AA);
 
+//  circle(global_frame, Point2f(max_dim, max_dim), 15, Scalar(255, 255, 255), 3);
   return global_frame;
 }
