@@ -432,12 +432,7 @@ int main(int argc, char **argv) {
       d = abs((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
       // 2.1.2 decimal distance, displacement between the lines
-//      dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
       dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
-
-//      if (dd >= 0.5){
-//        dd -= 1.0;
-//      }
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -514,20 +509,20 @@ int main(int argc, char **argv) {
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
 
-          if (l.dd >= 0.5) {  // this maps image to [-0.5, 0.5] from right to left  / bottom to top
-            l.dd = -l.dd + 1.0;
-          } else {
-            l.dd = -l.dd;
-          }
+//          if (l.dd >= 0.5) {  // this maps image to [-0.5, 0.5] from right to left  / bottom to top
+//            l.dd = -l.dd + 1.0;
+//          } else {
+//            l.dd = -l.dd;
+//          }
 
           bag_v.push_back(l);
 
         } else if (abs(sin(angle_new)) < 0.2) {  // horizontal
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
 
-          if (l.dd >= 0.5) {  // this maps image to [-0.5, 0.5], from left to right  / top to bottom
-            l.dd = l.dd - 1.0;
-          }
+//          if (l.dd >= 0.5) {  // this maps image to [-0.5, 0.5], from left to right  / top to bottom
+//            l.dd = l.dd - 1.0;
+//          }
 
           bag_h.push_back(l);
           line(src, l.p1, l.p2, Scalar(0, 255, 0), 3, LINE_AA);
@@ -566,8 +561,21 @@ int main(int argc, char **argv) {
         {pose_3, pose_3}
     }).inflate(ERROR_PRED);
 
-    printw("\nPARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", obs[0].mid(), obs[1].mid(), obs[2].mid());;
-    printw("POSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
+    printw("\nPOSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
+    double expected_1 = pose_1 - floor(pose_1);
+    double expected_2 = pose_2 - floor(pose_2);
+    double expected_3 = modulo(pose_3+M_PI/4., M_PI/2.)-M_PI/4.;
+    printw("EXPECTED   -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", expected_1, expected_2, expected_3);
+    printw("PARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", obs[0].mid(), obs[1].mid(), obs[2].mid());;
+
+//    double tsim1_eq1 = sin(M_PI*(expected_1-pose_1));
+//    double tsim1_eq2 = sin(M_PI*(expected_2-pose_2));
+//    double tsim1_eq3 = sin(expected_3-pose_3);
+//    double tsim2_eq1 = sin(M_PI*(expected_1-pose_2));
+//    double tsim2_eq2 = sin(M_PI*(expected_2-pose_1));
+//    double tsim2_eq3 = cos(expected_3-pose_3);
+//    printw("\nEquivalence equations 1:\n  sin(pi*(y1-z1)) = %f\n  sin(pi*(y2-z2)) = %f\n  sin(y3-z3) = %f\n", tsim1_eq1, tsim1_eq2, tsim1_eq3);
+//    printw("\nEquivalence equations 2:\n  sin(pi*(y1-z2)) = %f\n  sin(pi*(y2-z1)) = %f\n  cos(y3-z3) = %f\n", tsim2_eq1, tsim2_eq2, tsim2_eq3);
 
     // 5 equivalency equations
     ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
@@ -1104,13 +1112,17 @@ robot_t translate_robot(robot_t robot, double dx, double dy) {
 }
 
 cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box) {
+  double state_1 = state[0].mid();
+  double state_2 = state[1].mid();
+  double state_3 = state[2].mid();
+
   double d_hat_h = obs[0].mid();
   double d_hat_v = obs[1].mid();
   double a_hat   = obs[2].mid();
 
-  double state_1 = state[0].mid();
-  double state_2 = state[1].mid();
-  double state_3 = state[2].mid();
+//  double d_hat_h = state_1 - floor(state_1);
+//  double d_hat_v = state_2 - floor(state_2);
+//  double a_hat   = modulo(state_3+M_PI/4., M_PI/2.)-M_PI/4.;
 
   double box_1 = box[0].mid();
   double box_2 = box[1].mid();
