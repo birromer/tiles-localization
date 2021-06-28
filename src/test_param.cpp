@@ -426,7 +426,12 @@ int main(int argc, char **argv) {
       d = abs((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
       // 2.1.2 decimal distance, displacement between the lines
-      dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
+//      dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
+      dd = ((d/dist_lines) - (floor(d/dist_lines))) - 0.5;
+
+      if (dd >= 0.5){
+        dd -= 1.0;
+      }
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -456,10 +461,8 @@ int main(int argc, char **argv) {
       if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
         line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
         lines_good.push_back(l);
-
       } else {
         line(src, l.p1, l.p2, Scalar(0, 0, 255), 3, LINE_AA);
-
       }
     }
 
