@@ -398,7 +398,7 @@ int main(int argc, char **argv) {
       Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
       limit_lines.push_back(p);
     }
-    //limit_lines = detected_lines;
+    limit_lines = detected_lines;
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
@@ -427,7 +427,7 @@ int main(int argc, char **argv) {
 
       // 2.1.2 decimal distance, displacement between the lines
 //      dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
-      dd = ((d/dist_lines) - (floor(d/dist_lines))) - 0.5;
+      dd = (d/dist_lines) - (floor(d/dist_lines));
 
       if (dd >= 0.5){
         dd -= 1.0;
