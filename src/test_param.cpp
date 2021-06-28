@@ -42,8 +42,6 @@ string path_test;
 
 int num_imgs = 13758;
 
-
-
 typedef struct line_struct{
   Point2f p1;     // 1st point of the line
   Point2f p2;     // 2nd point of the line
@@ -70,7 +68,7 @@ double median(std::vector<line_t> lines, int op);
 
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs);
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs);
-cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::IntervalVector obs);
+cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box);
 
 robot_t rotate_robot(robot_t robot, double theta);
 robot_t translate_robot(robot_t robot, double dx, double dy);
@@ -406,7 +404,7 @@ int main(int argc, char **argv) {
       Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
       limit_lines.push_back(p);
     }
-    limit_lines = detected_lines;
+//    limit_lines = detected_lines;
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
@@ -571,10 +569,57 @@ int main(int argc, char **argv) {
     printw("\nPARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", obs[0].mid(), obs[1].mid(), obs[2].mid());;
     printw("POSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
 
-    // global frame with observed parameter and pose
-    Mat view_global_frame = generate_global_frame(dist_lines, state, obs);
-
     // 5 equivalency equations
+    ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
+    ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
+
+    box0[0] = state[0], box0[1] = state[1], box0[2] = state[2], box0[3] = obs[0], box0[4] = obs[1], box0[5] = obs[2];
+    box1[0] = state[0], box1[1] = state[1], box1[2] = state[2], box1[3] = obs[0], box1[4] = obs[1], box1[5] = obs[2];
+
+    ibex::Function fun1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
+    ibex::Function fun2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
+
+    ibex::CtcFwdBwd ctc1(fun1);
+    ibex::CtcFwdBwd ctc2(fun2);
+
+    ctc1.contract(box0);
+    ctc2.contract(box1);
+
+    ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
+    box[0] = box0[0] | box1[0];
+    box[1] = box0[1] | box1[1];
+    box[2] = box0[2] | box1[2];
+
+    if(box[0].is_empty() or box[1].is_empty()) {
+      printw("Could not contract the state (!!!).\n");
+    } else {
+      printw("CONTRACTION->      x1 = %f |      x2 = %f |    x3 = %f\n", box[0].mid(), box[1].mid(), box[2].mid());
+    }
+
+    if (intervals) {
+      // draw ground truth
+      vibes::drawVehicle(pose_1, pose_2, pose_3*180./M_PI, 0.3, "pink");  // draw ground truth
+
+      // draw the predicted state (in this case is the ground truth, as we're testing only the parameters)
+      vibes::drawBox(state.subvector(0, 1), "green");
+      vibes::drawVehicle(state[0].mid(), state[1].mid(), (state[2].mid())*180./M_PI, 0.3, "green");
+
+      // draw the contracted state
+      vibes::drawBox(box.subvector(0, 1), "blue");
+      vibes::drawVehicle(box[0].mid(), box[1].mid(), (box[2].mid())*180./M_PI, 0.3, "blue");
+    }
+
+    // EXTRA visual stuff
+
+    // global frame with observed parameter, pose and contraction
+    Mat view_global_frame = generate_global_frame(dist_lines, state, obs, box);
+
+    // display steps and global frame
+    if(display_window) {
+      ShowManyImages("steps", 4, in, src, view_param_1, view_param_2);//, rot
+      cv::imshow("global_frame", view_global_frame);
+    }
+
     // ground truth and parameters should have near 0 value in the equivalency equations
     double sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1));
     double sim1_eq2 = sin(M_PI*(obs[1].mid()-pose_2));
@@ -641,49 +686,6 @@ int main(int argc, char **argv) {
     c1->cd(6);
     c1->Update();
     c1->Pad()->Draw();
-
-    // display steps and global frame
-    if(display_window) {
-      ShowManyImages("steps", 4, in, src, view_param_1, view_param_2);//, rot
-      cv::imshow("global_frame", view_global_frame);
-    }
-
-    if (intervals) {
-      ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
-      ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
-
-      box0[0] = state[0], box0[1] = state[1], box0[2] = state[2], box0[3] = obs[0], box0[4] = obs[1], box0[5] = obs[2];
-      box1[0] = state[0], box1[1] = state[1], box1[2] = state[2], box1[3] = obs[0], box1[4] = obs[1], box1[5] = obs[2];
-
-      ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
-      ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
-
-      ibex::CtcFwdBwd c1(f1);
-      ibex::CtcFwdBwd c2(f2);
-
-      c1.contract(box0);
-      c2.contract(box1);
-
-      ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
-      box[0] = box0[0] | box1[0];
-      box[1] = box0[1] | box1[1];
-      box[2] = box0[2] | box1[2];
-
-      if(box[0].is_empty() or box[1].is_empty()) {
-        printw("Could not contract the state (!!!).\n");
-      }
-
-      // draw ground truth
-      vibes::drawVehicle(pose_1, pose_2, pose_3*180./M_PI, 0.3, "pink");  // draw ground truth
-
-      // draw the predicted state (in this case is the ground truth, as we're testing only the parameters)
-      vibes::drawBox(state.subvector(0, 1), "green");
-      vibes::drawVehicle(state[0].mid(), state[1].mid(), (state[2].mid())*180./M_PI, 0.3, "green");
-
-      // draw the contracted state
-      vibes::drawBox(box.subvector(0, 1), "blue");
-      vibes::drawVehicle(box[0].mid(), box[1].mid(), (box[2].mid())*180./M_PI, 0.3, "blue");
-    }
 
     if (interactive) {
       kb_key = getch();
@@ -1100,7 +1102,7 @@ robot_t translate_robot(robot_t robot, double dx, double dy) {
   return robot_trans;
 }
 
-cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::IntervalVector obs) {
+cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box) {
   double d_hat_h = obs[0].mid();
   double d_hat_v = obs[1].mid();
   double a_hat   = obs[2].mid();
@@ -1108,6 +1110,10 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   double state_1 = state[0].mid();
   double state_2 = state[1].mid();
   double state_3 = state[2].mid();
+
+  double box_1 = box[0].mid();
+  double box_2 = box[1].mid();
+  double box_3 = box[2].mid();
 
   if (!base_global_frame_created) {
     int n_lines = 11;
@@ -1213,11 +1219,26 @@ cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::
   robot_state = rotate_robot(robot_state, state_3);  // rotate already centered at the origin
   robot_state = translate_robot(robot_state, state_1*dist_lines, state_2*dist_lines);  // translate according to state
 
-  // light blue
-  line(global_frame, robot_state.p1, robot_state.p2, Scalar(255, 255, 0), 1, LINE_AA);
-  line(global_frame, robot_state.p2, robot_state.p3, Scalar(255, 255, 0), 1, LINE_AA);
-  line(global_frame, robot_state.p3, robot_state.p1, Scalar(255, 255, 0), 1, LINE_AA);
+  // dark green
+  line(global_frame, robot_state.p1, robot_state.p2, Scalar(130, 200, 0), 1, LINE_AA);
+  line(global_frame, robot_state.p2, robot_state.p3, Scalar(130, 200, 0), 1, LINE_AA);
+  line(global_frame, robot_state.p3, robot_state.p1, Scalar(130, 200, 0), 1, LINE_AA);
   circle(global_frame, robot_state.p1/3 + robot_state.p2/3 + robot_state.p3/3, 4, Scalar(255, 255, 0), 1);
+
+  robot_t robot_box = {
+    .p1     = base_robot.p1,
+    .p2     = base_robot.p2,
+    .p3     = base_robot.p3,
+    .angle  = base_robot.angle,
+  };
+  robot_box = rotate_robot(robot_box, box_3);  // rotate already centered at the origin
+  robot_box = translate_robot(robot_box, box_1*dist_lines, box_2*dist_lines);  // translate according to state
+
+  // light blue
+  line(global_frame, robot_box.p1, robot_box.p2, Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, robot_box.p2, robot_box.p3, Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, robot_box.p3, robot_box.p1, Scalar(255, 255, 0), 1, LINE_AA);
+  circle(global_frame, robot_box.p1/3 + robot_box.p2/3 + robot_box.p3/3, 4, Scalar(255, 255, 0), 1);
 
 //  circle(global_frame, Point2f(max_dim, max_dim), 15, Scalar(255, 255, 255), 3);
 
