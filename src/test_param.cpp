@@ -404,7 +404,7 @@ int main(int argc, char **argv) {
       Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
       limit_lines.push_back(p);
     }
-//    limit_lines = detected_lines;
+//    limit_lines = detected_lines;  // uncomment if want to ignore process above
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
@@ -449,6 +449,7 @@ int main(int argc, char **argv) {
       // save the extracted information
       lines.push_back(ln);
     }
+
 
     // 2.1.3 median of the components of the lines
     x_hat = median(lines, 3);
@@ -504,6 +505,12 @@ int main(int argc, char **argv) {
         // 2.3.3 compute the new angle of the rotated lines
         angle_new = atan2(y2-y1, x2-x1);
 
+        // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
+        double d = abs((x2-x1)*(y1-frame_height/2.) - (x1-frame_width/2.)*(y2-y1)) / sqrt(pow(x2-x1,2) + pow(y2-y1,2));
+
+        // 2.1.2 decimal distance, displacement between the lines
+        l.dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
+
         // 2.3.4 determine if the lines are horizontal or vertical
         if (abs(cos(angle_new)) < 0.2) {  // vertical
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
@@ -514,6 +521,9 @@ int main(int argc, char **argv) {
 //          } else {
 //            l.dd = -l.dd;
 //          }
+          if (l.p1.x > frame_width/2.) {
+            l.dd = 1 - l.dd;
+          }
 
           bag_v.push_back(l);
 
@@ -523,15 +533,33 @@ int main(int argc, char **argv) {
 //          if (l.dd >= 0.5) {  // this maps image to [-0.5, 0.5], from left to right  / top to bottom
 //            l.dd = l.dd - 1.0;
 //          }
+//
+          if (l.p1.y < frame_height/2.) {
+            l.dd = 1 - l.dd;
+          }
 
           bag_h.push_back(l);
           line(src, l.p1, l.p2, Scalar(0, 255, 0), 3, LINE_AA);
         }
       }
 
+      printw("\nHorizontal lines: ");
+      for (line_t lin : bag_h) {
+        printw("dd-d: %.2f - %.2f | ", lin.dd, lin.d);
+      }
+
+      printw("\n\nVertical lines: ");
+      for (line_t lin : bag_h) {
+        printw("dd-d: %.2f - %.2f | ", lin.dd, lin.d);
+      };
+      printw("\n\n");
+
       // 2.4 get displacements parameters
-      double d_hat_h = median(bag_h, 6);
-      double d_hat_v = median(bag_v, 6);
+      // for the horizontal displacement, it should consider the offset in the x axis (between vertical lines), and the opposite for vertical
+      // displacement however there is no distinction between horizontal and vertical with the robot's knowledge, and the ambiguity is taken
+      // into consideration in the equivalence
+      double d_hat_h = median(bag_v, 6);
+      double d_hat_v = median(bag_h, 6);
 
       obs = ibex::IntervalVector({
           {d_hat_h, d_hat_h},
@@ -602,7 +630,7 @@ int main(int argc, char **argv) {
       printw("Could not contract the state (!!!).\n");
     } else {
       printw("CONTRACTION->      x1 = %f |      x2 = %f |    x3 = %f\n", box[0].mid(), box[1].mid(), box[2].mid());
-      printw("\n Distance from center to truth: %.2f cm\n", sqrt(pow(pose_1 - box[0].mid(), 2) + pow(pose_2 - box[1].mid(), 2))*100);
+      printw(" Distance from center to truth: %.2f cm\n", sqrt(pow(pose_1 - box[0].mid(), 2) + pow(pose_2 - box[1].mid(), 2))*100);
     }
 
     if (intervals) {
@@ -641,7 +669,7 @@ int main(int argc, char **argv) {
     file_sim << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
 
     printw("\nEquivalence equations 1:\n  sin(pi*(y1-z1)) = %f\n  sin(pi*(y2-z2)) = %f\n  sin(y3-z3) = %f\n", sim1_eq1, sim1_eq2, sim1_eq3);
-    printw("\nEquivalence equations 2:\n  sin(pi*(y1-z2)) = %f\n  sin(pi*(y2-z1)) = %f\n  cos(y3-z3) = %f\n", sim2_eq1, sim2_eq2, sim2_eq3);
+    printw("Equivalence equations 2:\n  sin(pi*(y1-z2)) = %f\n  sin(pi*(y2-z1)) = %f\n  cos(y3-z3) = %f\n", sim2_eq1, sim2_eq2, sim2_eq3);
 
     vector<double> s{sim1_eq1, sim1_eq2, sim1_eq3, sim2_eq1, sim2_eq2, sim2_eq3};
 
