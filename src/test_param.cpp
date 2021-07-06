@@ -516,12 +516,12 @@ int main(int argc, char **argv) {
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
 
-//          if (l.dd >= 0.5) {  // this maps image to [-0.5, 0.5] from right to left  / bottom to top
+//          if (l.dd >= 0.5) {  // this maps function image to [-0.5, 0.5] from right to left  / bottom to top
 //            l.dd = -l.dd + 1.0;
 //          } else {
 //            l.dd = -l.dd;
 //          }
-          if (l.p1.x > frame_width/2.) {
+          if (l.p1.x < frame_width/2.) {
             l.dd = 1 - l.dd;
           }
 
@@ -530,11 +530,11 @@ int main(int argc, char **argv) {
         } else if (abs(sin(angle_new)) < 0.2) {  // horizontal
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
 
-//          if (l.dd >= 0.5) {  // this maps image to [-0.5, 0.5], from left to right  / top to bottom
+//          if (l.dd >= 0.5) {  // this maps function image to [-0.5, 0.5], from left to right  / top to bottom
 //            l.dd = l.dd - 1.0;
 //          }
 //
-          if (l.p1.y < frame_height/2.) {
+          if (l.p1.y > frame_height/2.) {
             l.dd = 1 - l.dd;
           }
 
@@ -543,23 +543,23 @@ int main(int argc, char **argv) {
         }
       }
 
-      printw("\nHorizontal lines: ");
-      for (line_t lin : bag_h) {
-        printw("dd-d: %.2f - %.2f | ", lin.dd, lin.d);
-      }
-
-      printw("\n\nVertical lines: ");
-      for (line_t lin : bag_h) {
-        printw("dd-d: %.2f - %.2f | ", lin.dd, lin.d);
-      };
-      printw("\n\n");
+//      printw("\nHorizontal lines: ");
+//      for (line_t lin : bag_h) {
+//        printw("dd-d: %.2f - %.2f | ", lin.dd, lin.d);
+//      }
+//
+//      printw("\n\nVertical lines: ");
+//      for (line_t lin : bag_h) {
+//        printw("dd-d: %.2f - %.2f | ", lin.dd, lin.d);
+//      };
+//      printw("\n\n");
 
       // 2.4 get displacements parameters
       // for the horizontal displacement, it should consider the offset in the x axis (between vertical lines), and the opposite for vertical
       // displacement however there is no distinction between horizontal and vertical with the robot's knowledge, and the ambiguity is taken
       // into consideration in the equivalence
-      double d_hat_h = median(bag_v, 6);
-      double d_hat_v = median(bag_h, 6);
+      double d_hat_h = median(bag_h, 6);
+      double d_hat_v = median(bag_v, 6);
 
       obs = ibex::IntervalVector({
           {d_hat_h, d_hat_h},
@@ -884,11 +884,11 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
     double y2 = l.p2.y - frame_height/2.;// + d_hat_v;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);// x1;//
-    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);// y1;//
+    double x1_temp = x1;//x1 * cos(a_hat) - y1 * sin(a_hat);//
+    double y1_temp = y1;//x1 * sin(a_hat) + y1 * cos(a_hat);//
 
-    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);// x2;//
-    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);// y2;//
+    double x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);//
+    double y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);//
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. + d_hat_h);
@@ -959,11 +959,11 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
     double y2 = l.p2.y - frame_height/2.;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
-    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
+    double x1_temp = x1;// x1 * cos(a_hat) - y1 * sin(a_hat);
+    double y1_temp = y1;// x1 * sin(a_hat) + y1 * cos(a_hat);
 
-    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
-    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
+    double x2_temp = x2;// x2 * cos(a_hat) - y2 * sin(a_hat);
+    double y2_temp = y2;// x2 * sin(a_hat) + y2 * cos(a_hat);
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. + d_hat_h);
