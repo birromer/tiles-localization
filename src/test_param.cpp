@@ -68,7 +68,7 @@ double median(std::vector<line_t> lines, int op);
 
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs);
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs);
-cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box);
+cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box);
 
 robot_t rotate_robot(robot_t robot, double theta);
 robot_t translate_robot(robot_t robot, double dx, double dy);
@@ -93,7 +93,10 @@ bool interactive = false;
 bool display_window = false;
 bool intervals = false;
 
-double dist_lines = 103.0;  //pixels between each pair of lines
+double tile_size = 0.166;    // size of the side of the tile, in meters, also seen as l
+double px_per_m = 620.48;     // pixels per meter
+
+double dist_lines = tile_size * px_per_m;  //pixels between each pair of lines
 
 namespace po = boost::program_options;  // for argument parsing
 
@@ -113,6 +116,7 @@ int main(int argc, char **argv) {
     ("intervals", "display intervals contraction")
     ("display", "display processed frames")
     ("dist-lines", po::value<double>(&dist_lines), "distance between lines")
+    ("ppm", po::value<double>(&dist_lines), "distance between lines")
     ("output-file", po::value<string>(), "output file");
 
   po::variables_map vm;
@@ -429,10 +433,12 @@ int main(int argc, char **argv) {
       m_y = sin(4*line_angle);
 
       // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
-      d = abs((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
+      d = abs((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));  // value in pixels
+      d = d / px_per_m;  // convert from pixels to meters
 
       // 2.1.2 decimal distance, displacement between the lines
-      dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
+      dd = (d/tile_size) - (floor(d/tile_size));  // this compresses image to [0, 1]
+//      dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -449,7 +455,6 @@ int main(int argc, char **argv) {
       // save the extracted information
       lines.push_back(ln);
     }
-
 
     // 2.1.3 median of the components of the lines
     x_hat = median(lines, 3);
@@ -474,6 +479,7 @@ int main(int argc, char **argv) {
     a_hat = atan2(y_hat, x_hat) * 1./4.;
 
     Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
+
     if(lines_good.size() > MIN_GOOD_LINES) {
       printw("Found %d good lines\n", lines_good.size());
       std::vector<line_t> bag_h, bag_v;
@@ -507,9 +513,10 @@ int main(int argc, char **argv) {
 
         // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
         double d = abs((x2-x1)*(y1-frame_height/2.) - (x1-frame_width/2.)*(y2-y1)) / sqrt(pow(x2-x1,2) + pow(y2-y1,2));
+        d = d / px_per_m;  // from pixels to meters
 
         // 2.1.2 decimal distance, displacement between the lines
-        l.dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
+        l.dd = (d/tile_size) - (floor(d/tile_size));  // this compresses image to [0, 1]
 
         // 2.3.4 determine if the lines are horizontal or vertical
         if (abs(cos(angle_new)) < 0.2) {  // vertical
@@ -558,8 +565,8 @@ int main(int argc, char **argv) {
       // for the horizontal displacement, it should consider the offset in the x axis (between vertical lines), and the opposite for vertical
       // displacement however there is no distinction between horizontal and vertical with the robot's knowledge, and the ambiguity is taken
       // into consideration in the equivalence
-      double d_hat_h = median(bag_h, 6);
-      double d_hat_v = median(bag_v, 6);
+      double d_hat_h = tile_size * median(bag_h, 6);  // the median gives a value from 0 to 1 of displacement, multiplying by the tile size positions it in the world
+      double d_hat_v = tile_size * median(bag_v, 6);
 
       obs = ibex::IntervalVector({
           {d_hat_h, d_hat_h},
@@ -649,7 +656,7 @@ int main(int argc, char **argv) {
     // EXTRA visual stuff
 
     // global frame with observed parameter, pose and contraction
-    Mat view_global_frame = generate_global_frame(dist_lines, state, obs, box);
+    Mat view_global_frame = generate_global_frame(state, obs, box);
 
     // display steps and global frame
     if(display_window) {
@@ -1139,7 +1146,7 @@ robot_t translate_robot(robot_t robot, double dx, double dy) {
   return robot_trans;
 }
 
-cv::Mat generate_global_frame(int dist_lines, ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box) {
+cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box) {
   double state_1 = state[0].mid();
   double state_2 = state[1].mid();
   double state_3 = state[2].mid();
