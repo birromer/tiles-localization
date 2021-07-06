@@ -385,12 +385,13 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
   Mat in;
 
   try {
+    // 1. preprocessing
+    // 1.1 read the image
     // convert message and flip as needed
     Mat in = cv_bridge::toCvShare(msg, "bgr8")->image;
     flip(in, in, 1);
     frame_height = in.size[0];
     frame_width = in.size[1];
-    Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
 
     // NOTE: TEMPORARY FOR CREATING DATASET
     char cimg[1000];
@@ -402,19 +403,43 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     file_gt << pose_1 << "," << pose_2 << "," << pose_3 << endl;
     // ------------------------------------
 
-    // convert to greyscale for later computing borders
+    // 1.2 convert to greyscale for later computing borders
     Mat grey;
     cvtColor(in, grey, CV_BGR2GRAY);
 
-    // compute the gradient image in x and y with the laplacian for the borders
+//    // 1.2.maybe create a skeleton representation, trying to diminish number of detected lines
+//    cv::Mat img = grey;
+//    cv::threshold(img, img, 127, 255, cv::THRESH_BINARY);
+//
+//    cv::Mat skel(img.size(), CV_8UC1, cv::Scalar(0));
+//    cv::Mat temp(img.size(), CV_8UC1);
+//
+//    cv::Mat element_skel = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
+//
+//    bool done;
+//    do
+//    {
+//      cv::morphologyEx(img, temp, cv::MORPH_OPEN, element_skel);
+//      cv::bitwise_not(temp, temp);
+//      cv::bitwise_and(img, temp, temp);
+//      cv::bitwise_or(skel, temp, skel);
+//      cv::erode(img, img, element_skel);
+//
+//      double max;
+//      cv::minMaxLoc(img, 0, &max);
+//      done = (max == 0);
+//    } while (!done);
+
+    // 1.3 compute the gradient image in x and y with the laplacian for the borders
     Mat grad;
+//    Laplacian(skel, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
     Laplacian(grey, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
 
-    // detect edges, 50 and 255 as thresholds 1 and 2
+    // 1.4 detect edges, 50 and 255 as thresholds 1 and 2
     Mat edges;
     Canny(grad, edges, 50, 255, 3);
 
-    // close and dilate lines for some noise removal
+    // 1.5 close and dilate lines for some noise removal
     Mat morph;
     int morph_elem = 0;
     int morph_size = 0;
@@ -422,10 +447,11 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     morphologyEx(edges, edges, MORPH_CLOSE, element);
     dilate(edges, morph, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
 
-    // detect lines using the hough transform
+    // 1.6 detect lines using the hough transform
     std::vector<Vec4i> detected_lines;
     HoughLinesP(morph, detected_lines, 1, CV_PI/180., 60, 100, 50);
 
+    // 1.7 filter lines and create single representation of multiple similar ones
     std::vector<Vec4i> limit_lines;
     for(int i=0; i<detected_lines.size(); i++) {
       double p1_x = detected_lines[i][0], p1_y = detected_lines[i][1];
@@ -457,12 +483,10 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
       limit_lines.push_back(p);
     }
-    //limit_lines = detected_lines;
+//    limit_lines = detected_lines;  // uncomment if want to ignore process above
 
-    // from the angles of the lines from the hough transform, as said in luc's paper
-    // this is done for ase of computation
-    std::vector<double> lines_m_x, lines_m_y, filtered_m_x, filtered_m_y;  // x and y components of the points in M
-
+    // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
+    // this is done for ease of computation
     double x_hat, y_hat, a_hat;
 
     // structures for storing the lines information
@@ -470,9 +494,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     std::vector<double> lines_angles;  // stores the angles of the lines from the hough transform with the image compressed between [-pi/4, pi/4]
 
     double line_angle, line_angle4, d, dd, m_x, m_y;
-//    double median_angle;
 
-    // extract the informations from the good detected lines
+    // 2.1 extract the informations from the good detected lines
     for(int i=0; i<limit_lines.size(); i++) {
       Vec4i l = limit_lines[i];
       double p1_x = l[0], p1_y = l[1];
@@ -488,7 +511,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       d = abs((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
 
       // 2.1.2 decimal distance, displacement between the lines
-      dd = ((d/dist_lines + 0.5) - (floor(d/dist_lines) + 0.5)) - 0.5;
+      dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -506,25 +529,21 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       lines.push_back(ln);
     }
 
-   // median of the components of the lines
+    // 2.1.3 median of the components of the lines
     x_hat = median(lines, 3);
     y_hat = median(lines, 4);
-//    median_angle = median(lines, 2);
 
     std::vector<line_t> lines_good;
 
+    // 2.2 filter lines with bad orientation
+    Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
+
     for (line_t l : lines) {
       if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
-//      if (sawtooth(l.angle4 - median_angle) < 0.10) {
-        filtered_m_x.push_back(l.m_x);
-        filtered_m_y.push_back(l.m_y);
-
         line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
         lines_good.push_back(l);
-
       } else {
         line(src, l.p1, l.p2, Scalar(0, 0, 255), 3, LINE_AA);
-
       }
     }
 
@@ -532,7 +551,9 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     y_hat = median(lines_good, 4);
 
     prev_a_hat = a_hat;
-    a_hat = atan2(y_hat, x_hat) * 1/4;
+    a_hat = atan2(y_hat, x_hat) * 1./4.;
+
+    Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
 
     if(lines_good.size() > MIN_GOOD_LINES) {
       ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
@@ -548,37 +569,56 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         x2 = l.p2.x - frame_width/2.0f;
         y2 = l.p2.y - frame_height/2.0f;
 
+        // 2.3.1 applies the 2d rotation to the line, making it either horizontal or vertical
         double x1_temp = x1 * cos(-a_hat) - y1 * sin(-a_hat);
         double y1_temp = x1 * sin(-a_hat) + y1 * cos(-a_hat);
 
         double x2_temp = x2 * cos(-a_hat) - y2 * sin(-a_hat);
         double y2_temp = x2 * sin(-a_hat) + y2 * cos(-a_hat);
 
-        // translates the image back
+        // 2.3.2 translates the image back
         x1 = x1_temp + frame_width/2.0f;
         x2 = x2_temp + frame_width/2.0f;
 
         y1 = y1_temp + frame_height/2.0f;
         y2 = y2_temp + frame_height/2.0f;
 
-        // compute the new angle of the rotated lines
+        // 2.3.3 compute the new angle of the rotated lines
         angle_new = atan2(y2-y1, x2-x1);
 
-        // determine if the lines are horizontal or vertical
+        // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
+        double d = abs((x2-x1)*(y1-frame_height/2.) - (x1-frame_width/2.)*(y2-y1)) / sqrt(pow(x2-x1,2) + pow(y2-y1,2));
+
+        // 2.1.2 decimal distance, displacement between the lines
+        l.dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
+
+        // 2.3.4 determine if the lines are horizontal or vertical
         if (abs(cos(angle_new)) < 0.2) {  // vertical
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
+
+          if (l.p1.x < frame_width/2.) {
+            l.dd = 1 - l.dd;
+          }
+
           bag_v.push_back(l);
-//          ROS_WARN("V) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/dist_lines, l.dd);
 
         } else if (abs(sin(angle_new)) < 0.2) {  // horizontal
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
+
+          if (l.p1.y > frame_height/2.) {
+            l.dd = 1 - l.dd;
+          }
+
           bag_h.push_back(l);
           line(src, l.p1, l.p2, Scalar(0, 255, 0), 3, LINE_AA);
-//          ROS_WARN("H) D = [%f], D/l = [%f] | DD = [%f]", l.d, l.d/dist_lines, l.dd);
         }
       }
 
+      // 2.4 get displacements parameters
+      // for the horizontal displacement, it should consider the offset in the x axis (between vertical lines), and the opposite for vertical
+      // displacement however there is no distinction between horizontal and vertical with the robot's knowledge, and the ambiguity is taken
+      // into consideration in the equivalence
       double d_hat_h = median(bag_h, 6);
       double d_hat_v = median(bag_v, 6);
 
@@ -588,7 +628,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
           {d_hat_h, d_hat_h},
           {d_hat_v, d_hat_v},
           {a_hat, a_hat}
-//          {median_angle, median_angle}
       }).inflate(ERROR_OBS);
 
       obs[2] = ibex::Interval(a_hat, a_hat).inflate(ERROR_OBS_ANGLE);
