@@ -93,9 +93,8 @@ bool interactive = false;
 bool display_window = false;
 bool intervals = false;
 
-double tile_size = 0.166;    // size of the side of the tile, in meters, also seen as l
+double tile_size = 1.0; // 0.166;    // size of the side of the tile, in meters, also seen as l
 double px_per_m = 620.48;     // pixels per meter
-
 int dist_lines = tile_size * px_per_m;  //pixels between each pair of lines
 
 namespace po = boost::program_options;  // for argument parsing
@@ -115,7 +114,8 @@ int main(int argc, char **argv) {
     ("interactive", "let frame by frame view")
     ("intervals", "display intervals contraction")
     ("display", "display processed frames")
-    ("dist-lines", po::value<int>(&dist_lines), "distance between lines")
+    ("ppm", po::value<double>(&px_per_m), "number of pixels per meter")
+    ("tile-size", po::value<double>(&tile_size), "size of the side of the tile in meters")
     ("output-file", po::value<string>(), "output file");
 
   po::variables_map vm;
@@ -163,7 +163,10 @@ int main(int argc, char **argv) {
     printw("Output file default: %s\n", path_test);
   }
 
-  printw("Distance between lines is %f\n", dist_lines);
+  printw("Number of pixels per meter: %d\n", px_per_m);
+  printw("Size of the tle in meters: %f\n", tile_size);
+  dist_lines = tile_size * px_per_m;  //pixels between each pair of lines
+  printw("Distance between lines in pixels: %d\n", dist_lines);
 
   printw(" ================== Testing start ==================\n");
   // ---------------------------------------------- //
@@ -617,8 +620,8 @@ int main(int argc, char **argv) {
     box0[0] = state[0], box0[1] = state[1], box0[2] = state[2], box0[3] = obs[0], box0[4] = obs[1], box0[5] = obs[2];
     box1[0] = state[0], box1[1] = state[1], box1[2] = state[2], box1[3] = obs[0], box1[4] = obs[1], box1[5] = obs[2];
 
-    ibex::Function fun1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])/0.166) ; sin(pi*(x[1]-y[1])/0.166) ; sin(x[2]-y[2]))");
-    ibex::Function fun2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])/0.166) ; sin(pi*(x[1]-y[0])/0.166) ; cos(x[2]-y[2]))");
+    ibex::Function fun1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])/1.0) ; sin(pi*(x[1]-y[1])/1.0) ; sin(x[2]-y[2]))");
+    ibex::Function fun2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])/1.0) ; sin(pi*(x[1]-y[0])/1.0) ; cos(x[2]-y[2]))");
 
     ibex::CtcFwdBwd ctc1(fun1);
     ibex::CtcFwdBwd ctc2(fun2);
@@ -663,12 +666,12 @@ int main(int argc, char **argv) {
     }
 
     // ground truth and parameters should have near 0 value in the equivalency equations
-    double sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1)/0.166);
-    double sim1_eq2 = sin(M_PI*(obs[1].mid()-pose_2)/0.166);
+    double sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1)/tile_size);
+    double sim1_eq2 = sin(M_PI*(obs[1].mid()-pose_2)/tile_size);
     double sim1_eq3 = sin(obs[2].mid()-pose_3);
 
-    double sim2_eq1 = sin(M_PI*(obs[0].mid()-pose_2)/0.166);
-    double sim2_eq2 = sin(M_PI*(obs[1].mid()-pose_1)/0.166);
+    double sim2_eq1 = sin(M_PI*(obs[0].mid()-pose_2)/tile_size);
+    double sim2_eq2 = sin(M_PI*(obs[1].mid()-pose_1)/tile_size);
     double sim2_eq3 = cos(obs[2].mid()-pose_3);
 
     file_sim << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
@@ -1153,8 +1156,8 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   double d_hat_v = obs[1].mid();
   double a_hat   = obs[2].mid();
 
-//  double d_hat_h = state_1 - floor(state_1);
-//  double d_hat_v = state_2 - floor(state_2);
+//  double d_hat_h = modulo(pose_1, tile_size);
+//  double d_hat_v = modulo(pose_2, tile_size);
 //  double a_hat   = modulo(state_3+M_PI/4., M_PI/2.)-M_PI/4.;
 
   double box_1 = box[0].mid();
@@ -1292,10 +1295,10 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   robot_box = translate_robot(robot_box, box_1*view_dist_lines, box_2*view_dist_lines);  // translate according to state
 
   // light blue
-//  line(global_frame, robot_box.p1, robot_box.p2, Scalar(255, 255, 0), 1, LINE_AA);
-//  line(global_frame, robot_box.p2, robot_box.p3, Scalar(255, 255, 0), 1, LINE_AA);
-//  line(global_frame, robot_box.p3, robot_box.p1, Scalar(255, 255, 0), 1, LINE_AA);
-//  circle(global_frame, robot_box.p1/3 + robot_box.p2/3 + robot_box.p3/3, 4, Scalar(255, 255, 0), 1);
+  line(global_frame, robot_box.p1, robot_box.p2, Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, robot_box.p2, robot_box.p3, Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, robot_box.p3, robot_box.p1, Scalar(255, 255, 0), 1, LINE_AA);
+  circle(global_frame, robot_box.p1/3 + robot_box.p2/3 + robot_box.p3/3, 4, Scalar(255, 255, 0), 1);
 
   line(global_frame, Point2f(max_dim/2.+b1_lb*view_dist_lines, max_dim/2.-b2_lb*view_dist_lines), Point2f(max_dim/2.+b1_ub*view_dist_lines, max_dim/2.-b2_lb*view_dist_lines), Scalar(255, 255, 0), 1, LINE_AA);
   line(global_frame, Point2f(max_dim/2.+b1_lb*view_dist_lines, max_dim/2.-b2_ub*view_dist_lines), Point2f(max_dim/2.+b1_ub*view_dist_lines, max_dim/2.-b2_ub*view_dist_lines), Scalar(255, 255, 0), 1, LINE_AA);
