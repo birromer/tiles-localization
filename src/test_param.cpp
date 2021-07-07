@@ -622,8 +622,14 @@ int main(int argc, char **argv) {
 
 //    ibex::Function fun1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])/1.0) ; sin(pi*(x[1]-y[1])/1.0) ; sin(x[2]-y[2]))");
 //    ibex::Function fun2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])/1.0) ; sin(pi*(x[1]-y[0])/1.0) ; cos(x[2]-y[2]))");
-    ibex::Function fun1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])/0.166) ; sin(pi*(x[1]-y[1])/0.166) ; sin(x[2]-y[2]))");
-    ibex::Function fun2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])/0.166) ; sin(pi*(x[1]-y[0])/0.166) ; cos(x[2]-y[2]))");
+
+    char fun1_char[100];
+    char fun2_char[100];
+    snprintf(fun1_char, 100, "(sin(pi*(x[0]-y[0])/%.3f) ; sin(pi*(x[1]-y[1])/%.3f) ; sin(x[2]-y[2]))", 1.0, 1.0); //tile_size, tile_size);
+    snprintf(fun2_char, 100, "(sin(pi*(x[0]-y[1])/%.3f) ; sin(pi*(x[1]-y[0])/%.3f) ; cos(x[2]-y[2]))", 1.0, 1.0); //tile_size, tile_size);
+
+    ibex::Function fun1("x[3]", "y[3]", fun1_char);
+    ibex::Function fun2("x[3]", "y[3]", fun2_char);
 
     ibex::CtcFwdBwd ctc1(fun1);
     ibex::CtcFwdBwd ctc2(fun2);
@@ -668,12 +674,12 @@ int main(int argc, char **argv) {
     }
 
     // ground truth and parameters should have near 0 value in the equivalency equations
-    double sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1)/tile_size);
-    double sim1_eq2 = sin(M_PI*(obs[1].mid()-pose_2)/tile_size);
+    double sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1));///tile_size);
+    double sim1_eq2 = sin(M_PI*(obs[1].mid()-pose_2));///tile_size);
     double sim1_eq3 = sin(obs[2].mid()-pose_3);
 
-    double sim2_eq1 = sin(M_PI*(obs[0].mid()-pose_2)/tile_size);
-    double sim2_eq2 = sin(M_PI*(obs[1].mid()-pose_1)/tile_size);
+    double sim2_eq1 = sin(M_PI*(obs[0].mid()-pose_2));///tile_size);
+    double sim2_eq2 = sin(M_PI*(obs[1].mid()-pose_1));///tile_size);
     double sim2_eq3 = cos(obs[2].mid()-pose_3);
 
     file_sim << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
