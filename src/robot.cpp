@@ -49,9 +49,9 @@ using namespace cv;
 #define IMG_FOLDER "/home/birromer/ros/data_tiles/not_centered/dataset_tiles/"
 
 // TODO: test different errors
-#define ERROR_PRED      0.2
-#define ERROR_OBS       0.3
-#define ERROR_OBS_ANGLE 0.1
+#define ERROR_PRED      0.25
+#define ERROR_OBS       0.25
+#define ERROR_OBS_ANGLE 0.03
 
 typedef struct line_struct{
   Point2f p1;     // 1st point of the line
@@ -107,7 +107,10 @@ double prev_a_hat;  // a_hat of the previous iteration
 bool display_window;
 double frame_width=0, frame_height=0;
 
-const int dist_lines = 103.0;  //pixels between each pair of lines
+double tile_size = 0.166;    // size of the side of the tile, in meters, also seen as l
+double px_per_m = 620.48;     // pixels per meter
+
+int dist_lines = tile_size * px_per_m;  //pixels between each pair of lines
 
 // NOTE: TEMPORARY FOR CREATING DATASET
 double pose_1, pose_2, pose_3;
@@ -509,9 +512,11 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
       // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
       d = abs((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
+      d = d / px_per_m;  // convert from pixels to meters
 
       // 2.1.2 decimal distance, displacement between the lines
-      dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
+      dd = (d/tile_size) - (floor(d/tile_size));  // this compresses image to [0, 1]
+//      dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -586,11 +591,11 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         // 2.3.3 compute the new angle of the rotated lines
         angle_new = atan2(y2-y1, x2-x1);
 
-        // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
+        // NOTE: temporary testing, i think it doesnt change anything
         double d = abs((x2-x1)*(y1-frame_height/2.) - (x1-frame_width/2.)*(y2-y1)) / sqrt(pow(x2-x1,2) + pow(y2-y1,2));
-
-        // 2.1.2 decimal distance, displacement between the lines
-        l.dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
+        d = d / px_per_m;  // from pixels to meters
+        l.dd = (d/tile_size) - (floor(d/tile_size));  // this compresses image to [0, 1]
+        // ------------------------------
 
         // 2.3.4 determine if the lines are horizontal or vertical
         if (abs(cos(angle_new)) < 0.2) {  // vertical
