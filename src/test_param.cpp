@@ -96,7 +96,7 @@ bool intervals = false;
 double tile_size = 0.166;    // size of the side of the tile, in meters, also seen as l
 double px_per_m = 620.48;     // pixels per meter
 
-double dist_lines = tile_size * px_per_m;  //pixels between each pair of lines
+int dist_lines = tile_size * px_per_m;  //pixels between each pair of lines
 
 namespace po = boost::program_options;  // for argument parsing
 
@@ -115,8 +115,7 @@ int main(int argc, char **argv) {
     ("interactive", "let frame by frame view")
     ("intervals", "display intervals contraction")
     ("display", "display processed frames")
-    ("dist-lines", po::value<double>(&dist_lines), "distance between lines")
-    ("ppm", po::value<double>(&dist_lines), "distance between lines")
+    ("dist-lines", po::value<int>(&dist_lines), "distance between lines")
     ("output-file", po::value<string>(), "output file");
 
   po::variables_map vm;
@@ -511,12 +510,11 @@ int main(int argc, char **argv) {
         // 2.3.3 compute the new angle of the rotated lines
         angle_new = atan2(y2-y1, x2-x1);
 
-        // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
+        // NOTE: temporary testing, i think it doesnt change anything
         double d = abs((x2-x1)*(y1-frame_height/2.) - (x1-frame_width/2.)*(y2-y1)) / sqrt(pow(x2-x1,2) + pow(y2-y1,2));
         d = d / px_per_m;  // from pixels to meters
-
-        // 2.1.2 decimal distance, displacement between the lines
         l.dd = (d/tile_size) - (floor(d/tile_size));  // this compresses image to [0, 1]
+        // ------------------------------
 
         // 2.3.4 determine if the lines are horizontal or vertical
         if (abs(cos(angle_new)) < 0.2) {  // vertical
@@ -541,7 +539,7 @@ int main(int argc, char **argv) {
 //            l.dd = l.dd - 1.0;
 //          }
 //
-          if (l.p1.y > frame_height/2.) {
+          if (l.p1.y < frame_height/2.) {
             l.dd = 1 - l.dd;
           }
 
@@ -597,8 +595,8 @@ int main(int argc, char **argv) {
     }).inflate(ERROR_PRED);
 
     printw("\nPOSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
-    double expected_1 = pose_1 - floor(pose_1);
-    double expected_2 = pose_2 - floor(pose_2);
+    double expected_1 = modulo(pose_1, tile_size);  //pose_1 - floor(pose_1);
+    double expected_2 = modulo(pose_2, tile_size);  //pose_2 - floor(pose_2);
     double expected_3 = modulo(pose_3+M_PI/4., M_PI/2.)-M_PI/4.;
     printw("EXPECTED   -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", expected_1, expected_2, expected_3);
     printw("PARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", obs[0].mid(), obs[1].mid(), obs[2].mid());;
@@ -619,8 +617,8 @@ int main(int argc, char **argv) {
     box0[0] = state[0], box0[1] = state[1], box0[2] = state[2], box0[3] = obs[0], box0[4] = obs[1], box0[5] = obs[2];
     box1[0] = state[0], box1[1] = state[1], box1[2] = state[2], box1[3] = obs[0], box1[4] = obs[1], box1[5] = obs[2];
 
-    ibex::Function fun1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
-    ibex::Function fun2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
+    ibex::Function fun1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])/0.166) ; sin(pi*(x[1]-y[1])/0.166) ; sin(x[2]-y[2]))");
+    ibex::Function fun2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])/0.166) ; sin(pi*(x[1]-y[0])/0.166) ; cos(x[2]-y[2]))");
 
     ibex::CtcFwdBwd ctc1(fun1);
     ibex::CtcFwdBwd ctc2(fun2);
@@ -665,12 +663,12 @@ int main(int argc, char **argv) {
     }
 
     // ground truth and parameters should have near 0 value in the equivalency equations
-    double sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1));
-    double sim1_eq2 = sin(M_PI*(obs[1].mid()-pose_2));
+    double sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1)/0.166);
+    double sim1_eq2 = sin(M_PI*(obs[1].mid()-pose_2)/0.166);
     double sim1_eq3 = sin(obs[2].mid()-pose_3);
 
-    double sim2_eq1 = sin(M_PI*(obs[0].mid()-pose_2));
-    double sim2_eq2 = sin(M_PI*(obs[1].mid()-pose_1));
+    double sim2_eq1 = sin(M_PI*(obs[0].mid()-pose_2)/0.166);
+    double sim2_eq2 = sin(M_PI*(obs[1].mid()-pose_1)/0.166);
     double sim2_eq3 = cos(obs[2].mid()-pose_3);
 
     file_sim << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
@@ -1163,21 +1161,24 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   double box_2 = box[1].mid();
   double box_3 = box[2].mid();
 
-  double b1_ub = box[0].ub()*dist_lines;  // already added here dist_lines because only used for display directly
-  double b1_lb = box[0].lb()*dist_lines;
-  double b2_ub = box[1].ub()*dist_lines;
-  double b2_lb = box[1].lb()*dist_lines;
+  double b1_ub = box[0].ub();  // already added here dist_lines because only used for display directly
+  double b1_lb = box[0].lb();
+  double b2_ub = box[1].ub();
+  double b2_lb = box[1].lb();
+
+  double view_scale = 1.0f;
+  double view_dist_lines = dist_lines * view_scale;
 
   if (!base_global_frame_created) {
     int n_lines = 11;
-    max_dim = dist_lines * (n_lines) + dist_lines/2.;  // largest dimension so that always show something inside the picture
+    max_dim = view_dist_lines * (n_lines) + view_dist_lines/2.;  // largest dimension so that always show something inside the picture
 
     // center of the image, where tiles start with zero displacement
     double center_x = max_dim/2.;
     double center_y = max_dim/2.;
 
     // create a line every specified number of pixels, starting in a multiple from 0
-    int pos_x = center_x - (n_lines/2)*dist_lines;
+    int pos_x = center_x - (n_lines/2)*view_dist_lines;
     while (pos_x <= max_dim) {
       line_t ln = {
         .p1     = cv::Point(pos_x, -max_dim),
@@ -1185,10 +1186,10 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
         .side   = 1  // 0 horizontal, 1 vertical
       };
       base_global_frame_lines.push_back(ln);
-      pos_x += dist_lines;
+      pos_x += view_dist_lines;
     }
 
-    int pos_y = center_y - (n_lines/2)*dist_lines;
+    int pos_y = center_y - (n_lines/2)*view_dist_lines;
     while (pos_y <= max_dim) {
       line_t ln = {
         .p1     = cv::Point(-max_dim, pos_y),
@@ -1196,7 +1197,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
         .side   = 0  // 0 horizontal, 1 vertical
       };
       base_global_frame_lines.push_back(ln);
-      pos_y += dist_lines;
+      pos_y += view_dist_lines;
     }
 
     base_global_frame = cv::Mat::zeros(max_dim+10, max_dim+10, CV_8UC3);
@@ -1241,7 +1242,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
     .angle  = base_robot.angle,
   };
   robot_obs_1 = rotate_robot(robot_obs_1, a_hat);  // rotate already centered at the origin
-  robot_obs_1 = translate_robot(robot_obs_1, d_hat_h*dist_lines, d_hat_v*dist_lines);
+  robot_obs_1 = translate_robot(robot_obs_1, d_hat_h*view_dist_lines, d_hat_v*view_dist_lines);
 
   // yellow
   line(global_frame, robot_obs_1.p1, robot_obs_1.p2, Scalar(0, 255, 255), 1, LINE_AA);
@@ -1256,7 +1257,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
     .angle  = base_robot.angle,
   };
   robot_obs_2 = rotate_robot(robot_obs_2, a_hat+M_PI/2.);  // rotate already centered at the origin
-  robot_obs_2 = translate_robot(robot_obs_2, d_hat_v*dist_lines, d_hat_h*dist_lines);
+  robot_obs_2 = translate_robot(robot_obs_2, d_hat_v*view_dist_lines, d_hat_h*view_dist_lines);
 
   // orange
   line(global_frame, robot_obs_2.p1, robot_obs_2.p2, Scalar(0, 69, 255), 1, LINE_AA);
@@ -1272,7 +1273,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
     .angle  = base_robot.angle,
   };
   robot_state = rotate_robot(robot_state, state_3);  // rotate already centered at the origin
-  robot_state = translate_robot(robot_state, state_1*dist_lines, state_2*dist_lines);  // translate according to state
+  robot_state = translate_robot(robot_state, state_1*view_dist_lines, state_2*view_dist_lines);  // translate according to state
 
   // dark green
   line(global_frame, robot_state.p1, robot_state.p2, Scalar(130, 200, 0), 1, LINE_AA);
@@ -1288,18 +1289,18 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
     .angle  = base_robot.angle,
   };
   robot_box = rotate_robot(robot_box, box_3);  // rotate already centered at the origin
-  robot_box = translate_robot(robot_box, box_1*dist_lines, box_2*dist_lines);  // translate according to state
+  robot_box = translate_robot(robot_box, box_1*view_dist_lines, box_2*view_dist_lines);  // translate according to state
 
   // light blue
-  line(global_frame, robot_box.p1, robot_box.p2, Scalar(255, 255, 0), 1, LINE_AA);
-  line(global_frame, robot_box.p2, robot_box.p3, Scalar(255, 255, 0), 1, LINE_AA);
-  line(global_frame, robot_box.p3, robot_box.p1, Scalar(255, 255, 0), 1, LINE_AA);
-  circle(global_frame, robot_box.p1/3 + robot_box.p2/3 + robot_box.p3/3, 4, Scalar(255, 255, 0), 1);
+//  line(global_frame, robot_box.p1, robot_box.p2, Scalar(255, 255, 0), 1, LINE_AA);
+//  line(global_frame, robot_box.p2, robot_box.p3, Scalar(255, 255, 0), 1, LINE_AA);
+//  line(global_frame, robot_box.p3, robot_box.p1, Scalar(255, 255, 0), 1, LINE_AA);
+//  circle(global_frame, robot_box.p1/3 + robot_box.p2/3 + robot_box.p3/3, 4, Scalar(255, 255, 0), 1);
 
-  line(global_frame, Point2f(max_dim/2.+b1_lb, max_dim/2.-b2_lb), Point2f(max_dim/2.+b1_ub, max_dim/2.-b2_lb), Scalar(255, 255, 0), 1, LINE_AA);
-  line(global_frame, Point2f(max_dim/2.+b1_lb, max_dim/2.-b2_ub), Point2f(max_dim/2.+b1_ub, max_dim/2.-b2_ub), Scalar(255, 255, 0), 1, LINE_AA);
-  line(global_frame, Point2f(max_dim/2.+b1_lb, max_dim/2.-b2_lb), Point2f(max_dim/2.+b1_lb, max_dim/2.-b2_ub), Scalar(255, 255, 0), 1, LINE_AA);
-  line(global_frame, Point2f(max_dim/2.+b1_ub, max_dim/2.-b2_lb), Point2f(max_dim/2.+b1_ub, max_dim/2.-b2_ub), Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, Point2f(max_dim/2.+b1_lb*view_dist_lines, max_dim/2.-b2_lb*view_dist_lines), Point2f(max_dim/2.+b1_ub*view_dist_lines, max_dim/2.-b2_lb*view_dist_lines), Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, Point2f(max_dim/2.+b1_lb*view_dist_lines, max_dim/2.-b2_ub*view_dist_lines), Point2f(max_dim/2.+b1_ub*view_dist_lines, max_dim/2.-b2_ub*view_dist_lines), Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, Point2f(max_dim/2.+b1_lb*view_dist_lines, max_dim/2.-b2_lb*view_dist_lines), Point2f(max_dim/2.+b1_lb*view_dist_lines, max_dim/2.-b2_ub*view_dist_lines), Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, Point2f(max_dim/2.+b1_ub*view_dist_lines, max_dim/2.-b2_lb*view_dist_lines), Point2f(max_dim/2.+b1_ub*view_dist_lines, max_dim/2.-b2_ub*view_dist_lines), Scalar(255, 255, 0), 1, LINE_AA);
 
 //  circle(global_frame, Point2f(max_dim, max_dim), 15, Scalar(255, 255, 255), 3);
   return global_frame;
