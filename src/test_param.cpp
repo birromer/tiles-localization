@@ -842,10 +842,8 @@ int sign(double x) {
 }
 
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
-  double view_px_per_m = 500.0;     // pixels per meter for the visualization
-  double view_dist_lines = tile_size * view_px_per_m;
-  double d_hat_h = obs[0].mid() * dist_lines;  // parameters have to be scaled for being shown in pixels
-  double d_hat_v = obs[1].mid() * dist_lines;
+  double d_hat_h = obs[0].mid() * px_per_m;  // parameters have to be scaled for being shown in pixels
+  double d_hat_v = obs[1].mid() * px_per_m;
   double a_hat   = obs[2].mid();
 
   int n_lines = 5;
@@ -919,10 +917,8 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
 }
 
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
-  double view_px_per_m = 500.0;     // pixels per meter for the visualization
-  double view_dist_lines = tile_size * view_px_per_m;
-  double d_hat_h = obs[1].mid() * dist_lines;  // parameters have to be scaled to be shown in pixels
-  double d_hat_v = obs[0].mid() * dist_lines;
+  double d_hat_h = obs[1].mid() * px_per_m;  // parameters have to be scaled to be shown in pixels
+  double d_hat_v = obs[0].mid() * px_per_m;
   double a_hat   = obs[2].mid() + M_PI/2.;
 
   int n_lines = 5;
@@ -1175,11 +1171,11 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   double b2_ub = box[1].ub();
   double b2_lb = box[1].lb();
 
-  double view_px_per_m = 500.0;     // pixels per meter for the visualization
+  double view_px_per_m = 350.0;     // pixels per meter for the visualization
   double view_dist_lines = tile_size * view_px_per_m;
 
   if (!base_global_frame_created) {
-    int n_lines = 13;
+    int n_lines = 21;
     max_dim = view_dist_lines * (n_lines) + view_dist_lines/2.;  // largest dimension so that always show something inside the picture
 
     // center of the image, where tiles start with zero displacement
@@ -1187,7 +1183,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
     double center_y = max_dim/2.;
 
     // create a line every specified number of pixels, starting in a multiple from 0
-    int pos_x = center_x - (n_lines/2)*view_dist_lines;
+    int pos_x = center_x - floor(n_lines/2.)*view_dist_lines;
     while (pos_x <= max_dim) {
       line_t ln = {
         .p1     = cv::Point(pos_x, -max_dim),
@@ -1198,7 +1194,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
       pos_x += view_dist_lines;
     }
 
-    int pos_y = center_y - (n_lines/2)*view_dist_lines;
+    int pos_y = center_y - floor(n_lines/2.)*view_dist_lines;
     while (pos_y <= max_dim) {
       line_t ln = {
         .p1     = cv::Point(-max_dim, pos_y),
@@ -1217,24 +1213,24 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
 
       Scalar color;
       if (l.side == 1) {
-        if (abs(l.p1.x - center_x) < 2)
+        if (abs(l.p1.x - center_x) <= 2)
           color = Scalar(0, 0, 255);
         else
           color = Scalar(0, 255, 0);
       } else {
-        if (abs(l.p1.y - center_y) < 2)
+        if (abs(l.p1.y - center_y) <= 2)
           color = Scalar(0, 0, 255);
         else
           color = Scalar(255, 0, 0);
       }
 
-      line(base_global_frame, cv::Point(l.p1.x, l.p1.y), cv::Point(l.p2.x, l.p2.y), color, 3, LINE_AA);
+      line(base_global_frame, cv::Point(l.p1.x, l.p1.y), cv::Point(l.p2.x, l.p2.y), color, 1, LINE_AA);
     }
 
     base_robot = {
-      .p1     = cv::Point(center_x - 20, center_y - 25),
-      .p2     = cv::Point(center_x - 20, center_y + 25),
-      .p3     = cv::Point(center_x + 40, center_y + 0),
+      .p1     = cv::Point(center_x - 20*0.7, center_y - 25*0.7),  // cv::Point(center_x - 20, center_y - 25),
+      .p2     = cv::Point(center_x - 20*0.7, center_y + 25*0.7),  // cv::Point(center_x - 20, center_y + 25),
+      .p3     = cv::Point(center_x + 40*0.7, center_y + 0),   // cv::Point(center_x + 40, center_y + 0),
       .angle  = 0,
     };
 
@@ -1257,7 +1253,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   line(global_frame, robot_obs_1.p1, robot_obs_1.p2, Scalar(0, 255, 255), 1, LINE_AA);
   line(global_frame, robot_obs_1.p2, robot_obs_1.p3, Scalar(0, 255, 255), 1, LINE_AA);
   line(global_frame, robot_obs_1.p3, robot_obs_1.p1, Scalar(0, 255, 255), 1, LINE_AA);
-  circle(global_frame, robot_obs_1.p1/3 + robot_obs_1.p2/3 + robot_obs_1.p3/3, 4, Scalar(0, 255, 255), 1);
+  circle(global_frame, robot_obs_1.p1/3 + robot_obs_1.p2/3 + robot_obs_1.p3/3, 2, Scalar(0, 255, 255), 1);
 
   robot_t robot_obs_2 = {
     .p1     = base_robot.p1,
@@ -1272,7 +1268,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   line(global_frame, robot_obs_2.p1, robot_obs_2.p2, Scalar(0, 69, 255), 1, LINE_AA);
   line(global_frame, robot_obs_2.p2, robot_obs_2.p3, Scalar(0, 69, 255), 1, LINE_AA);
   line(global_frame, robot_obs_2.p3, robot_obs_2.p1, Scalar(0, 69, 255), 1, LINE_AA);
-  circle(global_frame, robot_obs_2.p1/3 + robot_obs_2.p2/3 + robot_obs_2.p3/3, 4, Scalar(0, 69, 255), 1);
+  circle(global_frame, robot_obs_2.p1/3 + robot_obs_2.p2/3 + robot_obs_2.p3/3, 2, Scalar(0, 69, 255), 1);
 
   // draw ground truth
   robot_t robot_state = {
@@ -1288,7 +1284,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   line(global_frame, robot_state.p1, robot_state.p2, Scalar(130, 200, 0), 1, LINE_AA);
   line(global_frame, robot_state.p2, robot_state.p3, Scalar(130, 200, 0), 1, LINE_AA);
   line(global_frame, robot_state.p3, robot_state.p1, Scalar(130, 200, 0), 1, LINE_AA);
-  circle(global_frame, robot_state.p1/3 + robot_state.p2/3 + robot_state.p3/3, 4, Scalar(130, 200, 0), 1);
+  circle(global_frame, robot_state.p1/3 + robot_state.p2/3 + robot_state.p3/3, 2, Scalar(130, 200, 0), 1);
 
   // draw contracted state
   robot_t robot_box = {
@@ -1304,12 +1300,12 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   line(global_frame, robot_box.p1, robot_box.p2, Scalar(255, 255, 0), 1, LINE_AA);
   line(global_frame, robot_box.p2, robot_box.p3, Scalar(255, 255, 0), 1, LINE_AA);
   line(global_frame, robot_box.p3, robot_box.p1, Scalar(255, 255, 0), 1, LINE_AA);
-  circle(global_frame, robot_box.p1/3 + robot_box.p2/3 + robot_box.p3/3, 4, Scalar(255, 255, 0), 1);
+  circle(global_frame, robot_box.p1/3 + robot_box.p2/3 + robot_box.p3/3, 2, Scalar(255, 255, 0), 1);
 
-  line(global_frame, Point2f(max_dim/2.+b1_lb*view_dist_lines, max_dim/2.-b2_lb*view_dist_lines), Point2f(max_dim/2.+b1_ub*view_dist_lines, max_dim/2.-b2_lb*view_dist_lines), Scalar(255, 255, 0), 1, LINE_AA);
-  line(global_frame, Point2f(max_dim/2.+b1_lb*view_dist_lines, max_dim/2.-b2_ub*view_dist_lines), Point2f(max_dim/2.+b1_ub*view_dist_lines, max_dim/2.-b2_ub*view_dist_lines), Scalar(255, 255, 0), 1, LINE_AA);
-  line(global_frame, Point2f(max_dim/2.+b1_lb*view_dist_lines, max_dim/2.-b2_lb*view_dist_lines), Point2f(max_dim/2.+b1_lb*view_dist_lines, max_dim/2.-b2_ub*view_dist_lines), Scalar(255, 255, 0), 1, LINE_AA);
-  line(global_frame, Point2f(max_dim/2.+b1_ub*view_dist_lines, max_dim/2.-b2_lb*view_dist_lines), Point2f(max_dim/2.+b1_ub*view_dist_lines, max_dim/2.-b2_ub*view_dist_lines), Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, Point2f(max_dim/2.+b1_lb*view_px_per_m, max_dim/2.-b2_lb*view_px_per_m), Point2f(max_dim/2.+b1_ub*view_px_per_m, max_dim/2.-b2_lb*view_px_per_m), Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, Point2f(max_dim/2.+b1_lb*view_px_per_m, max_dim/2.-b2_ub*view_px_per_m), Point2f(max_dim/2.+b1_ub*view_px_per_m, max_dim/2.-b2_ub*view_px_per_m), Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, Point2f(max_dim/2.+b1_lb*view_px_per_m, max_dim/2.-b2_lb*view_px_per_m), Point2f(max_dim/2.+b1_lb*view_px_per_m, max_dim/2.-b2_ub*view_px_per_m), Scalar(255, 255, 0), 1, LINE_AA);
+  line(global_frame, Point2f(max_dim/2.+b1_ub*view_px_per_m, max_dim/2.-b2_lb*view_px_per_m), Point2f(max_dim/2.+b1_ub*view_px_per_m, max_dim/2.-b2_ub*view_px_per_m), Scalar(255, 255, 0), 1, LINE_AA);
 
 //  circle(global_frame, Point2f(max_dim, max_dim), 15, Scalar(255, 255, 255), 3);
   return global_frame;
