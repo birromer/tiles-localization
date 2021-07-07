@@ -93,7 +93,7 @@ bool interactive = false;
 bool display_window = false;
 bool intervals = false;
 
-double tile_size = 1.0; // 0.166;    // size of the side of the tile, in meters, also seen as l
+double tile_size = 0.166;    // size of the side of the tile, in meters, also seen as l
 double px_per_m = 620.48;     // pixels per meter
 int dist_lines = tile_size * px_per_m;  //pixels between each pair of lines
 
@@ -620,8 +620,10 @@ int main(int argc, char **argv) {
     box0[0] = state[0], box0[1] = state[1], box0[2] = state[2], box0[3] = obs[0], box0[4] = obs[1], box0[5] = obs[2];
     box1[0] = state[0], box1[1] = state[1], box1[2] = state[2], box1[3] = obs[0], box1[4] = obs[1], box1[5] = obs[2];
 
-    ibex::Function fun1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])/1.0) ; sin(pi*(x[1]-y[1])/1.0) ; sin(x[2]-y[2]))");
-    ibex::Function fun2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])/1.0) ; sin(pi*(x[1]-y[0])/1.0) ; cos(x[2]-y[2]))");
+//    ibex::Function fun1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])/1.0) ; sin(pi*(x[1]-y[1])/1.0) ; sin(x[2]-y[2]))");
+//    ibex::Function fun2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])/1.0) ; sin(pi*(x[1]-y[0])/1.0) ; cos(x[2]-y[2]))");
+    ibex::Function fun1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])/0.166) ; sin(pi*(x[1]-y[1])/0.166) ; sin(x[2]-y[2]))");
+    ibex::Function fun2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])/0.166) ; sin(pi*(x[1]-y[0])/0.166) ; cos(x[2]-y[2]))");
 
     ibex::CtcFwdBwd ctc1(fun1);
     ibex::CtcFwdBwd ctc2(fun2);
@@ -1148,26 +1150,27 @@ robot_t translate_robot(robot_t robot, double dx, double dy) {
 }
 
 cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box) {
-  double state_1 = state[0].mid();
-  double state_2 = state[1].mid();
+  double state_1 = floor(state[0].mid() / tile_size) + modulo(state[0].mid(), tile_size) / tile_size;
+  double state_2 = floor(state[0].mid() / tile_size) + modulo(state[1].mid(), tile_size) / tile_size;
   double state_3 = state[2].mid();
 
-  double d_hat_h = obs[0].mid();
-  double d_hat_v = obs[1].mid();
-  double a_hat   = obs[2].mid();
+  // values are from 0 to tile_size, dividing by the cap makes it into [0, 1]
+  double d_hat_h = obs[0].mid()/tile_size;
+  double d_hat_v = obs[1].mid()/tile_size;
+  double a_hat   = obs[2].mid()/tile_size;
 
-//  double d_hat_h = modulo(pose_1, tile_size);
-//  double d_hat_v = modulo(pose_2, tile_size);
-//  double a_hat   = modulo(state_3+M_PI/4., M_PI/2.)-M_PI/4.;
+//  double d_hat_h = moduloulo(pose_1, tile_size);
+//  double d_hat_v = moduloulo(pose_2, tile_size);
+//  double a_hat   = moduloulo(state_3+M_PI/4., M_PI/2.)-M_PI/4.;
 
-  double box_1 = box[0].mid();
-  double box_2 = box[1].mid();
+  double box_1 = floor(box[0].mid() / tile_size) + modulo(box[0].mid(), tile_size) / tile_size;
+  double box_2 = floor(box[1].mid() / tile_size) + modulo(box[1].mid(), tile_size) / tile_size;
   double box_3 = box[2].mid();
 
-  double b1_ub = box[0].ub();  // already added here dist_lines because only used for display directly
-  double b1_lb = box[0].lb();
-  double b2_ub = box[1].ub();
-  double b2_lb = box[1].lb();
+  double b1_ub = modulo(box[0].ub(), tile_size) / tile_size;  // already added here dist_lines because only used for display directly
+  double b1_lb = modulo(box[0].lb(), tile_size) / tile_size;
+  double b2_ub = modulo(box[1].ub(), tile_size) / tile_size;
+  double b2_lb = modulo(box[1].lb(), tile_size) / tile_size;
 
   double view_scale = 1.0f;
   double view_dist_lines = dist_lines * view_scale;
