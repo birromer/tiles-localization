@@ -842,6 +842,8 @@ int sign(double x) {
 }
 
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
+  double view_px_per_m = 500.0;     // pixels per meter for the visualization
+  double view_dist_lines = tile_size * view_px_per_m;
   double d_hat_h = obs[0].mid() * dist_lines;  // parameters have to be scaled for being shown in pixels
   double d_hat_v = obs[1].mid() * dist_lines;
   double a_hat   = obs[2].mid();
@@ -917,6 +919,8 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
 }
 
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
+  double view_px_per_m = 500.0;     // pixels per meter for the visualization
+  double view_dist_lines = tile_size * view_px_per_m;
   double d_hat_h = obs[1].mid() * dist_lines;  // parameters have to be scaled to be shown in pixels
   double d_hat_v = obs[0].mid() * dist_lines;
   double a_hat   = obs[2].mid() + M_PI/2.;
@@ -1150,33 +1154,32 @@ robot_t translate_robot(robot_t robot, double dx, double dy) {
 }
 
 cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box) {
-  double state_1 = floor(state[0].mid() / tile_size) + modulo(state[0].mid(), tile_size) / tile_size;
-  double state_2 = floor(state[0].mid() / tile_size) + modulo(state[1].mid(), tile_size) / tile_size;
+  double state_1 = state[0].mid();
+  double state_2 = state[1].mid();
   double state_3 = state[2].mid();
 
-  // values are from 0 to tile_size, dividing by the cap makes it into [0, 1]
-  double d_hat_h = obs[0].mid()/tile_size;
-  double d_hat_v = obs[1].mid()/tile_size;
-  double a_hat   = obs[2].mid()/tile_size;
+  double d_hat_h = obs[0].mid();
+  double d_hat_v = obs[1].mid();
+  double a_hat   = obs[2].mid();
 
-//  double d_hat_h = moduloulo(pose_1, tile_size);
-//  double d_hat_v = moduloulo(pose_2, tile_size);
-//  double a_hat   = moduloulo(state_3+M_PI/4., M_PI/2.)-M_PI/4.;
+//  double d_hat_h = modulo(pose_1, tile_size);
+//  double d_hat_v = modulo(pose_2, tile_size);
+//  double a_hat   = modulo(state_3+M_PI/4., M_PI/2.)-M_PI/4.;
 
-  double box_1 = floor(box[0].mid() / tile_size) + modulo(box[0].mid(), tile_size) / tile_size;
-  double box_2 = floor(box[1].mid() / tile_size) + modulo(box[1].mid(), tile_size) / tile_size;
+  double box_1 = box[0].mid();
+  double box_2 = box[1].mid();
   double box_3 = box[2].mid();
 
-  double b1_ub = modulo(box[0].ub(), tile_size) / tile_size;  // already added here dist_lines because only used for display directly
-  double b1_lb = modulo(box[0].lb(), tile_size) / tile_size;
-  double b2_ub = modulo(box[1].ub(), tile_size) / tile_size;
-  double b2_lb = modulo(box[1].lb(), tile_size) / tile_size;
+  double b1_ub = box[0].ub();  // already added here dist_lines because only used for display directly
+  double b1_lb = box[0].lb();
+  double b2_ub = box[1].ub();
+  double b2_lb = box[1].lb();
 
-  double view_scale = 1.0f;
-  double view_dist_lines = dist_lines * view_scale;
+  double view_px_per_m = 500.0;     // pixels per meter for the visualization
+  double view_dist_lines = tile_size * view_px_per_m;
 
   if (!base_global_frame_created) {
-    int n_lines = 11;
+    int n_lines = 13;
     max_dim = view_dist_lines * (n_lines) + view_dist_lines/2.;  // largest dimension so that always show something inside the picture
 
     // center of the image, where tiles start with zero displacement
@@ -1214,12 +1217,12 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
 
       Scalar color;
       if (l.side == 1) {
-        if (l.p1.x == center_x)
+        if (abs(l.p1.x - center_x) < 2)
           color = Scalar(0, 0, 255);
         else
           color = Scalar(0, 255, 0);
       } else {
-        if (l.p1.y == center_y)
+        if (abs(l.p1.y - center_y) < 2)
           color = Scalar(0, 0, 255);
         else
           color = Scalar(255, 0, 0);
@@ -1248,7 +1251,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
     .angle  = base_robot.angle,
   };
   robot_obs_1 = rotate_robot(robot_obs_1, a_hat);  // rotate already centered at the origin
-  robot_obs_1 = translate_robot(robot_obs_1, d_hat_h*view_dist_lines, d_hat_v*view_dist_lines);
+  robot_obs_1 = translate_robot(robot_obs_1, d_hat_h*view_px_per_m, d_hat_v*view_px_per_m);
 
   // yellow
   line(global_frame, robot_obs_1.p1, robot_obs_1.p2, Scalar(0, 255, 255), 1, LINE_AA);
@@ -1263,7 +1266,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
     .angle  = base_robot.angle,
   };
   robot_obs_2 = rotate_robot(robot_obs_2, a_hat+M_PI/2.);  // rotate already centered at the origin
-  robot_obs_2 = translate_robot(robot_obs_2, d_hat_v*view_dist_lines, d_hat_h*view_dist_lines);
+  robot_obs_2 = translate_robot(robot_obs_2, d_hat_v*view_px_per_m, d_hat_h*view_px_per_m);
 
   // orange
   line(global_frame, robot_obs_2.p1, robot_obs_2.p2, Scalar(0, 69, 255), 1, LINE_AA);
@@ -1279,7 +1282,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
     .angle  = base_robot.angle,
   };
   robot_state = rotate_robot(robot_state, state_3);  // rotate already centered at the origin
-  robot_state = translate_robot(robot_state, state_1*view_dist_lines, state_2*view_dist_lines);  // translate according to state
+  robot_state = translate_robot(robot_state, state_1*view_px_per_m, state_2*view_px_per_m);  // translate according to state
 
   // dark green
   line(global_frame, robot_state.p1, robot_state.p2, Scalar(130, 200, 0), 1, LINE_AA);
@@ -1295,7 +1298,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
     .angle  = base_robot.angle,
   };
   robot_box = rotate_robot(robot_box, box_3);  // rotate already centered at the origin
-  robot_box = translate_robot(robot_box, box_1*view_dist_lines, box_2*view_dist_lines);  // translate according to state
+  robot_box = translate_robot(robot_box, box_1*view_px_per_m, box_2*view_px_per_m);  // translate according to state
 
   // light blue
   line(global_frame, robot_box.p1, robot_box.p2, Scalar(255, 255, 0), 1, LINE_AA);
