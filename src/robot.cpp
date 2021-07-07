@@ -46,7 +46,7 @@
 using namespace cv;
 
 #define MIN_GOOD_LINES 5
-#define IMG_FOLDER "/home/birromer/ros/data_tiles/not_centered/dataset_tiles/"
+#define IMG_FOLDER "/home/birromer/ros/data_tiles/temp/dataset_tiles/"
 
 // TODO: test different errors
 #define ERROR_PRED      0.25
