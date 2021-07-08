@@ -48,9 +48,8 @@ using namespace cv;
 #define MIN_GOOD_LINES 5
 #define IMG_FOLDER "/home/birromer/ros/data_tiles/temp/dataset_tiles/"
 
-// TODO: test different errors
-#define ERROR_PRED      0.25
-#define ERROR_OBS       0.25
+#define ERROR_PRED      0.04  // error should not exceed half the tile
+#define ERROR_OBS       0.04
 #define ERROR_OBS_ANGLE 0.03
 
 typedef struct line_struct{

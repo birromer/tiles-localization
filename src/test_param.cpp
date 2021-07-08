@@ -551,17 +551,6 @@ int main(int argc, char **argv) {
         }
       }
 
-//      printw("\nHorizontal lines: ");
-//      for (line_t lin : bag_h) {
-//        printw("dd-d: %.2f - %.2f | ", lin.dd, lin.d);
-//      }
-//
-//      printw("\n\nVertical lines: ");
-//      for (line_t lin : bag_h) {
-//        printw("dd-d: %.2f - %.2f | ", lin.dd, lin.d);
-//      };
-//      printw("\n\n");
-
       // 2.4 get displacements parameters
       // for the horizontal displacement, it should consider the offset in the x axis (between vertical lines), and the opposite for vertical
       // displacement however there is no distinction between horizontal and vertical with the robot's knowledge, and the ambiguity is taken
