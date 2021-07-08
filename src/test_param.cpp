@@ -33,8 +33,8 @@ using namespace codac;
 
 #define MIN_GOOD_LINES 5
 
-#define ERROR_PRED      0.25
-#define ERROR_OBS       0.25
+#define ERROR_PRED      0.04
+#define ERROR_OBS       0.04
 #define ERROR_OBS_ANGLE 0.03
 
 #define DATASET "centered"
@@ -625,8 +625,8 @@ int main(int argc, char **argv) {
 
     char fun1_char[100];
     char fun2_char[100];
-    snprintf(fun1_char, 100, "(sin(pi*(x[0]-y[0])/%.3f) ; sin(pi*(x[1]-y[1])/%.3f) ; sin(x[2]-y[2]))", 1.0, 1.0); //tile_size, tile_size);
-    snprintf(fun2_char, 100, "(sin(pi*(x[0]-y[1])/%.3f) ; sin(pi*(x[1]-y[0])/%.3f) ; cos(x[2]-y[2]))", 1.0, 1.0); //tile_size, tile_size);
+    snprintf(fun1_char, 100, "(sin(pi*(x[0]-y[0])/%.3f) ; sin(pi*(x[1]-y[1])/%.3f) ; sin(x[2]-y[2]))", tile_size, tile_size); // 1.0, 1.0); //
+    snprintf(fun2_char, 100, "(sin(pi*(x[0]-y[1])/%.3f) ; sin(pi*(x[1]-y[0])/%.3f) ; cos(x[2]-y[2]))", tile_size, tile_size); // 1.0, 1.0); //
 
     ibex::Function fun1("x[3]", "y[3]", fun1_char);
     ibex::Function fun2("x[3]", "y[3]", fun2_char);
