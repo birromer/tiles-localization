@@ -410,7 +410,7 @@ int main(int argc, char **argv) {
       Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
       limit_lines.push_back(p);
     }
-//    limit_lines = detected_lines;  // uncomment if want to ignore process above
+    limit_lines = detected_lines;  // uncomment if want to ignore process above
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
@@ -658,23 +658,23 @@ int main(int argc, char **argv) {
 
     // display steps and global frame
     if(display_window) {
-      ShowManyImages("steps", 4, in, src, view_param_1, view_param_2);//, rot
+      ShowManyImages("steps", 4, in, view_param_1, view_param_2, rot);//, src
       cv::imshow("global_frame", view_global_frame);
     }
 
     // ground truth and parameters should have near 0 value in the equivalency equations
-    double sim1_eq1 = sin(M_PI*(obs[0].mid()-pose_1)/tile_size);
-    double sim1_eq2 = sin(M_PI*(obs[1].mid()-pose_2)/tile_size);
-    double sim1_eq3 = sin(obs[2].mid()-pose_3);
+    double sim1_eq1 = sin(M_PI*(pose_1-obs[0].mid())/tile_size);
+    double sim1_eq2 = sin(M_PI*(pose_2-obs[1].mid())/tile_size);
+    double sim1_eq3 = sin(pose_3-obs[2].mid());
 
-    double sim2_eq1 = sin(M_PI*(obs[0].mid()-pose_2)/tile_size);
-    double sim2_eq2 = sin(M_PI*(obs[1].mid()-pose_1)/tile_size);
-    double sim2_eq3 = cos(obs[2].mid()-pose_3);
+    double sim2_eq1 = sin(M_PI*(pose_2-obs[0].mid())/tile_size);
+    double sim2_eq2 = sin(M_PI*(pose_1-obs[1].mid())/tile_size);
+    double sim2_eq3 = cos(pose_3-obs[2].mid());
 
     file_sim << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
 
-    printw("\nEquivalence equations 1:\n  sin(pi*(y1-z1)/ts) = %f\n  sin(pi*(y2-z2/ts)) = %f\n  sin(y3-z3) = %f\n", sim1_eq1, sim1_eq2, sim1_eq3);
-    printw("Equivalence equations 2:\n  sin(pi*(y1-z2)/ts) = %f\n  sin(pi*(y2-z1)/ts) = %f\n  cos(y3-z3) = %f\n", sim2_eq1, sim2_eq2, sim2_eq3);
+    printw("\nEquivalence equations 1:\n  sin(pi*(z1-y1)/ts) = %f\n  sin(pi*(z2-y2/ts)) = %f\n  sin(z3-y3) = %f\n", sim1_eq1, sim1_eq2, sim1_eq3);
+    printw("Equivalence equations 2:\n  sin(pi*(z1-y2)/ts) = %f\n  sin(pi*(z2-y1)/ts) = %f\n  cos(z3-y3) = %f\n", sim2_eq1, sim2_eq2, sim2_eq3);
 
     vector<double> s{sim1_eq1, sim1_eq2, sim1_eq3, sim2_eq1, sim2_eq2, sim2_eq3};
 
@@ -1149,13 +1149,13 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   double state_2 = state[1].mid();
   double state_3 = state[2].mid();
 
-//  double d_hat_h = obs[0].mid();
-//  double d_hat_v = obs[1].mid();
-//  double a_hat   = obs[2].mid();
+  double d_hat_h = obs[0].mid();
+  double d_hat_v = obs[1].mid();
+  double a_hat   = obs[2].mid();
 
-  double d_hat_h = modulo(state_1, tile_size);
-  double d_hat_v = modulo(state_2, tile_size);
-  double a_hat   = modulo(state_3+M_PI/4., M_PI/2.)-M_PI/4.;
+//  double d_hat_h = modulo(state_1, tile_size);
+//  double d_hat_v = modulo(state_2, tile_size);
+//  double a_hat   = modulo(state_3+M_PI/4., M_PI/2.)-M_PI/4.;
 
   double box_1 = box[0].mid();
   double box_2 = box[1].mid();
@@ -1243,6 +1243,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   };
   robot_obs_1 = rotate_robot(robot_obs_1, a_hat);  // rotate already centered at the origin
   robot_obs_1 = translate_robot(robot_obs_1, d_hat_h*view_px_per_m, d_hat_v*view_px_per_m);
+  printw("Parameters yellow: %.2f - %.2f\n", d_hat_h*view_px_per_m, d_hat_v*view_px_per_m);
 
   // yellow
   line(global_frame, robot_obs_1.p1, robot_obs_1.p2, Scalar(0, 255, 255), 1, LINE_AA);
@@ -1256,7 +1257,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
     .p3     = base_robot.p3,
     .angle  = base_robot.angle,
   };
-  robot_obs_2 = rotate_robot(robot_obs_2, a_hat+M_PI/2.);  // rotate already centered at the origin
+  robot_obs_2 = rotate_robot(robot_obs_2, a_hat);//+M_PI/2.);  // rotate already centered at the origin
   robot_obs_2 = translate_robot(robot_obs_2, d_hat_v*view_px_per_m, d_hat_h*view_px_per_m);
 
   // orange
