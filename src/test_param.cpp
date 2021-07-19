@@ -410,7 +410,7 @@ int main(int argc, char **argv) {
       Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
       limit_lines.push_back(p);
     }
-    limit_lines = detected_lines;  // uncomment if want to ignore process above
+//    limit_lines = detected_lines;  // uncomment if want to ignore process above
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
@@ -1243,7 +1243,6 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   };
   robot_obs_1 = rotate_robot(robot_obs_1, a_hat);  // rotate already centered at the origin
   robot_obs_1 = translate_robot(robot_obs_1, d_hat_h*view_px_per_m, d_hat_v*view_px_per_m);
-  printw("Parameters yellow: %.2f - %.2f\n", d_hat_h*view_px_per_m, d_hat_v*view_px_per_m);
 
   // yellow
   line(global_frame, robot_obs_1.p1, robot_obs_1.p2, Scalar(0, 255, 255), 1, LINE_AA);

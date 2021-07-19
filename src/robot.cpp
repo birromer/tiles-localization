@@ -46,7 +46,7 @@
 using namespace cv;
 
 #define MIN_GOOD_LINES 5
-#define IMG_FOLDER "/home/birromer/ros/data_tiles/temp/dataset_tiles/"
+#define IMG_FOLDER "/home/birromer/ros/data_tiles/metodo/dataset_tiles/"
 
 #define ERROR_PRED      0.04  // error should not exceed half the tile
 #define ERROR_OBS       0.04
@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
   double dt;
 
   // NOTE: TEMPORARY FOR CREATING DATASET
-  file_gt.open("/home/birromer/ros/data_tiles/not_centered/gt.csv", fstream::in | fstream::out | fstream::trunc);
+  file_gt.open("/home/birromer/ros/data_tiles/metodo/gt.csv", fstream::in | fstream::out | fstream::trunc);
   file_gt << "x" << "," << "y" << "," << "theta" << endl;
   // ------------------------------
 
@@ -485,7 +485,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
       limit_lines.push_back(p);
     }
-//    limit_lines = detected_lines;  // uncomment if want to ignore process above
+    limit_lines = detected_lines;  // uncomment if want to ignore process above
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
@@ -610,7 +610,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         } else if (abs(sin(angle_new)) < 0.2) {  // horizontal
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
 
-          if (l.p1.y > frame_height/2.) {
+          if (l.p1.y < frame_height/2.) {
             l.dd = 1 - l.dd;
           }
 

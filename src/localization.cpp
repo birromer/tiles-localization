@@ -103,15 +103,8 @@ int main(int argc, char **argv) {
     ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
     ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
 
-    // TODO: test having angle from the state, such as if there were a compass
     box0[0] = x[0], box0[1] = x[1], box0[2] = x[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2];
     box1[0] = x[0], box1[1] = x[1], box1[2] = x[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2];
-
-//    box0[0] = x[0], box0[1] = x[1], box0[2] = x[2], box0[3] = x[0], box0[4] = x[1], box0[5] = x[2];
-//    box1[0] = x[0], box1[1] = x[1], box1[2] = x[2], box1[3] = x[0], box1[4] = x[1], box1[5] = x[2];
-
-//    ibex::Function f1("x[3]", "y[3]", "(sin(pi*(x[0]-y[0])) ; sin(pi*(x[1]-y[1])) ; sin(x[2]-y[2]))");
-//    ibex::Function f2("x[3]", "y[3]", "(sin(pi*(x[0]-y[1])) ; sin(pi*(x[1]-y[0])) ; cos(x[2]-y[2]))");
 
     char f1_char[100];
     char f2_char[100];
@@ -140,9 +133,9 @@ int main(int argc, char **argv) {
       x[2] = box[2];
     }
 
-//      x[0] = ibex::Interval(pose_1, pose_1).inflate(0.1);
-//      x[1] = ibex::Interval(pose_2, pose_2).inflate(0.1);
-//      x[2] = ibex::Interval(pose_3, pose_3).inflate(0.1);
+//    x[0] = ibex::Interval(pose_1, pose_1).inflate(0.1);
+//    x[1] = ibex::Interval(pose_2, pose_2).inflate(0.1);
+//    x[2] = ibex::Interval(pose_3, pose_3).inflate(0.1);
 
     // publish evolved state and observation, to be used only by the localization node
     tiles_loc::State state_loc_msg = state_to_msg(x);
