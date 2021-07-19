@@ -68,6 +68,7 @@ double median(std::vector<line_t> lines, int op);
 
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs);
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs);
+cv::Mat gen_img(std::vector<double> expected);
 cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box);
 
 robot_t rotate_robot(robot_t robot, double theta);
@@ -85,7 +86,7 @@ bool base_global_frame_created = false;
 cv::Mat base_global_frame;
 robot_t base_robot;
 
-double frame_width=0, frame_height=0;
+int frame_width=256, frame_height=384;
 int max_dim;
 
 bool verbose = true;
@@ -265,6 +266,7 @@ int main(int argc, char **argv) {
   }
 
   double pose_1, pose_2, pose_3;
+  double expected_1, expected_2, expected_3;
   double offset_pose_1, offset_pose_2;
   bool first_pose = true;
   ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);    // observed parameters from the image
@@ -318,16 +320,36 @@ int main(int argc, char **argv) {
   // ------------------------------------------------ //
 
   while(curr_img < num_imgs) {
-    printw("Processing image %d/%d\n", curr_img, num_imgs);
-
     // 1. preprocessing
-    // 1.1 read the image
-    char path_img[1000];
-    snprintf(path_img, 1000, "/home/birromer/ros/data_tiles/%s/dataset_tiles/%06d.png", DATASET, curr_img);
-    string ref_filename(path_img);
-    Mat in = imread(ref_filename);
-    frame_height = in.size[0];
-    frame_width = in.size[1];
+    // 1.1 generate imagem from gt parameters
+    // 1.1.1 get the pose from the ground truth
+    // access the vector where it is stored
+    pose_1 = sim_ground_truth[curr_img][0];
+    pose_2 = sim_ground_truth[curr_img][1];
+    pose_3 = sim_ground_truth[curr_img][2];
+
+    state = ibex::IntervalVector({
+        {pose_1, pose_1},
+        {pose_2, pose_2},
+        {pose_3, pose_3}
+    }).inflate(ERROR_PRED);
+
+    // 1.1.2 gerenate gt parameters
+    expected_1 = modulo(pose_1, tile_size);  //pose_1 - floor(pose_1);
+    expected_2 = modulo(pose_2, tile_size);  //pose_2 - floor(pose_2);
+    expected_3 = modulo(pose_3+M_PI/4., M_PI/2.)-M_PI/4.;
+
+    std::vector<double> expected{expected_1, expected_2, expected_3};
+
+    Mat in = gen_img(expected);
+
+//    // 1.1 read the image
+//    char path_img[1000];
+//    snprintf(path_img, 1000, "/home/birromer/ros/data_tiles/%s/dataset_tiles/%06d.png", DATASET, curr_img);
+//    string ref_filename(path_img);
+//    Mat in = imread(ref_filename);
+//    frame_height = in.size[0];
+//    frame_width = in.size[1];
 
     // 1.2 convert to greyscale for later computing borders
     Mat grey;
@@ -574,22 +596,9 @@ int main(int argc, char **argv) {
     Mat view_param_1 = generate_grid_1(dist_lines, obs);
     Mat view_param_2 = generate_grid_2(dist_lines, obs);
 
-    // 4 get the pose from the ground truth
-    // access the vector where it is stored
-    double pose_1 = sim_ground_truth[curr_img][0];
-    double pose_2 = sim_ground_truth[curr_img][1];
-    double pose_3 = sim_ground_truth[curr_img][2];
-
-    state = ibex::IntervalVector({
-        {pose_1, pose_1},
-        {pose_2, pose_2},
-        {pose_3, pose_3}
-    }).inflate(ERROR_PRED);
 
     printw("\nPOSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
-    double expected_1 = modulo(pose_1, tile_size);  //pose_1 - floor(pose_1);
-    double expected_2 = modulo(pose_2, tile_size);  //pose_2 - floor(pose_2);
-    double expected_3 = modulo(pose_3+M_PI/4., M_PI/2.)-M_PI/4.;
+
     printw("EXPECTED   -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", expected_1, expected_2, expected_3);
     printw("PARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", obs[0].mid(), obs[1].mid(), obs[2].mid());;
 
@@ -658,7 +667,7 @@ int main(int argc, char **argv) {
 
     // display steps and global frame
     if(display_window) {
-      ShowManyImages("steps", 4, in, view_param_1, view_param_2, rot);//, src
+      ShowManyImages("steps", 4, in, view_param_1, view_param_2, src);//, rot
       cv::imshow("global_frame", view_global_frame);
     }
 
@@ -834,6 +843,78 @@ int sign(double x) {
     return -1;
   }
   return 1;
+}
+
+cv::Mat gen_img(std::vector<double> expected) {
+  double d_hat_h = expected[0] * px_per_m;  // parameters have to be scaled for being shown in pixels
+  double d_hat_v = expected[1] * px_per_m;
+  double a_hat   = expected[2];
+
+  int n_lines = 5;
+  int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
+
+  if (!base_grid_created) {
+    // center of the image, where tiles start with zero displacement
+    int center_x = frame_width/2.;
+    int center_y = frame_height/2.;
+
+    // create a line every specified number of pixels
+    // adds one before and one after because occluded areas may appear
+//    int pos_x = (center_x % dist_lines) - 2*dist_lines;
+    int pos_x = center_x - (n_lines/2)*dist_lines;
+    while (pos_x <= frame_width + (n_lines/2)*dist_lines) {
+      line_t ln = {
+        .p1     = cv::Point(pos_x, -max_dim),
+        .p2     = cv::Point(pos_x, max_dim),
+        .side   = 1  // 0 horizontal, 1 vertical
+      };
+      base_grid_lines.push_back(ln);
+      pos_x += dist_lines;
+    }
+
+//    int pos_y = (center_y % dist_lines) - 2*dist_lines;
+    int pos_y = center_y - (n_lines/2)*dist_lines;
+    while (pos_y <= frame_height + (n_lines/2)*dist_lines) {
+      line_t ln = {
+        .p1     = cv::Point(-max_dim, pos_y),
+        .p2     = cv::Point(max_dim, pos_y),
+        .side   = 0  // 0 horizontal, 1 vertical
+      };
+      base_grid_lines.push_back(ln);
+      pos_y += dist_lines;
+    }
+
+    base_grid_created = true;
+  }
+
+  cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
+  img_grid.setTo(cv::Scalar(255, 255, 255));
+  std::vector<line_t> grid_lines = base_grid_lines;
+
+  for (line_t l : grid_lines) {
+    //translation in order to center lines around 0
+    double x1 = l.p1.x - frame_width/2. ;// + d_hat_h;
+    double y1 = l.p1.y - frame_height/2.;// + d_hat_v;
+    double x2 = l.p2.x - frame_width/2. ;// + d_hat_h;
+    double y2 = l.p2.y - frame_height/2.;// + d_hat_v;
+
+    // applies the 2d rotation to the line, making it either horizontal or vertical
+    double x1_temp = x1;//x1 * cos(a_hat) - y1 * sin(a_hat);//
+    double y1_temp = y1;//x1 * sin(a_hat) + y1 * cos(a_hat);//
+
+    double x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);//
+    double y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);//
+
+    // translates the image back and adds displacement
+    x1 = (x1_temp + frame_width/2. + d_hat_h);
+    y1 = (y1_temp + frame_height/2. + d_hat_v);
+    x2 = (x2_temp + frame_width/2. + d_hat_h);
+    y2 = (y2_temp + frame_height/2. + d_hat_v);
+
+    line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 0), 2, LINE_AA);
+  }
+
+  return img_grid;
 }
 
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
