@@ -432,7 +432,7 @@ int main(int argc, char **argv) {
       Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
       limit_lines.push_back(p);
     }
-//    limit_lines = detected_lines;  // uncomment if want to ignore process above
+    limit_lines = detected_lines;  // uncomment if want to ignore process above
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
@@ -667,7 +667,10 @@ int main(int argc, char **argv) {
 
     // display steps and global frame
     if(display_window) {
-      ShowManyImages("steps", 4, in, view_param_1, view_param_2, src);//, rot
+//      cvtColor(grad, grad, COLOR_GRAY2BGR);
+//      cvtColor(edges, edges, COLOR_GRAY2BGR);
+//      ShowManyImages("steps", 6, in, src, grad, edges, view_param_1, view_param_2);//
+      ShowManyImages("steps", 4, in, view_param_1, src,  view_param_2);//
       cv::imshow("global_frame", view_global_frame);
     }
 
@@ -1114,7 +1117,7 @@ void ShowManyImages(string title, int nArgs, ...) {
   }
   else if (nArgs == 7 || nArgs == 8) {
       w = 4; h = 2;
-      size = 200;
+      size = 300;
   }
   else {
       w = 4; h = 3;
