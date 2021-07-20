@@ -451,7 +451,7 @@ int main(int argc, char **argv) {
       double p1_x = l[0], p1_y = l[1];
       double p2_x = l[2], p2_y = l[3];
 
-      line_angle = atan2(p2_y - p1_y, p2_x - p1_x);               // get the angle of the line from the existing points
+      line_angle = atan2(p2_y - p1_y, p2_x - p1_x);  // get the angle of the line from the existing points
       line_angle4 = ((line_angle-M_PI/4)/(M_PI/2) - floor((line_angle-M_PI/4)/(M_PI/2))-0.5) * 2*M_PI/4;;  // compress image between [-pi/4, pi/4]
 
       m_x = cos(4*line_angle);
@@ -502,6 +502,7 @@ int main(int argc, char **argv) {
     y_hat = median(lines_good, 4);
 
     a_hat = atan2(y_hat, x_hat) * 1./4.;
+//    a_hat = median(lines_good, 2);
 
     Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
 
@@ -635,6 +636,8 @@ int main(int argc, char **argv) {
     char fun2_char[100];
     snprintf(fun1_char, 100, "(sin(pi*(x[0]-y[0])/%.3f) ; sin(pi*(x[1]-y[1])/%.3f) ; sin(x[2]-y[2]))", tile_size, tile_size); // 1.0, 1.0); //
     snprintf(fun2_char, 100, "(sin(pi*(x[0]-y[1])/%.3f) ; sin(pi*(x[1]-y[0])/%.3f) ; cos(x[2]-y[2]))", tile_size, tile_size); // 1.0, 1.0); //
+//    snprintf(fun1_char, 100, "(sin(pi*(x[0]-y[0])/%.3f) ; sin(pi*(x[1]-y[1])/%.3f))", tile_size, tile_size); // 1.0, 1.0); //
+//    snprintf(fun2_char, 100, "(sin(pi*(x[0]-y[1])/%.3f) ; sin(pi*(x[1]-y[0])/%.3f))", tile_size, tile_size); // 1.0, 1.0); //
 
     ibex::Function fun1("x[3]", "y[3]", fun1_char);
     ibex::Function fun2("x[3]", "y[3]", fun2_char);
@@ -906,17 +909,17 @@ cv::Mat gen_img(std::vector<double> expected) {
 
   for (line_t l : grid_lines) {
     //translation in order to center lines around 0
-    double x1 = l.p1.x - frame_width/2. ;// + d_hat_h;
-    double y1 = l.p1.y - frame_height/2.;// + d_hat_v;
-    double x2 = l.p2.x - frame_width/2. ;// + d_hat_h;
-    double y2 = l.p2.y - frame_height/2.;// + d_hat_v;
+    double x1 = l.p1.x - frame_width/2. ;
+    double y1 = l.p1.y - frame_height/2.;
+    double x2 = l.p2.x - frame_width/2. ;
+    double y2 = l.p2.y - frame_height/2.;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);//x1;//
-    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);//y1;//
+    double x1_temp = x1;//x1 * cos(a_hat) - y1 * sin(a_hat);//
+    double y1_temp = y1;//x1 * sin(a_hat) + y1 * cos(a_hat);//
 
-    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);//x2;//
-    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);//y2;//
+    double x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);//
+    double y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);//
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. + d_hat_h);
