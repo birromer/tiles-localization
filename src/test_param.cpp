@@ -337,7 +337,8 @@ int main(int argc, char **argv) {
     // 1.1.2 gerenate gt parameters
     expected_1 = modulo(pose_1, tile_size);  //pose_1 - floor(pose_1);
     expected_2 = modulo(pose_2, tile_size);  //pose_2 - floor(pose_2);
-    expected_3 = modulo(pose_3+M_PI/4., M_PI/2.)-M_PI/4.;
+//    expected_3 = modulo(pose_3+M_PI/4., M_PI/2.)-M_PI/4.;
+    expected_3 = ((pose_3-M_PI/4)/(M_PI/2) - floor((pose_3-M_PI/4)/(M_PI/2))-0.5) * 2*M_PI/4;  // modulo without function as it is in radians
 
     std::vector<double> expected{expected_1, expected_2, expected_3};
 
@@ -451,7 +452,7 @@ int main(int argc, char **argv) {
       double p2_x = l[2], p2_y = l[3];
 
       line_angle = atan2(p2_y - p1_y, p2_x - p1_x);               // get the angle of the line from the existing points
-      line_angle4 = modulo(line_angle+M_PI/4., M_PI/2.)-M_PI/4.;  // compress image between [-pi/4, pi/4]
+      line_angle4 = ((line_angle-M_PI/4)/(M_PI/2) - floor((line_angle-M_PI/4)/(M_PI/2))-0.5) * 2*M_PI/4;;  // compress image between [-pi/4, pi/4]
 
       m_x = cos(4*line_angle);
       m_y = sin(4*line_angle);
@@ -515,6 +516,7 @@ int main(int argc, char **argv) {
         //translation in order to center lines around 0
         x1 = l.p1.x - frame_width/2.0f;
         y1 = l.p1.y - frame_height/2.0f;
+
         x2 = l.p2.x - frame_width/2.0f;
         y2 = l.p2.y - frame_height/2.0f;
 
@@ -536,9 +538,9 @@ int main(int argc, char **argv) {
         angle_new = atan2(y2-y1, x2-x1);
 
         // NOTE: temporary testing, i think it doesnt change anything
-//        double d = abs((x2-x1)*(y1-frame_height/2.) - (x1-frame_width/2.)*(y2-y1)) / sqrt(pow(x2-x1,2) + pow(y2-y1,2));
-//        d = d / px_per_m;  // from pixels to meters
-//        l.dd = (d/tile_size) - (floor(d/tile_size));  // this compresses image to [0, 1]
+        double d = abs((x2-x1)*(y1-frame_height/2.) - (x1-frame_width/2.)*(y2-y1)) / sqrt(pow(x2-x1,2) + pow(y2-y1,2));
+        d = d / px_per_m;  // from pixels to meters
+        l.dd = (d/tile_size) - (floor(d/tile_size));  // this compresses image to [0, 1]
         // ------------------------------
 
         // 2.3.4 determine if the lines are horizontal or vertical
@@ -551,6 +553,7 @@ int main(int argc, char **argv) {
 //          } else {
 //            l.dd = -l.dd;
 //          }
+
           if (l.p1.x < frame_width/2.) {
             l.dd = 1 - l.dd;
           }
@@ -563,7 +566,7 @@ int main(int argc, char **argv) {
 //          if (l.dd >= 0.5) {  // this maps function image to [-0.5, 0.5], from left to right  / top to bottom
 //            l.dd = l.dd - 1.0;
 //          }
-//
+
           if (l.p1.y < frame_height/2.) {
             l.dd = 1 - l.dd;
           }
@@ -592,13 +595,20 @@ int main(int argc, char **argv) {
       printw("Not enough good lines (%d)\n", lines_good.size());
     }
 
-    // 3 generate the representation of the observed parameters
-    Mat view_param_1 = generate_grid_1(dist_lines, obs);
-    Mat view_param_2 = generate_grid_2(dist_lines, obs);
+    ibex::IntervalVector expected_i(3, ibex::Interval::ALL_REALS);
+    expected_i = ibex::IntervalVector({
+        {expected_1, expected_1},
+        {expected_2, expected_2},
+        {expected_3, expected_3}
+    }).inflate(ERROR_OBS);
 
+    // 3 generate the representation of the observed parameters
+//    Mat view_param_1 = generate_grid_1(dist_lines, obs);
+//    Mat view_param_2 = generate_grid_2(dist_lines, obs);
+    Mat view_param_1 = generate_grid_1(dist_lines, expected_i);
+    Mat view_param_2 = generate_grid_2(dist_lines, expected_i);
 
     printw("\nPOSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
-
     printw("EXPECTED   -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", expected_1, expected_2, expected_3);
     printw("PARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", obs[0].mid(), obs[1].mid(), obs[2].mid());;
 
@@ -670,7 +680,7 @@ int main(int argc, char **argv) {
 //      cvtColor(grad, grad, COLOR_GRAY2BGR);
 //      cvtColor(edges, edges, COLOR_GRAY2BGR);
 //      ShowManyImages("steps", 6, in, src, grad, edges, view_param_1, view_param_2);//
-      ShowManyImages("steps", 4, in, view_param_1, src,  view_param_2);//
+      ShowManyImages("steps", 4, in, view_param_1, rot,  view_param_2);//
       cv::imshow("global_frame", view_global_frame);
     }
 
@@ -902,11 +912,11 @@ cv::Mat gen_img(std::vector<double> expected) {
     double y2 = l.p2.y - frame_height/2.;// + d_hat_v;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    double x1_temp = x1;//x1 * cos(a_hat) - y1 * sin(a_hat);//
-    double y1_temp = y1;//x1 * sin(a_hat) + y1 * cos(a_hat);//
+    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);//x1;//
+    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);//y1;//
 
-    double x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);//
-    double y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);//
+    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);//x2;//
+    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);//y2;//
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. + d_hat_h);
@@ -1240,6 +1250,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
 //  double d_hat_h = modulo(state_1, tile_size);
 //  double d_hat_v = modulo(state_2, tile_size);
 //  double a_hat   = modulo(state_3+M_PI/4., M_PI/2.)-M_PI/4.;
+//    expected_3 = ((pose_3-M_PI/4)/(M_PI/2) - floor((pose_3-M_PI/4)/(M_PI/2))-0.5) * 2*M_PI/4;  // modulo without function as it is in radians
 
   double box_1 = box[0].mid();
   double box_2 = box[1].mid();
