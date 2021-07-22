@@ -69,6 +69,7 @@ double median(std::vector<line_t> lines, int op);
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs);
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs);
 cv::Mat gen_img(std::vector<double> expected);
+cv::Mat gen_img_2(std::vector<double> expected);
 cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box);
 
 robot_t rotate_robot(robot_t robot, double theta);
@@ -343,6 +344,7 @@ int main(int argc, char **argv) {
     std::vector<double> expected{expected_1, expected_2, expected_3};
 
     Mat in = gen_img(expected);
+    Mat in_rot = gen_img_2(expected);
 
 //    // 1.1 read the image
 //    char path_img[1000];
@@ -353,8 +355,9 @@ int main(int argc, char **argv) {
 //    frame_width = in.size[1];
 
     // 1.2 convert to greyscale for later computing borders
-    Mat grey;
+    Mat grey, grey_rot;
     cvtColor(in, grey, COLOR_BGR2GRAY);
+    cvtColor(in_rot, grey_rot, COLOR_BGR2GRAY);
 
 //    // create a skeleton representation, trying to diminish number of detected lines
 //    cv::Mat img = grey;
@@ -463,7 +466,6 @@ int main(int argc, char **argv) {
 
       // 2.1.2 decimal distance, displacement between the lines
       dd = (d/tile_size) - (floor(d/tile_size));  // this compresses image to [0, 1]
-//      dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -538,22 +540,10 @@ int main(int argc, char **argv) {
         // 2.3.3 compute the new angle of the rotated lines
         angle_new = atan2(y2-y1, x2-x1);
 
-        // NOTE: temporary testing, i think it doesnt change anything
-        double d = abs((x2-x1)*(y1-frame_height/2.) - (x1-frame_width/2.)*(y2-y1)) / sqrt(pow(x2-x1,2) + pow(y2-y1,2));  // value in pixels
-        d = d / px_per_m;  // from pixels to meters
-        l.dd = (d/tile_size) - (floor(d/tile_size));  // this compresses image to [0, 1]
-        // ------------------------------
-
         // 2.3.4 determine if the lines are horizontal or vertical
         if (abs(cos(angle_new)) < 0.2) {  // vertical
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
-
-//          if (l.dd >= 0.5) {  // this maps function image to [-0.5, 0.5] from right to left  / bottom to top
-//            l.dd = -l.dd + 1.0;
-//          } else {
-//            l.dd = -l.dd;
-//          }
 
           if (l.p1.x < frame_width/2.) {
             l.dd = 1 - l.dd;
@@ -563,10 +553,6 @@ int main(int argc, char **argv) {
 
         } else if (abs(sin(angle_new)) < 0.2) {  // horizontal
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
-
-//          if (l.dd >= 0.5) {  // this maps function image to [-0.5, 0.5], from left to right  / top to bottom
-//            l.dd = l.dd - 1.0;
-//          }
 
           if (l.p1.y < frame_height/2.) {
             l.dd = 1 - l.dd;
@@ -933,6 +919,77 @@ cv::Mat gen_img(std::vector<double> expected) {
   return img_grid;
 }
 
+cv::Mat gen_img_2(std::vector<double> expected) {
+  double d_hat_h = expected[0] * px_per_m;  // parameters have to be scaled for being shown in pixels
+  double d_hat_v = expected[1] * px_per_m;
+  double a_hat   = expected[2];
+
+  int n_lines = 10;
+  int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
+
+  if (!base_grid_created) {
+    // center of the image, where tiles start with zero displacement
+    int center_x = frame_width/2.;
+    int center_y = frame_height/2.;
+
+    // create a line every specified number of pixels
+    // adds one before and one after because occluded areas may appear
+//    int pos_x = (center_x % dist_lines) - 2*dist_lines;
+    int pos_x = center_x - (n_lines/2)*dist_lines;
+    while (pos_x <= frame_width + (n_lines/2)*dist_lines) {
+      line_t ln = {
+        .p1     = cv::Point(pos_x, -max_dim),
+        .p2     = cv::Point(pos_x, max_dim),
+        .side   = 1  // 0 horizontal, 1 vertical
+      };
+      base_grid_lines.push_back(ln);
+      pos_x += dist_lines;
+    }
+
+//    int pos_y = (center_y % dist_lines) - 2*dist_lines;
+    int pos_y = center_y - (n_lines/2)*dist_lines;
+    while (pos_y <= frame_height + (n_lines/2)*dist_lines) {
+      line_t ln = {
+        .p1     = cv::Point(-max_dim, pos_y),
+        .p2     = cv::Point(max_dim, pos_y),
+        .side   = 0  // 0 horizontal, 1 vertical
+      };
+      base_grid_lines.push_back(ln);
+      pos_y += dist_lines;
+    }
+
+    base_grid_created = true;
+  }
+
+  cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
+  img_grid.setTo(cv::Scalar(255, 255, 255));
+  std::vector<line_t> grid_lines = base_grid_lines;
+
+  for (line_t l : grid_lines) {
+    //translation in order to center lines around 0
+    double x1 = l.p1.x - frame_width/2. ;
+    double y1 = l.p1.y - frame_height/2.;
+    double x2 = l.p2.x - frame_width/2. ;
+    double y2 = l.p2.y - frame_height/2.;
+
+    // applies the 2d rotation to the line, making it either horizontal or vertical
+    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);//x1;//
+    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);//y1;//
+
+    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);//x2;//
+    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);//y2;//
+
+    // translates the image back and adds displacement
+    x1 = (x1_temp + frame_width/2. + d_hat_h);
+    y1 = (y1_temp + frame_height/2. + d_hat_v);
+    x2 = (x2_temp + frame_width/2. + d_hat_h);
+    y2 = (y2_temp + frame_height/2. + d_hat_v);
+
+    line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 0), 2, LINE_AA);
+  }
+
+  return img_grid;
+}
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
   double d_hat_h = obs[0].mid() * px_per_m;  // parameters have to be scaled for being shown in pixels
   double d_hat_v = obs[1].mid() * px_per_m;
