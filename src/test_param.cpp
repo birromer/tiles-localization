@@ -383,29 +383,35 @@ int main(int argc, char **argv) {
 //    } while (!done);
 
     // 1.3 compute the gradient image in x and y with the laplacian for the borders
-    Mat grad;
+    Mat grad, grad_rot;
 //    Laplacian(skel, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
     Laplacian(grey, grad, CV_8U, 1, 1, 0, BORDER_DEFAULT);
+    Laplacian(grey_rot, grad_rot, CV_8U, 1, 1, 0, BORDER_DEFAULT);
 
     // 1.4 detect edges, 50 and 255 as thresholds 1 and 2
-    Mat edges;
+    Mat edges, edges_rot;
     Canny(grad, edges, 50, 255, 3);
+    Canny(grad_rot, edges_rot, 50, 255, 3);
 
     // 1.5 close and dilate lines for some noise removal
-    Mat morph;
+    Mat morph, morph_rot;
     int morph_elem = 0;
     int morph_size = 0;
     Mat element = getStructuringElement(morph_elem, Size(2*morph_size + 1, 2*morph_size+1), cv::Point(morph_size, morph_size));
     morphologyEx(edges, edges, MORPH_CLOSE, element);
     dilate(edges, morph, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
 
+    morphologyEx(edges_rot, edges_rot, MORPH_CLOSE, element);
+    dilate(edges_rot, morph_rot, Mat(), cv::Point(-1,-1), 1, BORDER_CONSTANT, morphologyDefaultBorderValue());
+
     // 1.6 detect lines using the hough transform
-    std::vector<Vec4i> detected_lines;
+    std::vector<Vec4i> detected_lines, detected_lines_rot;
     HoughLinesP(edges, detected_lines, 1, CV_PI/180., 60, 100, 50); // rho, theta, threshold, minLineLength, maxLineGap
+    HoughLinesP(edges_rot, detected_lines_rot, 1, CV_PI/180., 60, 100, 50); // rho, theta, threshold, minLineLength, maxLineGap
 //    HoughLinesP(edges, detected_lines, 1, CV_PI/180., 60, 120, 50); // rho, theta, threshold, minLineLength, maxLineGap
 
     // 1.7 filter lines and create single representation of multiple similar ones
-    std::vector<Vec4i> limit_lines;
+    std::vector<Vec4i> limit_lines, limit_lines_rot;
     for(int i=0; i<detected_lines.size(); i++) {
       double p1_x = detected_lines[i][0], p1_y = detected_lines[i][1];
       double p2_x = detected_lines[i][2], p2_y = detected_lines[i][3];
@@ -437,16 +443,18 @@ int main(int argc, char **argv) {
       limit_lines.push_back(p);
     }
     limit_lines = detected_lines;  // uncomment if want to ignore process above
+    limit_lines_rot = detected_lines_rot;  // uncomment if want to ignore process above
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
     double x_hat, y_hat, a_hat;
+    double x_hat_rot, y_hat_rot, a_hat_rot;
 
     // structures for storing the lines information
-    std::vector<line_t> lines;  // stores the lines obtained from the hough transform
-    std::vector<double> lines_angles;  // stores the angles of the lines from the hough transform with the image compressed between [-pi/4, pi/4]
+    std::vector<line_t> lines, lines_rot;  // stores the lines obtained from the hough transform
 
     double line_angle, line_angle4, d, dd, m_x, m_y;
+    double line_angle_rot, line_angle4_rot, d_rot, dd_rot, m_x_rot, m_y_rot;
 
     // 2.1 extract the informations from the good detected lines
     for(int i=0; i<limit_lines.size(); i++) {
@@ -481,7 +489,55 @@ int main(int argc, char **argv) {
 
       // save the extracted information
       lines.push_back(ln);
+
+      Vec4i l_rot = limit_lines_rot[i];
+      double p1_x_rot = l_rot[0], p1_y_rot = l_rot[1];
+      double p2_x_rot = l_rot[2], p2_y_rot = l_rot[3];
+
+      line_angle_rot = atan2(p2_y_rot - p1_y_rot, p2_x_rot - p1_x_rot);  // get the angle of the line from the existing points
+      line_angle4_rot = ((line_angle_rot-M_PI/4)/(M_PI/2) - floor((line_angle_rot-M_PI/4)/(M_PI/2))-0.5) * 2*M_PI/4;;  // compress image between [-pi/4, pi/4]
+
+      m_x_rot = cos(4*line_angle_rot);
+      m_y_rot = sin(4*line_angle_rot);
+
+      // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
+      d_rot = abs((p2_x_rot-p1_x_rot)*(p1_y_rot-frame_height/2.) - (p1_x_rot-frame_width/2.)*(p2_y_rot-p1_y_rot)) / sqrt(pow(p2_x_rot-p1_x_rot,2) + pow(p2_y_rot-p1_y_rot,2));  // value in pixels
+      d_rot = d_rot / px_per_m;  // convert from pixels to meters
+
+      // 2.1.2 decimal distance, displacement between the lines
+      dd_rot = (d_rot/tile_size) - (floor(d_rot/tile_size));  // this compresses image to [0, 1]
+
+//      printw("dd -> normal: %.3f <=> rot: %.3f  ||  \n", dd, dd_rot);
+//
+      line_t ln_rot = {
+        .p1     = cv::Point(p1_x_rot, p1_y_rot),
+        .p2     = cv::Point(p2_x_rot, p2_y_rot),
+        .angle  = line_angle_rot,
+        .angle4 = line_angle4_rot,  // this is the one to be used as the angle of the line
+        .m_x    = m_x_rot,
+        .m_y    = m_y_rot,
+        .d      = d_rot,
+        .dd     = dd_rot,
+        .side   = 0  // temporary value
+      };
+
+      lines_rot.push_back(ln_rot);
+
     }
+
+    sort(lines.begin(), lines.end(), [=](line_t l1, line_t l2) -> bool { return l1.dd > l2.dd; });
+    sort(lines_rot.begin(), lines_rot.end(), [=](line_t l1, line_t l2) -> bool { return l1.dd > l2.dd; });
+
+    printw("\ndd normal: ");
+    for (line_t l : lines) {
+      printw("%.4f, ", l.dd);
+    }
+
+    printw("\ndd rot:    ");
+    for (line_t l : lines_rot) {
+      printw("%.4f, ", l.dd);
+    }
+
 
     // 2.1.3 median of the components of the lines
     x_hat = median(lines, 3);
@@ -509,7 +565,7 @@ int main(int argc, char **argv) {
     Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
 
     if(lines_good.size() > MIN_GOOD_LINES) {
-      printw("Found %d good lines\n", lines_good.size());
+      printw("\nFound %d good lines\n", lines_good.size());
       std::vector<line_t> bag_h, bag_v;
       double x1, y1, x2, y2;
       double angle_new;
