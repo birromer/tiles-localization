@@ -335,10 +335,10 @@ int main(int argc, char **argv) {
     }).inflate(ERROR_PRED);
 
     // 1.1.2 gerenate gt parameters
-    expected_1 = modulo(pose_1, tile_size);  //pose_1 - floor(pose_1);
-    expected_2 = modulo(pose_2, tile_size);  //pose_2 - floor(pose_2);
-//    expected_3 = modulo(pose_3+M_PI/4., M_PI/2.)-M_PI/4.;
+    expected_1 = (pose_1/tile_size - floor(pose_1/tile_size))*tile_size; // modulo(pose_1, tile_size);
+    expected_2 = (pose_2/tile_size - floor(pose_2/tile_size))*tile_size; // modulo(pose_2, tile_size);
     expected_3 = ((pose_3-M_PI/4)/(M_PI/2) - floor((pose_3-M_PI/4)/(M_PI/2))-0.5) * 2*M_PI/4;  // modulo without function as it is in radians
+//    expected_3 = modulo(pose_3+M_PI/4., M_PI/2.)-M_PI/4.;
 
     std::vector<double> expected{expected_1, expected_2, expected_3};
 
@@ -539,7 +539,7 @@ int main(int argc, char **argv) {
         angle_new = atan2(y2-y1, x2-x1);
 
         // NOTE: temporary testing, i think it doesnt change anything
-        double d = abs((x2-x1)*(y1-frame_height/2.) - (x1-frame_width/2.)*(y2-y1)) / sqrt(pow(x2-x1,2) + pow(y2-y1,2));
+        double d = abs((x2-x1)*(y1-frame_height/2.) - (x1-frame_width/2.)*(y2-y1)) / sqrt(pow(x2-x1,2) + pow(y2-y1,2));  // value in pixels
         d = d / px_per_m;  // from pixels to meters
         l.dd = (d/tile_size) - (floor(d/tile_size));  // this compresses image to [0, 1]
         // ------------------------------
@@ -683,7 +683,7 @@ int main(int argc, char **argv) {
 //      cvtColor(grad, grad, COLOR_GRAY2BGR);
 //      cvtColor(edges, edges, COLOR_GRAY2BGR);
 //      ShowManyImages("steps", 6, in, src, grad, edges, view_param_1, view_param_2);//
-      ShowManyImages("steps", 4, in, view_param_1, rot,  view_param_2);//
+      ShowManyImages("steps", 4, in, view_param_1, view_param_2, rot);//
       cv::imshow("global_frame", view_global_frame);
     }
 
@@ -866,7 +866,7 @@ cv::Mat gen_img(std::vector<double> expected) {
   double d_hat_v = expected[1] * px_per_m;
   double a_hat   = expected[2];
 
-  int n_lines = 5;
+  int n_lines = 10;
   int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
 
   if (!base_grid_created) {
@@ -1250,10 +1250,9 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   double d_hat_v = obs[1].mid();
   double a_hat   = obs[2].mid();
 
-//  double d_hat_h = modulo(state_1, tile_size);
-//  double d_hat_v = modulo(state_2, tile_size);
-//  double a_hat   = modulo(state_3+M_PI/4., M_PI/2.)-M_PI/4.;
-//    expected_3 = ((pose_3-M_PI/4)/(M_PI/2) - floor((pose_3-M_PI/4)/(M_PI/2))-0.5) * 2*M_PI/4;  // modulo without function as it is in radians
+//    d_hat_h = pose_1/tile_size - floor(pose_1/tile_size); //modulo(pose_1, tile_size);
+//    d_hat_v = pose_2/tile_size - floor(pose_2/tile_size); //modulo(pose_2, tile_size);
+//    a_hat = ((pose_3-M_PI/4)/(M_PI/2) - floor((pose_3-M_PI/4)/(M_PI/2))-0.5) * 2*M_PI/4;  // modulo without function as it is in radians
 
   double box_1 = box[0].mid();
   double box_2 = box[1].mid();
