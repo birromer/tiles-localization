@@ -469,7 +469,7 @@ int main(int argc, char **argv) {
       m_y = sin(4*line_angle);
 
       // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
-      d = abs((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));  // value in pixels
+      d = abs((p2_x-p1_x)*(p1_y-frame_height/2) - (p1_x-frame_width/2)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));  // value in pixels
       d = d / px_per_m;  // convert from pixels to meters
 
       // 2.1.2 decimal distance, displacement between the lines
@@ -525,8 +525,8 @@ int main(int argc, char **argv) {
 
     }
 
-    sort(lines.begin(), lines.end(), [=](line_t l1, line_t l2) -> bool { return l1.dd > l2.dd; });
-    sort(lines_rot.begin(), lines_rot.end(), [=](line_t l1, line_t l2) -> bool { return l1.dd > l2.dd; });
+    sort(lines.begin(), lines.end(), [=](line_t l1, line_t l2) -> bool { return l1.dd < l2.dd; });
+    sort(lines_rot.begin(), lines_rot.end(), [=](line_t l1, line_t l2) -> bool { return l1.dd < l2.dd; });
 
     printw("\ndd normal: ");
     for (line_t l : lines) {
@@ -538,7 +538,6 @@ int main(int argc, char **argv) {
       printw("%.4f, ", l.dd);
     }
 
-
     // 2.1.3 median of the components of the lines
     x_hat = median(lines, 3);
     y_hat = median(lines, 4);
@@ -548,7 +547,7 @@ int main(int argc, char **argv) {
     Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
     // 2.2 filter lines with bad orientation
     for (line_t l : lines) {
-      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
+      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.05) {
         line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
         lines_good.push_back(l);
       } else {
@@ -725,7 +724,7 @@ int main(int argc, char **argv) {
 //      cvtColor(grad, grad, COLOR_GRAY2BGR);
 //      cvtColor(edges, edges, COLOR_GRAY2BGR);
 //      ShowManyImages("steps", 6, in, src, grad, edges, view_param_1, view_param_2);//
-      ShowManyImages("steps", 4, in, view_param_1, view_param_2, rot);//
+      ShowManyImages("steps", 4, in, view_param_1, view_param_2, in_rot);//
       cv::imshow("global_frame", view_global_frame);
     }
 
@@ -980,7 +979,7 @@ cv::Mat gen_img_2(std::vector<double> expected) {
   double d_hat_v = expected[1] * px_per_m;
   double a_hat   = expected[2];
 
-  int n_lines = 10;
+  int n_lines = 5;
   int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
 
   if (!base_grid_created) {
@@ -1029,17 +1028,17 @@ cv::Mat gen_img_2(std::vector<double> expected) {
     double y2 = l.p2.y - frame_height/2.;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);//x1;//
-    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);//y1;//
+    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
+    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
 
-    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);//x2;//
-    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);//y2;//
+    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
+    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
 
     // translates the image back and adds displacement
-    x1 = (x1_temp + frame_width/2. + d_hat_h);
-    y1 = (y1_temp + frame_height/2. + d_hat_v);
-    x2 = (x2_temp + frame_width/2. + d_hat_h);
-    y2 = (y2_temp + frame_height/2. + d_hat_v);
+    x1 = x1_temp + frame_width/2. + d_hat_h;
+    y1 = y1_temp + frame_height/2. + d_hat_v;
+    x2 = x2_temp + frame_width/2. + d_hat_h;
+    y2 = y2_temp + frame_height/2. + d_hat_v;
 
     line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 0), 2, LINE_AA);
   }
