@@ -80,6 +80,8 @@ void ShowManyImages(string title, int nArgs, ...);
 // variables for the images from the observation
 std::vector<line_t> base_grid_lines;
 bool base_grid_created = false;
+std::vector<line_t> base_img_lines;
+bool base_img_created = false;
 
 // variables for the global frame from the state and the observation
 std::vector<line_t> base_global_frame_lines;
@@ -266,7 +268,7 @@ int main(int argc, char **argv) {
     cv::startWindowThread();
   }
 
-  double pose_1, pose_2, pose_3;
+  double pose_1=0.0, pose_2=0.0, pose_3=0.0;
   double expected_1, expected_2, expected_3;
   double offset_pose_1, offset_pose_2;
   bool first_pose = true;
@@ -325,6 +327,11 @@ int main(int argc, char **argv) {
     // 1.1 generate imagem from gt parameters
     // 1.1.1 get the pose from the ground truth
     // access the vector where it is stored
+
+    double prev_pose_1 = pose_1;
+    double prev_pose_2 = pose_2;
+    double prev_pose_3 = pose_3;
+
     pose_1 = sim_ground_truth[curr_img][0];
     pose_2 = sim_ground_truth[curr_img][1];
     pose_3 = sim_ground_truth[curr_img][2];
@@ -343,8 +350,8 @@ int main(int argc, char **argv) {
 
     std::vector<double> expected{expected_1, expected_2, expected_3};
 
-    Mat in = gen_img(expected);
-    Mat in_rot = gen_img_2(expected);
+    Mat in_rot     = gen_img(expected);
+    Mat in = gen_img_2(expected);
 
 //    // 1.1 read the image
 //    char path_img[1000];
@@ -645,12 +652,14 @@ int main(int argc, char **argv) {
     }).inflate(ERROR_OBS);
 
     // 3 generate the representation of the observed parameters
-//    Mat view_param_1 = generate_grid_1(dist_lines, obs);
-//    Mat view_param_2 = generate_grid_2(dist_lines, obs);
-    Mat view_param_1 = generate_grid_1(dist_lines, expected_i);
-    Mat view_param_2 = generate_grid_2(dist_lines, expected_i);
+    Mat view_param_1 = generate_grid_1(dist_lines, obs);
+    Mat view_param_2 = generate_grid_2(dist_lines, obs);
+//    Mat view_param_1 = generate_grid_1(dist_lines, expected_i);
+//    Mat view_param_2 = generate_grid_2(dist_lines, expected_i);
+
 
     printw("\nPOSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
+    printw("\nPOSE diff  ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1-prev_pose_1, pose_2-prev_pose_2, pose_3-prev_pose_3);
     printw("EXPECTED   -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", expected_1, expected_2, expected_3);
     printw("PARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", obs[0].mid(), obs[1].mid(), obs[2].mid());;
 
@@ -910,14 +919,13 @@ cv::Mat gen_img(std::vector<double> expected) {
   int n_lines = 10;
   int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
 
-  if (!base_grid_created) {
+  if (!base_img_created) {
     // center of the image, where tiles start with zero displacement
     int center_x = frame_width/2.;
     int center_y = frame_height/2.;
 
     // create a line every specified number of pixels
     // adds one before and one after because occluded areas may appear
-//    int pos_x = (center_x % dist_lines) - 2*dist_lines;
     int pos_x = center_x - (n_lines/2)*dist_lines;
     while (pos_x <= frame_width + (n_lines/2)*dist_lines) {
       line_t ln = {
@@ -925,11 +933,10 @@ cv::Mat gen_img(std::vector<double> expected) {
         .p2     = cv::Point(pos_x, max_dim),
         .side   = 1  // 0 horizontal, 1 vertical
       };
-      base_grid_lines.push_back(ln);
+      base_img_lines.push_back(ln);
       pos_x += dist_lines;
     }
 
-//    int pos_y = (center_y % dist_lines) - 2*dist_lines;
     int pos_y = center_y - (n_lines/2)*dist_lines;
     while (pos_y <= frame_height + (n_lines/2)*dist_lines) {
       line_t ln = {
@@ -937,22 +944,22 @@ cv::Mat gen_img(std::vector<double> expected) {
         .p2     = cv::Point(max_dim, pos_y),
         .side   = 0  // 0 horizontal, 1 vertical
       };
-      base_grid_lines.push_back(ln);
+      base_img_lines.push_back(ln);
       pos_y += dist_lines;
     }
 
-    base_grid_created = true;
+    base_img_created = true;
   }
 
   cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
   img_grid.setTo(cv::Scalar(255, 255, 255));
-  std::vector<line_t> grid_lines = base_grid_lines;
+  std::vector<line_t> grid_lines = base_img_lines;
 
   for (line_t l : grid_lines) {
     //translation in order to center lines around 0
-    double x1 = l.p1.x - frame_width/2. ;
+    double x1 = l.p1.x - frame_width/2.;
     double y1 = l.p1.y - frame_height/2.;
-    double x2 = l.p2.x - frame_width/2. ;
+    double x2 = l.p2.x - frame_width/2.;
     double y2 = l.p2.y - frame_height/2.;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
@@ -961,78 +968,6 @@ cv::Mat gen_img(std::vector<double> expected) {
 
     double x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);//
     double y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);//
-
-    // translates the image back and adds displacement
-    x1 = (x1_temp + frame_width/2. + d_hat_h);
-    y1 = (y1_temp + frame_height/2. + d_hat_v);
-    x2 = (x2_temp + frame_width/2. + d_hat_h);
-    y2 = (y2_temp + frame_height/2. + d_hat_v);
-
-    line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 0), 2, LINE_AA);
-  }
-
-  return img_grid;
-}
-
-cv::Mat gen_img_2(std::vector<double> expected) {
-  double d_hat_h = expected[0] * px_per_m;  // parameters have to be scaled for being shown in pixels
-  double d_hat_v = expected[1] * px_per_m;
-  double a_hat   = expected[2];
-
-  int n_lines = 5;
-  int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
-
-  if (!base_grid_created) {
-    // center of the image, where tiles start with zero displacement
-    int center_x = frame_width/2.;
-    int center_y = frame_height/2.;
-
-    // create a line every specified number of pixels
-    // adds one before and one after because occluded areas may appear
-//    int pos_x = (center_x % dist_lines) - 2*dist_lines;
-    int pos_x = center_x - (n_lines/2)*dist_lines;
-    while (pos_x <= frame_width + (n_lines/2)*dist_lines) {
-      line_t ln = {
-        .p1     = cv::Point(pos_x, -max_dim),
-        .p2     = cv::Point(pos_x, max_dim),
-        .side   = 1  // 0 horizontal, 1 vertical
-      };
-      base_grid_lines.push_back(ln);
-      pos_x += dist_lines;
-    }
-
-//    int pos_y = (center_y % dist_lines) - 2*dist_lines;
-    int pos_y = center_y - (n_lines/2)*dist_lines;
-    while (pos_y <= frame_height + (n_lines/2)*dist_lines) {
-      line_t ln = {
-        .p1     = cv::Point(-max_dim, pos_y),
-        .p2     = cv::Point(max_dim, pos_y),
-        .side   = 0  // 0 horizontal, 1 vertical
-      };
-      base_grid_lines.push_back(ln);
-      pos_y += dist_lines;
-    }
-
-    base_grid_created = true;
-  }
-
-  cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
-  img_grid.setTo(cv::Scalar(255, 255, 255));
-  std::vector<line_t> grid_lines = base_grid_lines;
-
-  for (line_t l : grid_lines) {
-    //translation in order to center lines around 0
-    double x1 = l.p1.x - frame_width/2. ;
-    double y1 = l.p1.y - frame_height/2.;
-    double x2 = l.p2.x - frame_width/2. ;
-    double y2 = l.p2.y - frame_height/2.;
-
-    // applies the 2d rotation to the line, making it either horizontal or vertical
-    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
-    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
-
-    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
-    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
 
     // translates the image back and adds displacement
     x1 = x1_temp + frame_width/2. + d_hat_h;
@@ -1045,6 +980,77 @@ cv::Mat gen_img_2(std::vector<double> expected) {
 
   return img_grid;
 }
+
+cv::Mat gen_img_2(std::vector<double> expected) {
+  double d_hat_h = expected[0] * px_per_m;  // parameters have to be scaled for being shown in pixels
+  double d_hat_v = expected[1] * px_per_m;
+  double a_hat   = expected[2];
+
+  int n_lines = 10;
+  int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
+
+  if (!base_img_created) {
+    // center of the image, where tiles start with zero displacement
+    int center_x = frame_width/2.;
+    int center_y = frame_height/2.;
+
+    // create a line every specified number of pixels
+    // adds one before and one after because occluded areas may appear
+    int pos_x = center_x - (n_lines/2)*dist_lines;
+    while (pos_x <= frame_width + (n_lines/2)*dist_lines) {
+      line_t ln = {
+        .p1     = cv::Point(pos_x, -max_dim),
+        .p2     = cv::Point(pos_x, max_dim),
+        .side   = 1  // 0 horizontal, 1 vertical
+      };
+      base_img_lines.push_back(ln);
+      pos_x += dist_lines;
+    }
+
+    int pos_y = center_y - (n_lines/2)*dist_lines;
+    while (pos_y <= frame_height + (n_lines/2)*dist_lines) {
+      line_t ln = {
+        .p1     = cv::Point(-max_dim, pos_y),
+        .p2     = cv::Point(max_dim, pos_y),
+        .side   = 0  // 0 horizontal, 1 vertical
+      };
+      base_img_lines.push_back(ln);
+      pos_y += dist_lines;
+    }
+
+    base_img_created = true;
+  }
+
+  cv::Mat img_grid = cv::Mat::zeros(frame_height, frame_width, CV_8UC3);
+  img_grid.setTo(cv::Scalar(255, 255, 255));
+  std::vector<line_t> grid_lines = base_img_lines;
+
+  for (line_t l : grid_lines) {
+    //translation to change the center of rotation for the center of the image (which is not 0,0)
+    double x1 = l.p1.x - frame_width/2;
+    double y1 = l.p1.y - frame_height/2;
+    double x2 = l.p2.x - frame_width/2;
+    double y2 = l.p2.y - frame_height/2;
+
+    // applies the 2d rotation to the line
+    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
+    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
+
+    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
+    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
+
+    // translates the image back and adds displacement
+    x1 = x1_temp + d_hat_h + frame_width/2;
+    y1 = y1_temp + d_hat_v + frame_height/2;
+    x2 = x2_temp + d_hat_h + frame_width/2;
+    y2 = y2_temp + d_hat_v + frame_height/2;
+
+    line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 0), 2, LINE_AA);
+  }
+
+  return img_grid;
+}
+
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
   double d_hat_h = obs[0].mid() * px_per_m;  // parameters have to be scaled for being shown in pixels
   double d_hat_v = obs[1].mid() * px_per_m;
