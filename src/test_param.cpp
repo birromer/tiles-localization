@@ -69,7 +69,7 @@ double median(std::vector<line_t> lines, int op);
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs);
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs);
 cv::Mat gen_img(std::vector<double> expected);
-cv::Mat gen_img_2(std::vector<double> expected);
+cv::Mat gen_img_rot(std::vector<double> expected);
 cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box);
 
 robot_t rotate_robot(robot_t robot, double theta);
@@ -350,8 +350,8 @@ int main(int argc, char **argv) {
 
     std::vector<double> expected{expected_1, expected_2, expected_3};
 
-    Mat in_rot     = gen_img(expected);
-    Mat in = gen_img_2(expected);
+    Mat in     = gen_img(expected);
+    Mat in_rot = gen_img_rot(expected);
 
 //    // 1.1 read the image
 //    char path_img[1000];
@@ -659,7 +659,7 @@ int main(int argc, char **argv) {
 
 
     printw("\nPOSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
-    printw("\nPOSE diff  ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1-prev_pose_1, pose_2-prev_pose_2, pose_3-prev_pose_3);
+    printw("POSE diff  ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1-prev_pose_1, pose_2-prev_pose_2, pose_3-prev_pose_3);
     printw("EXPECTED   -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", expected_1, expected_2, expected_3);
     printw("PARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", obs[0].mid(), obs[1].mid(), obs[2].mid());;
 
@@ -981,7 +981,7 @@ cv::Mat gen_img(std::vector<double> expected) {
   return img_grid;
 }
 
-cv::Mat gen_img_2(std::vector<double> expected) {
+cv::Mat gen_img_rot(std::vector<double> expected) {
   double d_hat_h = expected[0] * px_per_m;  // parameters have to be scaled for being shown in pixels
   double d_hat_v = expected[1] * px_per_m;
   double a_hat   = expected[2];
@@ -1026,28 +1026,39 @@ cv::Mat gen_img_2(std::vector<double> expected) {
   std::vector<line_t> grid_lines = base_img_lines;
 
   for (line_t l : grid_lines) {
-    //translation to change the center of rotation for the center of the image (which is not 0,0)
-    double x1 = l.p1.x - frame_width/2;
-    double y1 = l.p1.y - frame_height/2;
-    double x2 = l.p2.x - frame_width/2;
-    double y2 = l.p2.y - frame_height/2;
+//    //translation to change the center of rotation for the center of the image (which is not 0,0)
+//    double x1 = l.p1.x - frame_width/2;
+//    double y1 = l.p1.y - frame_height/2;
+//    double x2 = l.p2.x - frame_width/2;
+//    double y2 = l.p2.y - frame_height/2;
+//
+//    // applies the 2d rotation to the line
+//    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
+//    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
+//
+//    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
+//    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
+//
+//    // translates the image back and adds displacement
+//    x1 = x1_temp + d_hat_h + frame_width/2;
+//    y1 = y1_temp + d_hat_v + frame_height/2;
+//    x2 = x2_temp + d_hat_h + frame_width/2;
+//    y2 = y2_temp + d_hat_v + frame_height/2;
+//
+//    line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 0), 2, LINE_AA);
 
-    // applies the 2d rotation to the line
-    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
-    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
-
-    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
-    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
-
-    // translates the image back and adds displacement
-    x1 = x1_temp + d_hat_h + frame_width/2;
-    y1 = y1_temp + d_hat_v + frame_height/2;
-    x2 = x2_temp + d_hat_h + frame_width/2;
-    y2 = y2_temp + d_hat_v + frame_height/2;
-
-    line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 0), 2, LINE_AA);
+    line(img_grid, cv::Point(l.p1.x, l.p1.y), cv::Point(l.p2.x, l.p2.y), Scalar(0, 0, 0), 2, LINE_AA);
   }
 
+  cv::Mat r = cv::getRotationMatrix2D(Point2f(frame_width/2, frame_height/2), a_hat/M_PI*180, 1.0);
+
+  double trans_mat[] = { 1.0, 0.0, d_hat_v, 0.0, 1.0, d_hat_h };
+  cv::Mat t = cv::Mat(2, 3, CV_32F, trans_mat);
+
+  warpAffine(img_grid, img_grid, r, img_grid.size());
+//  warpAffine(img_grid, img_grid, t, img_grid.size());
+
+  circle(img_grid, Point2i(frame_width/2, frame_height/2), 3, Scalar(0, 0, 255), 2);
   return img_grid;
 }
 
