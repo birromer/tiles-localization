@@ -65,6 +65,7 @@ double sawtooth(double x);
 double modulo(double a, double b);
 int sign(double x);
 double median(std::vector<line_t> lines, int op);
+cv::Point2f rotate_pt(cv::Point2f pt, double alpha, cv::Point2f c);
 
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs);
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs);
@@ -998,13 +999,12 @@ cv::Mat gen_img_rot(std::vector<double> expected) {
   int max_dim = frame_height > frame_width? frame_height : frame_width;  // largest dimension so that always show something inside the picture
 
   // center of the image, where tiles start with zero displacement
-  int c_x = frame_width/2;
-  int c_y = frame_height/2;
+  cv::Point2f center(frame_width/2, frame_height/2);
 
   if (!base_img_created) {
     // create a line every specified number of pixels
     // adds one before and one after because occluded areas may appear
-    int pos_x = c_x - (n_lines/2)*dist_lines;
+    int pos_x = center.x - (n_lines/2)*dist_lines;
     while (pos_x <= frame_width + (n_lines/2)*dist_lines) {
       line_t ln = {
         .p1     = cv::Point(pos_x, -max_dim),
@@ -1034,41 +1034,42 @@ cv::Mat gen_img_rot(std::vector<double> expected) {
   std::vector<line_t> grid_lines = base_img_lines;
 
   for (line_t l : grid_lines) {
-    //translation to change the center of rotation for the center of the image (which is not 0,0)
-    double x1 = l.p1.x;// - frame_width/2;
-    double y1 = l.p1.y;// - frame_height/2;
-    double x2 = l.p2.x;// - frame_width/2;
-    double y2 = l.p2.y;// - frame_height/2;
-
-    double c_a = cos(a_hat);
-    double s_a = sin(a_hat);
-
     // applies the 2d rotation to the line
-    double x1_temp =  x1*c_a + y1*s_a + (1-c_a)*c_x -     s_a*c_y;
-    double y1_temp = -x1*s_a + y1*c_a +     s_a*c_x + (1-c_a)*c_y;
+    cv::Point2f p1_rot = rotate_pt(l.p1, a_hat, center);
+    cv::Point2f p2_rot = rotate_pt(l.p2, a_hat, center);
 
-    double x2_temp =  x2*c_a + y2*s_a + (1-c_a)*c_x -     s_a*c_y;
-    double y2_temp = -x2*s_a + y2*c_a +     s_a*c_x + (1-c_a)*c_y;
+    // adds displacement
+//    p1_rot.x += d_hat_h;
+//    p1_rot.y += d_hat_v;
+//
+//    p2_rot.x += d_hat_h;
+//    p2_rot.y += d_hat_v;
 
-    // translates the image back and adds displacement
-    x1 = x1_temp;// + d_hat_h;// + frame_width/2;
-    y1 = y1_temp;// + d_hat_v;// + frame_height/2;
-    x2 = x2_temp;// + d_hat_h;// + frame_width/2;
-    y2 = y2_temp;// + d_hat_v;// + frame_height/2;
-
-    line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 0), 2, LINE_AA);
-
+    line(img_grid, cv::Point(p1_rot.x, p1_rot.y), cv::Point(p2_rot.x, p2_rot.y), Scalar(0, 0, 0), 2, LINE_AA);
   }
 
   // using point at tile at position (1,1) as reference
-  double ref_x = c_x + dist_lines;
-  double ref_y = c_y - dist_lines;
-  ref_x = ref_x*cos(a_hat) - ref_y*sin(a_hat);// + d_hat_h;
-  ref_y = ref_x*sin(a_hat) + ref_y*cos(a_hat);// + d_hat_v;
+  double ref_x = center.x + dist_lines;
+  double ref_y = center.y - dist_lines;
+
+  ref_x =  ref_x*cos(a_hat) + ref_y*sin(a_hat);// + d_hat_h;
+  ref_y = -ref_x*sin(a_hat) + ref_y*cos(a_hat);// + d_hat_v;
+
   circle(img_grid, Point2i(ref_x, ref_y), 3, Scalar(0, 0, 255), 2);
 
-  circle(img_grid, Point2i(c_x, c_y), 3, Scalar(0, 255, 0), 3);
+  circle(img_grid, Point2i(center.x, center.y), 3, Scalar(0, 255, 0), 3);
+
   return img_grid;
+}
+
+cv::Point2f rotate_pt(cv::Point2f pt, double alpha, cv::Point2f c) {
+    double c_a = cos(alpha);
+    double s_a = sin(alpha);
+
+    double x1_tmp =  pt.x*c_a + pt.y*s_a + (1-c_a)*c.x -     s_a*c.y;
+    double y1_tmp = -pt.x*s_a + pt.y*c_a +     s_a*c.x + (1-c_a)*c.y;
+
+    return cv::Point2f(x1_tmp, y1_tmp);
 }
 
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
