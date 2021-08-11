@@ -978,6 +978,14 @@ cv::Mat gen_img(std::vector<double> expected) {
     line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 0), 2, LINE_AA);
   }
 
+  double ref_x = frame_width/2 + dist_lines;
+  double ref_y = frame_height/2 - dist_lines;
+  ref_x += d_hat_h;
+  ref_y += d_hat_v;
+  circle(img_grid, Point2i(ref_x, ref_y), 3, Scalar(0, 0, 255), 2);
+
+  circle(img_grid, Point2i(frame_width/2, frame_height/2), 3, Scalar(0, 255, 0), 3);
+
   return img_grid;
 }
 
@@ -1026,39 +1034,43 @@ cv::Mat gen_img_rot(std::vector<double> expected) {
   std::vector<line_t> grid_lines = base_img_lines;
 
   for (line_t l : grid_lines) {
-//    //translation to change the center of rotation for the center of the image (which is not 0,0)
-//    double x1 = l.p1.x - frame_width/2;
-//    double y1 = l.p1.y - frame_height/2;
-//    double x2 = l.p2.x - frame_width/2;
-//    double y2 = l.p2.y - frame_height/2;
-//
-//    // applies the 2d rotation to the line
-//    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
-//    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
-//
-//    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
-//    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
-//
-//    // translates the image back and adds displacement
-//    x1 = x1_temp + d_hat_h + frame_width/2;
-//    y1 = y1_temp + d_hat_v + frame_height/2;
-//    x2 = x2_temp + d_hat_h + frame_width/2;
-//    y2 = y2_temp + d_hat_v + frame_height/2;
-//
-//    line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 0), 2, LINE_AA);
+    //translation to change the center of rotation for the center of the image (which is not 0,0)
+    double x1 = l.p1.x - frame_width/2;
+    double y1 = l.p1.y - frame_height/2;
+    double x2 = l.p2.x - frame_width/2;
+    double y2 = l.p2.y - frame_height/2;
 
-    line(img_grid, cv::Point(l.p1.x, l.p1.y), cv::Point(l.p2.x, l.p2.y), Scalar(0, 0, 0), 2, LINE_AA);
+    // applies the 2d rotation to the line
+    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
+    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
+
+    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
+    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
+
+    // translates the image back and adds displacement
+    x1 = x1_temp + d_hat_h + frame_width/2;
+    y1 = y1_temp + d_hat_v + frame_height/2;
+    x2 = x2_temp + d_hat_h + frame_width/2;
+    y2 = y2_temp + d_hat_v + frame_height/2;
+
+    line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 0), 2, LINE_AA);
+
+//    line(img_grid, cv::Point(l.p1.x, l.p1.y), cv::Point(l.p2.x, l.p2.y), Scalar(0, 0, 0), 2, LINE_AA);
   }
 
-  cv::Mat r = cv::getRotationMatrix2D(Point2f(frame_width/2, frame_height/2), a_hat/M_PI*180, 1.0);
+//  cv::Mat r = cv::getRotationMatrix2D(Point2f(frame_width/2, frame_height/2), a_hat/M_PI*180, 1.0);
+//  r.at<double>(0,2) += d_hat_v;
+//  r.at<double>(1,2) -= d_hat_h;
+//
+//  warpAffine(img_grid, img_grid, r, img_grid.size(), cv::WARP_INVERSE_MAP);
 
-  double trans_mat[] = { 1.0, 0.0, d_hat_v, 0.0, 1.0, d_hat_h };
-  cv::Mat t = cv::Mat(2, 3, CV_32F, trans_mat);
-
-  warpAffine(img_grid, img_grid, r, img_grid.size());
-//  warpAffine(img_grid, img_grid, t, img_grid.size());
-
-  circle(img_grid, Point2i(frame_width/2, frame_height/2), 3, Scalar(0, 0, 255), 2);
+  // using point at tile at position (1,1) as reference
+  double ref_x = frame_width/2;// + dist_lines;
+  double ref_y = frame_height/2;// - dist_lines;
+  ref_x = ref_x*cos(a_hat) - ref_y*sin(a_hat) + d_hat_h;
+  ref_y = ref_x*sin(a_hat) + ref_y*cos(a_hat)+d_hat_v;
+  circle(img_grid, Point2i(ref_x, ref_y), 3, Scalar(0, 0, 255), 2);
+  circle(img_grid, Point2i(frame_width/2, frame_height/2), 3, Scalar(0, 255, 0), 3);
   return img_grid;
 }
 
