@@ -351,8 +351,8 @@ int main(int argc, char **argv) {
 
     std::vector<double> expected{expected_1, expected_2, expected_3};
 
-    Mat in     = gen_img(expected);
-    Mat in_rot = gen_img_rot(expected);
+    Mat in     = gen_img_rot(expected);
+    Mat in_alt = gen_img(expected);
 
 //    // 1.1 read the image
 //    char path_img[1000];
@@ -365,7 +365,7 @@ int main(int argc, char **argv) {
     // 1.2 convert to greyscale for later computing borders
     Mat grey, grey_rot;
     cvtColor(in, grey, COLOR_BGR2GRAY);
-    cvtColor(in_rot, grey_rot, COLOR_BGR2GRAY);
+    cvtColor(in_alt, grey_rot, COLOR_BGR2GRAY);
 
 //    // create a skeleton representation, trying to diminish number of detected lines
 //    cv::Mat img = grey;
@@ -734,7 +734,7 @@ int main(int argc, char **argv) {
 //      cvtColor(grad, grad, COLOR_GRAY2BGR);
 //      cvtColor(edges, edges, COLOR_GRAY2BGR);
 //      ShowManyImages("steps", 6, in, src, grad, edges, view_param_1, view_param_2);//
-      ShowManyImages("steps", 4, in, view_param_1, view_param_2, in_rot);//
+      ShowManyImages("steps", 4, in, view_param_1, view_param_2, in_alt);//
       cv::imshow("global_frame", view_global_frame);
     }
 
@@ -1015,7 +1015,7 @@ cv::Mat gen_img_rot(std::vector<double> expected) {
       pos_x += dist_lines;
     }
 
-    int pos_y = c_y - (n_lines/2)*dist_lines;
+    int pos_y = center.y - (n_lines/2)*dist_lines;
     while (pos_y <= frame_height + (n_lines/2)*dist_lines) {
       line_t ln = {
         .p1     = cv::Point(-max_dim, pos_y),
@@ -1034,29 +1034,32 @@ cv::Mat gen_img_rot(std::vector<double> expected) {
   std::vector<line_t> grid_lines = base_img_lines;
 
   for (line_t l : grid_lines) {
+    l.p1.x += d_hat_v;
+    l.p1.y += d_hat_h;
+
+    l.p2.x += d_hat_v;
+    l.p2.y += d_hat_h;
     // applies the 2d rotation to the line
-    cv::Point2f p1_rot = rotate_pt(l.p1, a_hat, center);
-    cv::Point2f p2_rot = rotate_pt(l.p2, a_hat, center);
+    cv::Point2f p1_rot = rotate_pt(l.p1, -a_hat, center);
+    cv::Point2f p2_rot = rotate_pt(l.p2, -a_hat, center);
 
     // adds displacement
-//    p1_rot.x += d_hat_h;
-//    p1_rot.y += d_hat_v;
+//    p1_rot.x += d_hat_v;
+//    p1_rot.y += d_hat_h;
 //
-//    p2_rot.x += d_hat_h;
-//    p2_rot.y += d_hat_v;
+//    p2_rot.x += d_hat_v;
+//    p2_rot.y += d_hat_h;
 
     line(img_grid, cv::Point(p1_rot.x, p1_rot.y), cv::Point(p2_rot.x, p2_rot.y), Scalar(0, 0, 0), 2, LINE_AA);
   }
 
   // using point at tile at position (1,1) as reference
-  double ref_x = center.x + dist_lines;
-  double ref_y = center.y - dist_lines;
+  cv::Point2f ref(center.x + dist_lines, center.y - dist_lines);
+  ref.x += d_hat_v;
+  ref.y += d_hat_h;
+  ref = rotate_pt(ref, -a_hat, center);
 
-  ref_x =  ref_x*cos(a_hat) + ref_y*sin(a_hat);// + d_hat_h;
-  ref_y = -ref_x*sin(a_hat) + ref_y*cos(a_hat);// + d_hat_v;
-
-  circle(img_grid, Point2i(ref_x, ref_y), 3, Scalar(0, 0, 255), 2);
-
+  circle(img_grid, Point2i(ref.x, ref.y), 3, Scalar(0, 0, 255), 2);
   circle(img_grid, Point2i(center.x, center.y), 3, Scalar(0, 255, 0), 3);
 
   return img_grid;
