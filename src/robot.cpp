@@ -99,16 +99,12 @@ int img_idx = 0;
 std::vector<line_t> base_grid_lines;
 bool base_grid_created = false;
 
-int quart_state = 0;  // in which quarter of the plane is the current angle
-double prev_a_hat;  // a_hat of the previous iteration
-
 // image processing related variables
 bool display_window;
 double frame_width=0, frame_height=0;
 
 double tile_size = 0.166;    // size of the side of the tile, in meters, also seen as l
 double px_per_m = 620.48;     // pixels per meter
-
 int dist_lines = tile_size * px_per_m;  //pixels between each pair of lines
 
 // NOTE: TEMPORARY FOR CREATING DATASET
@@ -493,7 +489,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     // structures for storing the lines information
     std::vector<line_t> lines;  // stores the lines obtained from the hough transform
-    std::vector<double> lines_angles;  // stores the angles of the lines from the hough transform with the image compressed between [-pi/4, pi/4]
 
     double line_angle, line_angle4, d, dd, m_x, m_y;
 
@@ -504,18 +499,17 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       double p2_x = l[2], p2_y = l[3];
 
       line_angle = atan2(p2_y - p1_y, p2_x - p1_x);               // get the angle of the line from the existing points
-      line_angle4 = modulo(line_angle+M_PI/4., M_PI/2.)-M_PI/4.;  // compress image between [-pi/4, pi/4]
+      line_angle4 = ((line_angle-M_PI/4)/(M_PI/2) - floor((line_angle-M_PI/4)/(M_PI/2))-0.5) * 2*M_PI/4;;  // compress image between [-pi/4, pi/4]
 
       m_x = cos(4*line_angle);
       m_y = sin(4*line_angle);
 
       // 2.1.1 smallest radius of a circle with a point belonging to the line with origin in 0, being 0 corrected to the center of the image
-      d = abs((p2_x-p1_x)*(p1_y-frame_height/2.) - (p1_x-frame_width/2.)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));
+      d = abs((p2_x-p1_x)*(p1_y-frame_height/2) - (p1_x-frame_width/2)*(p2_y-p1_y)) / sqrt(pow(p2_x-p1_x,2) + pow(p2_y-p1_y,2));  // value in pixels
       d = d / px_per_m;  // convert from pixels to meters
 
       // 2.1.2 decimal distance, displacement between the lines
       dd = (d/tile_size) - (floor(d/tile_size));  // this compresses image to [0, 1]
-//      dd = (d/dist_lines) - (floor(d/dist_lines));  // this compresses image to [0, 1]
 
       line_t ln = {
         .p1     = cv::Point(p1_x, p1_y),
@@ -539,11 +533,11 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     std::vector<line_t> lines_good;
 
-    // 2.2 filter lines with bad orientation
     Mat src = Mat::zeros(Size(frame_width, frame_height), CV_8UC3);
 
+    // 2.2 filter lines with bad orientation
     for (line_t l : lines) {
-      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
+      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.05) {
         line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
         lines_good.push_back(l);
       } else {
@@ -554,14 +548,12 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     x_hat = median(lines_good, 3);
     y_hat = median(lines_good, 4);
 
-    prev_a_hat = a_hat;
     a_hat = atan2(y_hat, x_hat) * 1./4.;
 
     Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
 
     if(lines_good.size() > MIN_GOOD_LINES) {
       ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
-      Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
       std::vector<line_t> bag_h, bag_v;
       double x1, y1, x2, y2;
       double angle_new;
@@ -570,6 +562,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
         //translation in order to center lines around 0
         x1 = l.p1.x - frame_width/2.0f;
         y1 = l.p1.y - frame_height/2.0f;
+
         x2 = l.p2.x - frame_width/2.0f;
         y2 = l.p2.y - frame_height/2.0f;
 
@@ -589,12 +582,6 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
         // 2.3.3 compute the new angle of the rotated lines
         angle_new = atan2(y2-y1, x2-x1);
-
-        // NOTE: temporary testing, i think it doesnt change anything
-        double d = abs((x2-x1)*(y1-frame_height/2.) - (x1-frame_width/2.)*(y2-y1)) / sqrt(pow(x2-x1,2) + pow(y2-y1,2));
-        d = d / px_per_m;  // from pixels to meters
-        l.dd = (d/tile_size) - (floor(d/tile_size));  // this compresses image to [0, 1]
-        // ------------------------------
 
         // 2.3.4 determine if the lines are horizontal or vertical
         if (abs(cos(angle_new)) < 0.2) {  // vertical
@@ -623,8 +610,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       // for the horizontal displacement, it should consider the offset in the x axis (between vertical lines), and the opposite for vertical
       // displacement however there is no distinction between horizontal and vertical with the robot's knowledge, and the ambiguity is taken
       // into consideration in the equivalence
-      double d_hat_h = median(bag_h, 6);
-      double d_hat_v = median(bag_v, 6);
+      double d_hat_h = tile_size * median(bag_h, 6);  // the median gives a value from 0 to 1 of displacement, multiplying by the tile size positions it in the world
+      double d_hat_v = tile_size * median(bag_v, 6);
 
       ROS_WARN("PARAMETERS -> d_hat_h = [%f] | d_hat_v = [%f] | a_hat = [%f]", d_hat_h, d_hat_v, a_hat);
 
@@ -667,8 +654,8 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 }
 
 cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
-  double d_hat_h = obs[0].mid() * dist_lines;  // parameters have to be scaled for being shown in pixels
-  double d_hat_v = obs[1].mid() * dist_lines;
+  double d_hat_h = obs[0].mid() * px_per_m;  // parameters have to be scaled for being shown in pixels
+  double d_hat_v = obs[1].mid() * px_per_m;
   double a_hat   = obs[2].mid();
 
   int n_lines = 5;
@@ -719,17 +706,17 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
     double y2 = l.p2.y - frame_height/2.;// + d_hat_v;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);// x1;//
-    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);// y1;//
+    double x1_temp = x1;//x1 * cos(a_hat) - y1 * sin(a_hat);//
+    double y1_temp = y1;//x1 * sin(a_hat) + y1 * cos(a_hat);//
 
-    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);// x2;//
-    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);// y2;//
+    double x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);//
+    double y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);//
 
     // translates the image back and adds displacement
-    x1 = x1_temp + frame_width/2. + d_hat_h;
-    y1 = y1_temp + frame_height/2. + d_hat_v;
-    x2 = x2_temp + frame_width/2. + d_hat_h;
-    y2 = y2_temp + frame_height/2. + d_hat_v;
+    x1 = (x1_temp + frame_width/2. + d_hat_h);
+    y1 = (y1_temp + frame_height/2. + d_hat_v);
+    x2 = (x2_temp + frame_width/2. + d_hat_h);
+    y2 = (y2_temp + frame_height/2. + d_hat_v);
 
     if (l.side == 1) {
       line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 0, 0), 3, LINE_AA);
@@ -742,8 +729,8 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
 }
 
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
-  double d_hat_h = obs[1].mid() * dist_lines;  // parameters have to be scaled to be shown in pixels
-  double d_hat_v = obs[0].mid() * dist_lines;
+  double d_hat_h = obs[1].mid() * px_per_m;  // parameters have to be scaled to be shown in pixels
+  double d_hat_v = obs[0].mid() * px_per_m;
   double a_hat   = obs[2].mid() + M_PI/2.;
 
   int n_lines = 5;
@@ -794,17 +781,17 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
     double y2 = l.p2.y - frame_height/2.;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);
-    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);
+    double x1_temp = x1;// x1 * cos(a_hat) - y1 * sin(a_hat);
+    double y1_temp = y1;// x1 * sin(a_hat) + y1 * cos(a_hat);
 
-    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);
-    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);
+    double x2_temp = x2;// x2 * cos(a_hat) - y2 * sin(a_hat);
+    double y2_temp = y2;// x2 * sin(a_hat) + y2 * cos(a_hat);
 
     // translates the image back and adds displacement
-    x1 = x1_temp + frame_width/2. + d_hat_h;
-    y1 = y1_temp + frame_height/2. + d_hat_v;
-    x2 = x2_temp + frame_width/2. + d_hat_h;
-    y2 = y2_temp + frame_height/2. + d_hat_v;
+    x1 = (x1_temp + frame_width/2. + d_hat_h);
+    y1 = (y1_temp + frame_height/2. + d_hat_v);
+    x2 = (x2_temp + frame_width/2. + d_hat_h);
+    y2 = (y2_temp + frame_height/2. + d_hat_v);
 
     if (l.side == 1) {
       line(img_grid, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 0, 0), 3, LINE_AA);
