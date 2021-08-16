@@ -450,7 +450,7 @@ int main(int argc, char **argv) {
       Vec4i p(new_p1_x, new_p1_y, new_p2_x, new_p2_y);
       limit_lines.push_back(p);
     }
-    limit_lines = detected_lines;  // uncomment if want to ignore process above
+//    limit_lines = detected_lines;  // uncomment if want to ignore process above
     limit_lines_rot = detected_lines_rot;  // uncomment if want to ignore process above
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper

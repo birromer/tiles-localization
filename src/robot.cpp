@@ -48,7 +48,7 @@ using namespace cv;
 #define MIN_GOOD_LINES 5
 #define IMG_FOLDER "/home/birromer/ros/data_tiles/metodo/dataset_tiles/"
 
-#define ERROR_PRED      0.04  // error should not exceed half the tile
+#define ERROR_PRED      0.01  // error should not exceed half the tile (total width smaller than tile)
 #define ERROR_OBS       0.04
 #define ERROR_OBS_ANGLE 0.03
 
@@ -104,7 +104,7 @@ bool display_window;
 double frame_width=0, frame_height=0;
 
 double tile_size = 0.166;    // size of the side of the tile, in meters, also seen as l
-double px_per_m = 620.48;     // pixels per meter
+double px_per_m = 620.48;    // pixels per meter
 int dist_lines = tile_size * px_per_m;  //pixels between each pair of lines
 
 // NOTE: TEMPORARY FOR CREATING DATASET
@@ -145,16 +145,16 @@ int main(int argc, char **argv) {
 
   // start visualization windows windows
   if(display_window) {
-//    cv::namedWindow("steps");
-    cv::namedWindow("camera");
+    cv::namedWindow("steps");
+//    cv::namedWindow("camera");
 //    cv::namedWindow("grey");
 //    cv::namedWindow("sobel");
 //    cv::namedWindow("canny");
 //    cv::namedWindow("morphology");
-    cv::namedWindow("rotated");
-    cv::namedWindow("lines");
-    cv::namedWindow("view_param_1");
-    cv::namedWindow("view_param_2");
+//    cv::namedWindow("rotated");
+//    cv::namedWindow("lines");
+//    cv::namedWindow("view_param_1");
+//    cv::namedWindow("view_param_2");
     cv::startWindowThread();
   }
 
@@ -537,7 +537,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 
     // 2.2 filter lines with bad orientation
     for (line_t l : lines) {
-      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.05) {
+      if ((abs(x_hat - l.m_x) + abs(y_hat - l.m_y)) < 0.15) {
         line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
         lines_good.push_back(l);
       } else {
@@ -630,16 +630,16 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
 //        cvtColor(grey, grey, CV_GRAY2BGR);
 //        cvtColor(grad, grad, CV_GRAY2BGR);
 //        cvtColor(edges, edges, CV_GRAY2BGR);
-//        ShowManyImages("steps", 4, in, grey, grad, edges);//, morph, rot, src);
-        cv::imshow("camera", in);
+//        cv::imshow("camera", in);
 //        cv::imshow("grey", grey);
 //        cv::imshow("sobel", grad);
 //        cv::imshow("canny", edges);
 //        cv::imshow("morphology", morph);
-        cv::imshow("lines", src);
-        cv::imshow("rotated", rot);
-        cv::imshow("view_param_1", view_param_1);
-        cv::imshow("view_param_2", view_param_2);
+//        cv::imshow("lines", src);
+//        cv::imshow("rotated", rot);
+//        cv::imshow("view_param_1", view_param_1);
+//        cv::imshow("view_param_2", view_param_2);
+        ShowManyImages("steps", 4, in, view_param_1, view_param_2, src);//
       }
 
     } else {

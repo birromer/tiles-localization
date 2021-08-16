@@ -11,6 +11,9 @@
 **   - none
  */
 
+#define TILE_SIZE 0.166
+int num_imgs = 10000;
+
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui.hpp>
@@ -38,6 +41,19 @@ using namespace cv;
 using namespace std;
 using namespace ibex;
 using namespace codac;
+
+// headers for using root
+#include <thread>
+#include <chrono>
+#include <stdexcept>
+#include <memory>
+#include "TCanvas.h"
+#include "TGraph.h"
+#include "TApplication.h"
+#include "TAxis.h"
+
+using namespace std::chrono_literals;
+namespace po = boost::program_options;  // for argument parsing
 
 ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);
 ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);
@@ -95,12 +111,12 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
   ROS_WARN("[VIEWER] Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
   // comparing Y with X
-  double sim1_eq1 = sin(M_PI*(y[0].mid()-x[0].mid()));
-  double sim1_eq2 = sin(M_PI*(y[1].mid()-x[1].mid()));
+  double sim1_eq1 = sin(M_PI*(y[0].mid()-x[0].mid())/TILE_SIZE);
+  double sim1_eq2 = sin(M_PI*(y[1].mid()-x[1].mid())/TILE_SIZE);
   double sim1_eq3 = sin(y[2].mid()-x[2].mid());
 
-  double sim2_eq1 = sin(M_PI*(y[0].mid()-x[1].mid()));
-  double sim2_eq2 = sin(M_PI*(y[1].mid()-x[0].mid()));
+  double sim2_eq1 = sin(M_PI*(y[0].mid()-x[1].mid())/TILE_SIZE);
+  double sim2_eq2 = sin(M_PI*(y[1].mid()-x[0].mid())/TILE_SIZE);
   double sim2_eq3 = cos(y[2].mid()-x[2].mid());
 
   file_eq_yx << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
@@ -128,11 +144,79 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
 }
 
 int main(int argc, char **argv){
+  // ----------------- ROOT setup ----------------- //
+  TApplication rootapp("viz", &argc, argv);
+
+  auto c1 = std::make_unique<TCanvas>("c1", "Equivalence equations");
+  c1->SetWindowSize(1550, 700);
+
+  auto f1 = std::make_unique<TGraph>(num_imgs);
+  f1->SetTitle("sin(pi*(y1-z1)/tile_size)");
+  f1->GetXaxis()->SetTitle("Iteration");
+  f1->GetYaxis()->SetTitle("Similarity score");
+  f1->SetMinimum(-1);
+  f1->SetMaximum(1);
+
+  auto f2 = std::make_unique<TGraph>(num_imgs);
+  f2->SetTitle("sin(pi*(y2-z2)/tile_size)");
+  f2->GetXaxis()->SetTitle("Iteration");
+  f2->GetYaxis()->SetTitle("Similarity score");
+  f2->SetMinimum(-1);
+  f2->SetMaximum(1);
+
+  auto f3 = std::make_unique<TGraph>(num_imgs);
+  f3->SetTitle("sin(y3-z3)");
+  f3->GetXaxis()->SetTitle("Iteration");
+  f3->GetYaxis()->SetTitle("Similarity score");
+  f3->SetMinimum(-1);
+  f3->SetMaximum(1);
+
+  auto f4 = std::make_unique<TGraph>(num_imgs);
+  f4->SetTitle("sin(pi*(y1-z2)/tile_size)");
+  f4->GetXaxis()->SetTitle("Iteration");
+  f4->GetYaxis()->SetTitle("Similarity score");
+  f4->SetMinimum(-1);
+  f4->SetMaximum(1);
+
+  auto f5 = std::make_unique<TGraph>(num_imgs);
+  f5->SetTitle("sin(pi*(y2-z1)/tile_size)");
+  f5->GetXaxis()->SetTitle("Iteration");
+  f5->GetYaxis()->SetTitle("Similarity score");
+  f5->SetMinimum(-1);
+  f5->SetMaximum(1);
+
+  auto f6 = std::make_unique<TGraph>(num_imgs);
+  f6->SetTitle("cos(y3-z3)");
+  f6->GetXaxis()->SetTitle("Iteration");
+  f6->GetYaxis()->SetTitle("Similarity score");
+  f6->SetMinimum(-1);
+  f6->SetMaximum(1);
+
+  // divide the canvas into two vertical sub-canvas
+  c1->Divide(2, 3);
+
+  // "Register" the plots for each canvas slot
+  c1->cd(1); // Set current canvas to canvas 1 (yes, 1 based indexing)
+  f1->Draw();
+  c1->cd(3);
+  f2->Draw();
+  c1->cd(5);
+  f3->Draw();
+  c1->cd(2);
+  f4->Draw();
+  c1->cd(4);
+  f5->Draw();
+  c1->cd(6);
+  f6->Draw();
+  // ------------------------------------------------ //
+
+  // ----------------- VIBES setup ----------------- //
   vibes::beginDrawing();
   VIBesFigMap fig_map("Map");
   vibes::setFigureProperties("Map",vibesParams("x", 10, "y", -10, "width", 700, "height", 700));
   vibes::axisLimits(-10, 10, -10, 10, "Map");
   fig_map.show();
+  // ------------------------------------------------ //
 
   file_eq_yx.open("/home/birromer/ros/data_tiles/temp/eq_yx.csv", fstream::in | fstream::out | fstream::trunc);
   file_eq_yp.open("/home/birromer/ros/data_tiles/temp/eq_yp.csv", fstream::in | fstream::out | fstream::trunc);
