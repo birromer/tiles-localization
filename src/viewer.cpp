@@ -53,7 +53,6 @@ using namespace codac;
 #include "TAxis.h"
 
 using namespace std::chrono_literals;
-namespace po = boost::program_options;  // for argument parsing
 
 ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);
 ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);

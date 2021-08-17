@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.2.0)
 project(tiles_loc)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
+add_compile_options(-std=c++14)
+set(CMAKE_CXX_STANDARD 14)
+add_compile_options(-ggdb)
 
 #set(CMAKE_PREFIX_PATH "/opt/opencv3;/opt/ros/melodic;/home/birromer/Documents/tubex-lib/build_install")
 
@@ -12,6 +14,13 @@ add_compile_options(-std=c++11)
 include(FindPkgConfig)
 
 set(image_transport_DIR /opt/ros/noetic/share/image_transport/cmake/image_transportConfig.cmake)
+
+# Adding ROOT
+#
+  find_package(ROOT REQUIRED)
+  include_directories(${ROOT_INCLUDE_DIRS})
+  message(STATUS "Found ROOT version ${ROOT_VERSION}")
+  message(STATUS "  libraries   : ${ROOT_LIBRARIES}")
 
 # Adding Eigen3
 
@@ -222,9 +231,10 @@ target_include_directories(base PUBLIC ${CODAC_INCLUDE_DIRS})
 target_link_libraries(loc opencv_highgui ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CODAC_LIBRARIES} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES} ${OpenCV_LIBS} Ibex::ibex ${OpenCV_LIBS} ${CODAC_LIBRARIES} ${OpenCV_LIBS})
 target_compile_options(loc PUBLIC ${CODAC_CFLAGS})
 target_include_directories(loc PUBLIC ${CODAC_INCLUDE_DIRS})
-target_link_libraries(view ${catkin_LIBRARIES} ${CODAC_LIBRARIES} Ibex::ibex ${CODAC_LIBRARIES} ${catkin_LIBRARIES} ${CODAC_LIBRARIES} Ibex::ibex ${CODAC_LIBRARIES})
+
+target_link_libraries(view ${catkin_LIBRARIES} ${ROOT_LIBRARIES} ${CODAC_LIBRARIES} Ibex::ibex ${CODAC_LIBRARIES} ${catkin_LIBRARIES} ${CODAC_LIBRARIES} Ibex::ibex ${CODAC_LIBRARIES})
 target_compile_options(view PUBLIC ${CODAC_CFLAGS})
-target_include_directories(view PUBLIC ${CODAC_INCLUDE_DIRS})
+target_include_directories(view PUBLIC ${CODAC_INCLUDE_DIRS} ${ROOT_INCLUDE_DIRS})
 
 target_link_libraries(cmd ${catkin_LIBRARIES})
 target_link_libraries(ctrl ${catkin_LIBRARIES})
