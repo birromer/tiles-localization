@@ -39,8 +39,6 @@ int num_imgs = 10000;
 
 using namespace cv;
 using namespace std;
-using namespace ibex;
-using namespace codac;
 
 // headers for using root
 #include <thread>
@@ -211,7 +209,7 @@ int main(int argc, char **argv){
 
   // ----------------- VIBES setup ----------------- //
   vibes::beginDrawing();
-  VIBesFigMap fig_map("Map");
+  codac::VIBesFigMap fig_map("Map");
   vibes::setFigureProperties("Map",vibesParams("x", 10, "y", -10, "width", 700, "height", 700));
   vibes::axisLimits(-10, 10, -10, 10, "Map");
   fig_map.show();
