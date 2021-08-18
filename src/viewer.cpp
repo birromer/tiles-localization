@@ -56,18 +56,10 @@ ibex::IntervalVector state_loc(3, ibex::Interval::ALL_REALS);
 ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);
 ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);
 double pose_1, pose_2, pose_3;
-ofstream file_eq_yx;
 ofstream file_eq_yp;
+//ofstream file_eq_yx;
 //ofstream file_gt;
 
-auto c1 = std::make_unique<TCanvas>("c1", "Equivalence equations");
-auto f1 = std::make_unique<TGraph>(num_imgs);
-auto f2 = std::make_unique<TGraph>(num_imgs);
-auto f3 = std::make_unique<TGraph>(num_imgs);
-auto f4 = std::make_unique<TGraph>(num_imgs);
-auto f5 = std::make_unique<TGraph>(num_imgs);
-auto f6 = std::make_unique<TGraph>(num_imgs);
-auto f7 = std::make_unique<TGraph>(num_imgs);
 vector<vector<double>> sim_data;
 vector<vector<double>> sim_ground_truth;
 int curr_img = 0;
@@ -137,59 +129,14 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
   ROS_INFO("[VIEWER] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sim1_eq1, sim1_eq2, sim1_eq3);
   ROS_INFO("[VIEWER] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sim2_eq1, sim2_eq2, sim2_eq3);
 
-  // plot similarity equations
   vector<double> s{sim1_eq1, sim1_eq2, sim1_eq3, sim2_eq1, sim2_eq2, sim2_eq3};
+  sim_data.push_back(s);
 
-  if (sim_data.size() == curr_img){
-    sim_data.push_back(s);
-  } else {
-    sim_data.at(curr_img) = s;
-  }
-
-  // redraw graph
-  for (int i=0; i < curr_img; i++) {
-    if (i < curr_img) {
-      f1->SetPoint(i, i, sim_data[i][0]);
-      f2->SetPoint(i, i, sim_data[i][1]);
-      f3->SetPoint(i, i, sim_data[i][2]);
-      f4->SetPoint(i, i, sim_data[i][3]);
-      f5->SetPoint(i, i, sim_data[i][4]);
-      f6->SetPoint(i, i, sim_data[i][5]);
-    } else {
-      f1->SetPoint(i, i, 0);
-      f2->SetPoint(i, i, 0);
-      f3->SetPoint(i, i, 0);
-      f4->SetPoint(i, i, 0);
-      f5->SetPoint(i, i, 0);
-      f6->SetPoint(i, i, 0);
-    }
-  }
-  f1->RemovePoint(curr_img+1);
-  f2->RemovePoint(curr_img+1);
-  f3->RemovePoint(curr_img+1);
-  f4->RemovePoint(curr_img+1);
-  f5->RemovePoint(curr_img+1);
-  f6->RemovePoint(curr_img+1);
-
-  // notify ROOT that the plots have been modified and needs update
-  c1->cd(1);
-  c1->Update();
-  c1->Pad()->Draw();
-  c1->cd(2);
-  c1->Update();
-  c1->Pad()->Draw();
-  c1->cd(3);
-  c1->Update();
-  c1->Pad()->Draw();
-  c1->cd(4);
-  c1->Update();
-  c1->Pad()->Draw();
-  c1->cd(5);
-  c1->Update();
-  c1->Pad()->Draw();
-  c1->cd(6);
-  c1->Update();
-  c1->Pad()->Draw();
+//  if (sim_data.size() == curr_img){
+//    sim_data.push_back(s);
+//  } else {
+//    sim_data.at(curr_img) = s;
+//  }
 
   curr_img += 1;
 }
@@ -198,39 +145,45 @@ int main(int argc, char **argv){
   // ----------------- ROOT setup ----------------- //
   TApplication rootapp("viz", &argc, argv);
 
-  // c1, f1, f2, f3, f4, f5, f6 declared globally
+  auto c1 = std::make_unique<TCanvas>("c1", "Equivalence equations");
   c1->SetWindowSize(1550, 700);
 
+  auto f1 = std::make_unique<TGraph>(num_imgs);
   f1->SetTitle("sin(pi*(y1-z1)/tile_size)");
   f1->GetXaxis()->SetTitle("Iteration");
   f1->GetYaxis()->SetTitle("Similarity score");
   f1->SetMinimum(-1);
   f1->SetMaximum(1);
 
+  auto f2 = std::make_unique<TGraph>(num_imgs);
   f2->SetTitle("sin(pi*(y2-z2)/tile_size)");
   f2->GetXaxis()->SetTitle("Iteration");
   f2->GetYaxis()->SetTitle("Similarity score");
   f2->SetMinimum(-1);
   f2->SetMaximum(1);
 
+  auto f3 = std::make_unique<TGraph>(num_imgs);
   f3->SetTitle("sin(y3-z3)");
   f3->GetXaxis()->SetTitle("Iteration");
   f3->GetYaxis()->SetTitle("Similarity score");
   f3->SetMinimum(-1);
   f3->SetMaximum(1);
 
+  auto f4 = std::make_unique<TGraph>(num_imgs);
   f4->SetTitle("sin(pi*(y1-z2)/tile_size)");
   f4->GetXaxis()->SetTitle("Iteration");
   f4->GetYaxis()->SetTitle("Similarity score");
   f4->SetMinimum(-1);
   f4->SetMaximum(1);
 
+  auto f5 = std::make_unique<TGraph>(num_imgs);
   f5->SetTitle("sin(pi*(y2-z1)/tile_size)");
   f5->GetXaxis()->SetTitle("Iteration");
   f5->GetYaxis()->SetTitle("Similarity score");
   f5->SetMinimum(-1);
   f5->SetMaximum(1);
 
+  auto f6 = std::make_unique<TGraph>(num_imgs);
   f6->SetTitle("cos(y3-z3)");
   f6->GetXaxis()->SetTitle("Iteration");
   f6->GetYaxis()->SetTitle("Similarity score");
@@ -263,17 +216,18 @@ int main(int argc, char **argv){
   fig_map.show();
   // ------------------------------------------------ //
 
-  file_eq_yx.open("/home/birromer/ros/data_tiles/temp/eq_yx.csv", fstream::in | fstream::out | fstream::trunc);
-//  file_eq_yp.open("/home/birromer/ros/data_tiles/temp/eq_yp.csv", fstream::in | fstream::out | fstream::trunc);
+  file_eq_yp.open("/home/birromer/ros/data_tiles/temp/eq_yp.csv", fstream::in | fstream::out | fstream::trunc);
+//  file_eq_yx.open("/home/birromer/ros/data_tiles/temp/eq_yx.csv", fstream::in | fstream::out | fstream::trunc);
 //  file_gt.open("/home/birromer/ros/data_tiles/temp/gt.csv", fstream::in | fstream::out | fstream::trunc);
 
-  file_eq_yx << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
-//  file_eq_yp << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
+  file_eq_yp << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
+//  file_eq_yx << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
 //  file_gt << "x" << "," << "y" << "," << "theta" << endl;
 
   ros::init(argc, argv, "viewer_node");
 
   ros::NodeHandle n;
+
 
   ros::Subscriber sub_waypoint = n.subscribe("waypoint", 1000, waypoint_callback);
   ros::Subscriber sub_state_loc = n.subscribe("state_loc", 1000, state_loc_callback);
@@ -281,11 +235,67 @@ int main(int argc, char **argv){
   ros::Subscriber sub_observation = n.subscribe("observation", 1000, observation_callback);
   ros::Subscriber sub_pose = n.subscribe("pose", 1000, pose_callback);
 
-  ros::spin();
+  ros::Rate loop_rate(50);  // 50Hz frequency
+
+//  ros::spin();
+  while (ros::ok()) {
+    // plot similarity equations
+
+    // redraw graph
+    for (int i=0; i < curr_img; i++) {
+      if (i < curr_img) {
+        f1->SetPoint(i, i, sim_data[i][0]);
+        f2->SetPoint(i, i, sim_data[i][1]);
+        f3->SetPoint(i, i, sim_data[i][2]);
+        f4->SetPoint(i, i, sim_data[i][3]);
+        f5->SetPoint(i, i, sim_data[i][4]);
+        f6->SetPoint(i, i, sim_data[i][5]);
+      } else {
+        f1->SetPoint(i, i, 0);
+        f2->SetPoint(i, i, 0);
+        f3->SetPoint(i, i, 0);
+        f4->SetPoint(i, i, 0);
+        f5->SetPoint(i, i, 0);
+        f6->SetPoint(i, i, 0);
+      }
+    }
+    f1->RemovePoint(curr_img+1);
+    f2->RemovePoint(curr_img+1);
+    f3->RemovePoint(curr_img+1);
+    f4->RemovePoint(curr_img+1);
+    f5->RemovePoint(curr_img+1);
+    f6->RemovePoint(curr_img+1);
+
+    // notify ROOT that the plots have been modified and needs update
+    c1->cd(1);
+    c1->Update();
+    c1->Pad()->Draw();
+    c1->cd(2);
+    c1->Update();
+    c1->Pad()->Draw();
+    c1->cd(3);
+    c1->Update();
+    c1->Pad()->Draw();
+    c1->cd(4);
+    c1->Update();
+    c1->Pad()->Draw();
+    c1->cd(5);
+    c1->Update();
+    c1->Pad()->Draw();
+    c1->cd(6);
+    c1->Update();
+    c1->Pad()->Draw();
+
+    ROS_WARN("[AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA]curr_img = %d\n", curr_img);
+
+    ros::spinOnce();
+
+    loop_rate.sleep();
+  }
 
   vibes::endDrawing();
-  file_eq_yx.close();
   file_eq_yp.close();
+//  file_eq_yx.close();
 //  file_gt.close();
 
   return 0;
