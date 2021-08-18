@@ -177,7 +177,8 @@ function sysCall_actuation()
    if rosInterfacePresent then
       -- publish time and pose topics
       simROS.publish(publisher_time, {data=sim.getSimulationTime()})
-      simROS.publish(publisher_pose, getPose("Chassis"))
+      simROS.publish(publisher_pose, getPose("OnBoardCamera"))
+--      simROS.publish(publisher_pose, getPose("Chassis"))
       simROS.publish(publisher_speed, getSpeed(sim.handle_self))
 
       -- send a TF

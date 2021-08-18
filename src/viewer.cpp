@@ -63,6 +63,9 @@ ofstream file_eq_yp;
 vector<vector<double>> sim_data;
 vector<vector<double>> sim_ground_truth;
 int curr_img = 0;
+bool first_pose = true;
+double offset_pose_1;
+double offset_pose_2;
 
 void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg){
   float w_x, w_y, w_th;
@@ -92,8 +95,14 @@ void state_pred_callback(const tiles_loc::State::ConstPtr& msg) {
 }
 
 void pose_callback(const geometry_msgs::Pose& msg){
-  pose_1 = msg.position.x;
-  pose_2 = msg.position.y;
+  if (first_pose) {
+    offset_pose_1 = -msg.position.x;
+    offset_pose_2 = -msg.position.y;
+    first_pose = false;
+  }
+
+  pose_1 = msg.position.x + offset_pose_1;
+  pose_2 = msg.position.y + offset_pose_2;
   pose_3 = tf::getYaw(msg.orientation);
 
   vibes::drawVehicle(pose_1, pose_2, pose_3*180./M_PI, 0.3, "pink");
@@ -286,10 +295,9 @@ int main(int argc, char **argv){
     c1->Update();
     c1->Pad()->Draw();
 
-    ROS_WARN("[AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA]curr_img = %d\n", curr_img);
+    ROS_WARN("[VIEWER] curr_img = %d\n", curr_img);
 
     ros::spinOnce();
-
     loop_rate.sleep();
   }
 
