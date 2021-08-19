@@ -57,10 +57,11 @@ ibex::IntervalVector state_pred(3, ibex::Interval::ALL_REALS);
 ibex::IntervalVector observation(3, ibex::Interval::ALL_REALS);
 double pose_1, pose_2, pose_3;
 ofstream file_eq_yp;
-//ofstream file_eq_yx;
+ofstream file_eq_yx;
 //ofstream file_gt;
 
 vector<vector<double>> sim_data;
+vector<vector<double>> sim_data_xy;
 vector<vector<double>> sim_ground_truth;
 int curr_img = 0;
 bool first_pose = true;
@@ -141,6 +142,23 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
   vector<double> s{sim1_eq1, sim1_eq2, sim1_eq3, sim2_eq1, sim2_eq2, sim2_eq3};
   sim_data.push_back(s);
 
+  // estimation and parameters should also have near 0 value in the equivalency equations
+  double sim1_eq1_xy = sin(M_PI*(x[0].mid()-y[0].mid())/TILE_SIZE);
+  double sim1_eq2_xy = sin(M_PI*(x[1].mid()-y[1].mid())/TILE_SIZE);
+  double sim1_eq3_xy = sin(x[2].mid()-y[2].mid());
+
+  double sim2_eq1_xy = sin(M_PI*(x[1].mid()-y[0].mid())/TILE_SIZE);
+  double sim2_eq2_xy = sin(M_PI*(x[0].mid()-y[1].mid())/TILE_SIZE);
+  double sim2_eq3_xy = cos(x[2].mid()-y[2].mid());
+
+  file_eq_yx << sim1_eq1_xy << "," << sim1_eq2_xy << "," << sim1_eq3_xy << "," << sim2_eq1_xy << "," << sim2_eq2_xy << "," << sim2_eq3_xy << endl;
+
+  ROS_INFO("[VIEWER] Equivalence equations 1:\nsin(pi*(y1-x1)) = [%f]\nsin(pi*(y2-x2)) = [%f]\nsin(y2-x2) = [%f]\n", sim1_eq1_xy, sim1_eq2_xy, sim1_eq3_xy);
+  ROS_INFO("[VIEWER] Equivalence equations 2:\nsin(pi*(y1-x2)) = [%f]\nsin(pi*(y2-x1)) = [%f]\ncos(y2-x1) = [%f]\n", sim2_eq1_xy, sim2_eq2_xy, sim2_eq3_xy);
+
+  vector<double> s2{sim1_eq1_xy, sim1_eq2_xy, sim1_eq3_xy, sim2_eq1_xy, sim2_eq2_xy, sim2_eq3_xy};
+  sim_data_xy.push_back(s2);
+
 //  if (sim_data.size() == curr_img){
 //    sim_data.push_back(s);
 //  } else {
@@ -154,7 +172,7 @@ int main(int argc, char **argv){
   // ----------------- ROOT setup ----------------- //
   TApplication rootapp("viz", &argc, argv);
 
-  auto c1 = std::make_unique<TCanvas>("c1", "Equivalence equations");
+  auto c1 = std::make_unique<TCanvas>("c1", "Equivalence equations Pose<->Obs");
   c1->SetWindowSize(1550, 700);
 
   auto f1 = std::make_unique<TGraph>(num_imgs);
@@ -215,6 +233,68 @@ int main(int argc, char **argv){
   f5->Draw();
   c1->cd(6);
   f6->Draw();
+
+  auto c2 = std::make_unique<TCanvas>("c2", "Equivalence equations Estim<->Obs");
+  c2->SetWindowSize(1550, 700);
+
+  auto f21 = std::make_unique<TGraph>(num_imgs);
+  f21->SetTitle("sin(pi*(y1-z1)/tile_size)");
+  f21->GetXaxis()->SetTitle("Iteration");
+  f21->GetYaxis()->SetTitle("Similarity score");
+  f21->SetMinimum(-1);
+  f21->SetMaximum(1);
+
+  auto f22 = std::make_unique<TGraph>(num_imgs);
+  f22->SetTitle("sin(pi*(y2-z2)/tile_size)");
+  f22->GetXaxis()->SetTitle("Iteration");
+  f22->GetYaxis()->SetTitle("Similarity score");
+  f22->SetMinimum(-1);
+  f22->SetMaximum(1);
+
+  auto f23 = std::make_unique<TGraph>(num_imgs);
+  f23->SetTitle("sin(y3-z3)");
+  f23->GetXaxis()->SetTitle("Iteration");
+  f23->GetYaxis()->SetTitle("Similarity score");
+  f23->SetMinimum(-1);
+  f23->SetMaximum(1);
+
+  auto f24 = std::make_unique<TGraph>(num_imgs);
+  f24->SetTitle("sin(pi*(y1-z2)/tile_size)");
+  f24->GetXaxis()->SetTitle("Iteration");
+  f24->GetYaxis()->SetTitle("Similarity score");
+  f24->SetMinimum(-1);
+  f24->SetMaximum(1);
+
+  auto f25 = std::make_unique<TGraph>(num_imgs);
+  f25->SetTitle("sin(pi*(y2-z1)/tile_size)");
+  f25->GetXaxis()->SetTitle("Iteration");
+  f25->GetYaxis()->SetTitle("Similarity score");
+  f25->SetMinimum(-1);
+  f25->SetMaximum(1);
+
+  auto f26 = std::make_unique<TGraph>(num_imgs);
+  f26->SetTitle("cos(y3-z3)");
+  f26->GetXaxis()->SetTitle("Iteration");
+  f26->GetYaxis()->SetTitle("Similarity score");
+  f26->SetMinimum(-1);
+  f26->SetMaximum(1);
+
+  // divide the canvas into two vertical sub-canvas
+  c2->Divide(2, 3);
+
+  // "Register" the plots for each canvas slot
+  c2->cd(1); // Set current canvas to canvas 1 (yes, 1 based indexing)
+  f21->Draw();
+  c2->cd(3);
+  f22->Draw();
+  c2->cd(5);
+  f23->Draw();
+  c2->cd(2);
+  f24->Draw();
+  c2->cd(4);
+  f25->Draw();
+  c2->cd(6);
+  f26->Draw();
   // ------------------------------------------------ //
 
   // ----------------- VIBES setup ----------------- //
@@ -226,17 +306,16 @@ int main(int argc, char **argv){
   // ------------------------------------------------ //
 
   file_eq_yp.open("/home/birromer/ros/data_tiles/temp/eq_yp.csv", fstream::in | fstream::out | fstream::trunc);
-//  file_eq_yx.open("/home/birromer/ros/data_tiles/temp/eq_yx.csv", fstream::in | fstream::out | fstream::trunc);
+  file_eq_yx.open("/home/birromer/ros/data_tiles/temp/eq_yx.csv", fstream::in | fstream::out | fstream::trunc);
 //  file_gt.open("/home/birromer/ros/data_tiles/temp/gt.csv", fstream::in | fstream::out | fstream::trunc);
 
   file_eq_yp << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
-//  file_eq_yx << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
+  file_eq_yx << "sim1_eq1" << "," << "sim1_eq2" << "," << "sim1_eq3" << "," << "sim2_eq1" << "," << "sim2_eq2" << "," << "sim2_eq3" << endl;
 //  file_gt << "x" << "," << "y" << "," << "theta" << endl;
 
   ros::init(argc, argv, "viewer_node");
 
   ros::NodeHandle n;
-
 
   ros::Subscriber sub_waypoint = n.subscribe("waypoint", 1000, waypoint_callback);
   ros::Subscriber sub_state_loc = n.subscribe("state_loc", 1000, state_loc_callback);
@@ -250,7 +329,7 @@ int main(int argc, char **argv){
   while (ros::ok()) {
     // plot similarity equations
 
-    // redraw graph
+    // redraw graph pose <-> observation
     for (int i=0; i < curr_img; i++) {
       if (i < curr_img) {
         f1->SetPoint(i, i, sim_data[i][0]);
@@ -295,6 +374,51 @@ int main(int argc, char **argv){
     c1->Update();
     c1->Pad()->Draw();
 
+    // redraw graph estimation <-> observation
+    for (int i=0; i < curr_img; i++) {
+      if (i < curr_img) {
+        f21->SetPoint(i, i, sim_data_xy[i][0]);
+        f22->SetPoint(i, i, sim_data_xy[i][1]);
+        f23->SetPoint(i, i, sim_data_xy[i][2]);
+        f24->SetPoint(i, i, sim_data_xy[i][3]);
+        f25->SetPoint(i, i, sim_data_xy[i][4]);
+        f26->SetPoint(i, i, sim_data_xy[i][5]);
+      } else {
+        f21->SetPoint(i, i, 0);
+        f22->SetPoint(i, i, 0);
+        f23->SetPoint(i, i, 0);
+        f24->SetPoint(i, i, 0);
+        f25->SetPoint(i, i, 0);
+        f26->SetPoint(i, i, 0);
+      }
+    }
+    f21->RemovePoint(curr_img+1);
+    f22->RemovePoint(curr_img+1);
+    f23->RemovePoint(curr_img+1);
+    f24->RemovePoint(curr_img+1);
+    f25->RemovePoint(curr_img+1);
+    f26->RemovePoint(curr_img+1);
+
+    // notify ROOT that the plots have been modified and needs update
+    c2->cd(1);
+    c2->Update();
+    c2->Pad()->Draw();
+    c2->cd(2);
+    c2->Update();
+    c2->Pad()->Draw();
+    c2->cd(3);
+    c2->Update();
+    c2->Pad()->Draw();
+    c2->cd(4);
+    c2->Update();
+    c2->Pad()->Draw();
+    c2->cd(5);
+    c2->Update();
+    c2->Pad()->Draw();
+    c2->cd(6);
+    c2->Update();
+    c2->Pad()->Draw();
+
     ROS_WARN("[VIEWER] curr_img = %d\n", curr_img);
 
     ros::spinOnce();
@@ -303,7 +427,7 @@ int main(int argc, char **argv){
 
   vibes::endDrawing();
   file_eq_yp.close();
-//  file_eq_yx.close();
+  file_eq_yx.close();
 //  file_gt.close();
 
   return 0;
