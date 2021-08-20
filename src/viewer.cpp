@@ -11,7 +11,7 @@
 **   - none
  */
 
-#define TILE_SIZE 0.166
+#define TILE_SIZE 0.166 // 1.0 //
 int num_imgs = 10000;
 
 #include <ros/ros.h>
@@ -106,7 +106,7 @@ void pose_callback(const geometry_msgs::Pose& msg){
   pose_2 = msg.position.y + offset_pose_2;
   pose_3 = tf::getYaw(msg.orientation);
 
-  vibes::drawVehicle(pose_1, pose_2, pose_3*180./M_PI, 0.3, "pink");
+  vibes::drawVehicle(pose_1, pose_2, pose_3/M_PI*180., 0.3, "pink");
 }
 
 void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
@@ -121,9 +121,9 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
   double expected_2 = (pose_2/TILE_SIZE - floor(pose_2/TILE_SIZE))*TILE_SIZE;
   double expected_3 = ((pose_3-M_PI/4)/(M_PI/2) - floor((pose_3-M_PI/4)/(M_PI/2))-0.5) * 2*M_PI/4;  // modulo without function as it is in radians
 
-  ROS_WARN("[VIEWER] Using state: x1 [%f] | x2 [%f] | x3 [%f]", x[0].mid(), x[1].mid(), x[2].mid());
+//  ROS_WARN("[VIEWER] Using state: x1 [%f] | x2 [%f] | x3 [%f]", x[0].mid(), x[1].mid(), x[2].mid());
   ROS_WARN("[VIEWER] Using parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
-  ROS_WARN("[VIEWER] Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
+//  ROS_WARN("[VIEWER] Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
   // ground truth and parameters should have near 0 value in the equivalency equations
   double sim1_eq1 = sin(M_PI*(pose_1-y[0].mid())/TILE_SIZE);
@@ -136,8 +136,8 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
 
   file_eq_yp << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
 
-  ROS_INFO("[VIEWER] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sim1_eq1, sim1_eq2, sim1_eq3);
-  ROS_INFO("[VIEWER] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sim2_eq1, sim2_eq2, sim2_eq3);
+//  ROS_INFO("[VIEWER] Equivalence equations 1:\nsin(pi*(y1-z1)) = [%f]\nsin(pi*(y2-z2)) = [%f]\nsin(y2-z2) = [%f]\n", sim1_eq1, sim1_eq2, sim1_eq3);
+//  ROS_INFO("[VIEWER] Equivalence equations 2:\nsin(pi*(y1-z2)) = [%f]\nsin(pi*(y2-z1)) = [%f]\ncos(y2-z1) = [%f]\n", sim2_eq1, sim2_eq2, sim2_eq3);
 
   vector<double> s{sim1_eq1, sim1_eq2, sim1_eq3, sim2_eq1, sim2_eq2, sim2_eq3};
   sim_data.push_back(s);
@@ -153,8 +153,8 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
 
   file_eq_yx << sim1_eq1_xy << "," << sim1_eq2_xy << "," << sim1_eq3_xy << "," << sim2_eq1_xy << "," << sim2_eq2_xy << "," << sim2_eq3_xy << endl;
 
-  ROS_INFO("[VIEWER] Equivalence equations 1:\nsin(pi*(y1-x1)) = [%f]\nsin(pi*(y2-x2)) = [%f]\nsin(y2-x2) = [%f]\n", sim1_eq1_xy, sim1_eq2_xy, sim1_eq3_xy);
-  ROS_INFO("[VIEWER] Equivalence equations 2:\nsin(pi*(y1-x2)) = [%f]\nsin(pi*(y2-x1)) = [%f]\ncos(y2-x1) = [%f]\n", sim2_eq1_xy, sim2_eq2_xy, sim2_eq3_xy);
+//  ROS_INFO("[VIEWER] Equivalence equations 1:\nsin(pi*(y1-x1)) = [%f]\nsin(pi*(y2-x2)) = [%f]\nsin(y2-x2) = [%f]\n", sim1_eq1_xy, sim1_eq2_xy, sim1_eq3_xy);
+//  ROS_INFO("[VIEWER] Equivalence equations 2:\nsin(pi*(y1-x2)) = [%f]\nsin(pi*(y2-x1)) = [%f]\ncos(y2-x1) = [%f]\n", sim2_eq1_xy, sim2_eq2_xy, sim2_eq3_xy);
 
   vector<double> s2{sim1_eq1_xy, sim1_eq2_xy, sim1_eq3_xy, sim2_eq1_xy, sim2_eq2_xy, sim2_eq3_xy};
   sim_data_xy.push_back(s2);
@@ -419,7 +419,7 @@ int main(int argc, char **argv){
     c2->Update();
     c2->Pad()->Draw();
 
-    ROS_WARN("[VIEWER] curr_img = %d\n", curr_img);
+    //ROS_WARN("[VIEWER] curr_img = %d\n", curr_img);
 
     ros::spinOnce();
     loop_rate.sleep();

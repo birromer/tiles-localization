@@ -109,7 +109,7 @@ int main(int argc, char **argv)
     pub_cmd_l.publish(cmd_msg_l);
     pub_cmd_r.publish(cmd_msg_r);
 
-    ROS_INFO("[CONTROL] Sent commands -> u_l: [%f] | u_r: [%f]", cmd_l, cmd_r);
+//    ROS_INFO("[CONTROL] Sent commands -> u_l: [%f] | u_r: [%f]", cmd_l, cmd_r);
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -144,12 +144,12 @@ void waypoint_callback(const geometry_msgs::PoseStamped::ConstPtr& msg) {
   w_x  = msg->pose.position.x;
   w_y  = msg->pose.position.y;
   w_th = tf::getYaw(msg->pose.orientation);
-  ROS_INFO("[CONTROL] Received waypoint -> w_x: [%f] | w_y: [%f] | w_th: [%f]", w_x, w_y, w_th);
+//  ROS_INFO("[CONTROL] Received waypoint -> w_x: [%f] | w_y: [%f] | w_th: [%f]", w_x, w_y, w_th);
 }
 
 void state_callback(const tiles_loc::State::ConstPtr& msg){
   x_x = (msg->x1_lb + msg->x1_ub)/2.;
   x_y = (msg->x2_lb + msg->x2_ub)/2.;
   x_th = (msg->x3_lb + msg->x3_ub)/2.; //* 180./M_PI;  // TODO: check if radians or degrees should be user later
-  ROS_INFO("[CONTROL] Received state-> x1: [%f] | x2: [%f] | x3: [%f]", x_x, x_y, x_th);
+//  ROS_INFO("[CONTROL] Received state-> x1: [%f] | x2: [%f] | x3: [%f]", x_x, x_y, x_th);
 }

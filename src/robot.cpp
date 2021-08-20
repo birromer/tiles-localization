@@ -45,7 +45,7 @@
 
 using namespace cv;
 
-#define MIN_GOOD_LINES 5
+#define MIN_GOOD_LINES 1
 #define IMG_FOLDER "/home/birromer/ros/data_tiles/metodo/dataset_tiles/"
 
 #define ERROR_PRED      0.01  // error should not exceed half the tile (total width smaller than tile)
@@ -103,8 +103,8 @@ bool base_grid_created = false;
 bool display_window;
 double frame_width=0, frame_height=0;
 
-double tile_size = 0.166;    // size of the side of the tile, in meters, also seen as l
-double px_per_m = 620.48;    // pixels per meter
+double tile_size = 0.166;//*6.024;    // size of the side of the tile, in meters, also seen as l
+double px_per_m = 620.48;///6.024;    // pixels per meter
 int dist_lines = tile_size * px_per_m;  //pixels between each pair of lines
 
 // NOTE: TEMPORARY FOR CREATING DATASET
@@ -184,9 +184,9 @@ int main(int argc, char **argv) {
   // ------------------ //
 
   while (ros::ok()) {
-    std::cout << " =================================================================== " << std::endl;
-    std::cout << "--------------------- [ROBOT] beggining ros loop ------------------- " << std::endl;
-    std::cout << " =================================================================== " << std::endl;
+//    std::cout << " =================================================================== " << std::endl;
+//    std::cout << "--------------------- [ROBOT] beggining ros loop ------------------- " << std::endl;
+//    std::cout << " =================================================================== " << std::endl;
 
     // publish current, unevolved state to be used by the control and viewer nodes
     tiles_loc::State state_msg = state_to_msg(state);
@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
 
     dt = sim_time - prev_sim_time;
     prev_sim_time = sim_time;
-    ROS_INFO("[ROBOT] Simulaton time step: [%f]", dt);
+    //ROS_INFO("[ROBOT] Simulaton time step: [%f]", dt);
 
     state = state_loc;                             // start with the last state contracted from the localization
     y = obs;                                       // use last observed parameters from the image
@@ -209,8 +209,8 @@ int main(int argc, char **argv) {
     tiles_loc::State state_pred_dt_msg = state_to_msg(state_pred_dt);
     pub_state_pred_dt.publish(state_pred_dt_msg);
 
-    ROS_INFO("[ROBOT] Sent change in dt: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
-             state_pred_dt[0].lb(), state_pred_dt[0].ub(), state_pred_dt[1].lb(), state_pred_dt[1].ub(), state_pred_dt[2].lb(), state_pred_dt[2].ub());
+//    ROS_INFO("[ROBOT] Sent change in dt: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+//             state_pred_dt[0].lb(), state_pred_dt[0].ub(), state_pred_dt[1].lb(), state_pred_dt[1].ub(), state_pred_dt[2].lb(), state_pred_dt[2].ub());
 
     tiles_loc::Observation observation_msg = observation_to_msg(y);
     pub_y.publish(observation_msg);
@@ -323,8 +323,8 @@ int sign(double x) {
 }
 
 ibex::IntervalVector compute_change_dt(ibex::IntervalVector state, double u1, double u2, double dt) {
-  ROS_WARN("[ROBOT] STARTING STATE -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
-             state[0].lb(), state[0].ub(), state[1].lb(), state[1].ub(), state[2].lb(), state[2].ub());
+//  ROS_WARN("[ROBOT] STARTING STATE -> x1: ([%f],[%f]) | x2: ([%f],[%f]) | x3: ([%f],[%f])",
+//             state[0].lb(), state[0].ub(), state[1].lb(), state[1].ub(), state[2].lb(), state[2].ub());
 
   ibex::IntervalVector change_dt(3, ibex::Interval::ALL_REALS);
   change_dt[0] = (u1 * ibex::cos(u2)).inflate(ERROR_PRED) * dt;
@@ -332,8 +332,8 @@ ibex::IntervalVector compute_change_dt(ibex::IntervalVector state, double u1, do
   change_dt[2] = ibex::Interval(u2).inflate(ERROR_PRED);// * dt;
 //  change_dt[2] = ibex::Interval(u2).inflate(ERROR_PRED);// * dt;
 
-  ROS_WARN("[ROBOT] Change on state with dt = [%f] -> dx1: ([%f],[%f]) | dx2: ([%f],[%f]) | dx3: ([%f],[%f])",
-             dt, change_dt[0].lb(), change_dt[0].ub(), change_dt[1].lb(), change_dt[1].ub(), change_dt[2].lb(), change_dt[2].ub());
+//  ROS_WARN("[ROBOT] Change on state with dt = [%f] -> dx1: ([%f],[%f]) | dx2: ([%f],[%f]) | dx3: ([%f],[%f])",
+//             dt, change_dt[0].lb(), change_dt[0].ub(), change_dt[1].lb(), change_dt[1].ub(), change_dt[2].lb(), change_dt[2].ub());
 
   return change_dt;
 }
@@ -367,8 +367,8 @@ void state_loc_callback(const tiles_loc::State::ConstPtr& msg) {
   state_loc[0] = ibex::Interval(msg->x1_lb, msg->x1_ub);
   state_loc[1] = ibex::Interval(msg->x2_lb, msg->x2_ub);
   state_loc[2] = ibex::Interval(msg->x3_lb, msg->x3_ub);
-  ROS_INFO("[ROBOT] Received estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
-           state_loc[0].lb(), state_loc[0].ub(), state_loc[1].lb(), state_loc[1].ub(), state_loc[2].lb(), state_loc[2].ub());
+  //ROS_INFO("[ROBOT] Received estimated state: x1 ([%f],[%f]) | x2 ([%f],[%f]) | x3 ([%f],[%f])",
+//           state_loc[0].lb(), state_loc[0].ub(), state_loc[1].lb(), state_loc[1].ub(), state_loc[2].lb(), state_loc[2].ub());
 }
 
 string to_filename(int idx, int n_digits) {
@@ -397,7 +397,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     imwrite(cimg, in);
     img_idx += 1;
 
-    std::cout << "SAVED IMAGE " << cimg << endl;
+//    std::cout << "SAVED IMAGE " << cimg << endl;
     file_gt << pose_1 << "," << pose_2 << "," << pose_3 << endl;
     // ------------------------------------
 
@@ -553,7 +553,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
 
     if(lines_good.size() > MIN_GOOD_LINES) {
-      ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
+      //ROS_INFO("[ROBOT] Found [%ld] good lines", lines_good.size());
       std::vector<line_t> bag_h, bag_v;
       double x1, y1, x2, y2;
       double angle_new;
@@ -613,7 +613,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       double d_hat_h = tile_size * median(bag_h, 6);  // the median gives a value from 0 to 1 of displacement, multiplying by the tile size positions it in the world
       double d_hat_v = tile_size * median(bag_v, 6);
 
-      ROS_WARN("PARAMETERS -> d_hat_h = [%f] | d_hat_v = [%f] | a_hat = [%f]", d_hat_h, d_hat_v, a_hat);
+//      ROS_WARN("PARAMETERS -> d_hat_h = [%f] | d_hat_v = [%f] | a_hat = [%f]", d_hat_h, d_hat_v, a_hat);
 
       obs = ibex::IntervalVector({
           {d_hat_h, d_hat_h},
@@ -643,7 +643,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
       }
 
     } else {
-      ROS_WARN("Not enough good lines ([%ld])", lines_good.size());
+//      ROS_WARN("Not enough good lines ([%ld])", lines_good.size());
 
     }
 
@@ -910,12 +910,12 @@ void ShowManyImages(string title, int nArgs, ...) {
 
 void compass_callback(const std_msgs::Float64::ConstPtr& msg) {
   compass = msg->data;
-  ROS_INFO("[ROBOT] received compass data: [%f]", compass);
+  //ROS_INFO("[ROBOT] received compass data: [%f]", compass);
 }
 
 void time_callback(const std_msgs::Float64::ConstPtr& msg) {
   sim_time = msg->data;
-  ROS_INFO("[ROBOT] received simulation time: [%f]", sim_time);
+  //ROS_INFO("[ROBOT] received simulation time: [%f]", sim_time);
 }
 
 void speed_callback(const geometry_msgs::Pose::ConstPtr& msg) {
@@ -927,7 +927,7 @@ void speed_callback(const geometry_msgs::Pose::ConstPtr& msg) {
   speed_tht = msg->orientation.y;
   speed_psi = msg->orientation.z;
 
-  ROS_INFO("[ROBOT] Received current speed in x, y and z: [%f] [%f] [%f] | rho, theta and psi: [%f] [%f] [%f]", speed_x, speed_y, speed_z, speed_rho, speed_tht, speed_psi);
+  //ROS_INFO("[ROBOT] Received current speed in x, y and z: [%f] [%f] [%f] | rho, theta and psi: [%f] [%f] [%f]", speed_x, speed_y, speed_z, speed_rho, speed_tht, speed_psi);
 }
 
 void pose_callback(const geometry_msgs::Pose& msg){
