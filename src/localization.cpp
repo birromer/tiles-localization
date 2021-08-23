@@ -101,43 +101,43 @@ int main(int argc, char **argv) {
     x[0] = codac::Interval(pose_1, pose_1).inflate(0.04);
     x[1] = codac::Interval(pose_2, pose_2).inflate(0.04);
 
-//    // use last observed parameters from the image
-//    y[0] = observation[0];
-//    y[1] = observation[1];
-//    y[2] = observation[2];
-//
-//    ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
-//    ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
-//
-//    box0[0] = x[0], box0[1] = x[1], box0[2] = x[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2];
-//    box1[0] = x[0], box1[1] = x[1], box1[2] = x[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2];
-//
-//    char f1_char[100];
-//    char f2_char[100];
-//    snprintf(f1_char, 100, "(sin(pi*(x[0]-y[0])/%.3f) ; sin(pi*(x[1]-y[1])/%.3f) ; sin(x[2]-y[2]))", TILE_SIZE, TILE_SIZE);
-//    snprintf(f2_char, 100, "(sin(pi*(x[0]-y[1])/%.3f) ; sin(pi*(x[1]-y[0])/%.3f) ; cos(x[2]-y[2]))", TILE_SIZE, TILE_SIZE);
-//
-//    ibex::Function f1("x[3]", "y[3]", f1_char);
-//    ibex::Function f2("x[3]", "y[3]", f2_char);
-//
-//    ibex::CtcFwdBwd c1(f1);
-//    ibex::CtcFwdBwd c2(f2);
-//
-//    c1.contract(box0);
-//    c2.contract(box1);
-//
-//    ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
-//    box[0] = box0[0] | box1[0];
-//    box[1] = box0[1] | box1[1];
-//    box[2] = box0[2] | box1[2];
-//
-//    if(box[0].is_empty() or box[1].is_empty()) {
-//      //ROS_WARN("[LOCALIZATION] Could not contract the state.");
-//    } else {
-//      x[0] = box[0];
-//      x[1] = box[1];
-//      x[2] = box[2];
-//    }
+    // use last observed parameters from the image
+    y[0] = observation[0];
+    y[1] = observation[1];
+    y[2] = observation[2];
+
+    ibex::IntervalVector box0(6, ibex::Interval::ALL_REALS);
+    ibex::IntervalVector box1(6, ibex::Interval::ALL_REALS);
+
+    box0[0] = x[0], box0[1] = x[1], box0[2] = x[2], box0[3] = y[0], box0[4] = y[1], box0[5] = y[2];
+    box1[0] = x[0], box1[1] = x[1], box1[2] = x[2], box1[3] = y[0], box1[4] = y[1], box1[5] = y[2];
+
+    char f1_char[100];
+    char f2_char[100];
+    snprintf(f1_char, 100, "(sin(pi*(x[0]-y[0])/%.3f) ; sin(pi*(x[1]-y[1])/%.3f) ; sin(x[2]-y[2]))", TILE_SIZE, TILE_SIZE);
+    snprintf(f2_char, 100, "(sin(pi*(x[0]-y[1])/%.3f) ; sin(pi*(x[1]-y[0])/%.3f) ; cos(x[2]-y[2]))", TILE_SIZE, TILE_SIZE);
+
+    ibex::Function f1("x[3]", "y[3]", f1_char);
+    ibex::Function f2("x[3]", "y[3]", f2_char);
+
+    ibex::CtcFwdBwd c1(f1);
+    ibex::CtcFwdBwd c2(f2);
+
+    c1.contract(box0);
+    c2.contract(box1);
+
+    ibex::IntervalVector box(3, ibex::Interval::ALL_REALS);
+    box[0] = box0[0] | box1[0];
+    box[1] = box0[1] | box1[1];
+    box[2] = box0[2] | box1[2];
+
+    if(box[0].is_empty() or box[1].is_empty()) {
+      ROS_WARN("[LOCALIZATION] Could not contract the state.");
+    } else {
+      x[0] = box[0];
+      x[1] = box[1];
+      x[2] = box[2];
+    }
 
 //    x[0] = ibex::Interval(pose_1, pose_1).inflate(0.1);
 //    x[1] = ibex::Interval(pose_2, pose_2).inflate(0.1);

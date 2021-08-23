@@ -121,9 +121,9 @@ void observation_callback(const tiles_loc::Observation::ConstPtr& msg) {
   double expected_2 = (pose_2/TILE_SIZE - floor(pose_2/TILE_SIZE))*TILE_SIZE;
   double expected_3 = ((pose_3-M_PI/4)/(M_PI/2) - floor((pose_3-M_PI/4)/(M_PI/2))-0.5) * 2*M_PI/4;  // modulo without function as it is in radians
 
-//  ROS_WARN("[VIEWER] Using state: x1 [%f] | x2 [%f] | x3 [%f]", x[0].mid(), x[1].mid(), x[2].mid());
-  ROS_WARN("[VIEWER] Using parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
-//  ROS_WARN("[VIEWER] Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
+  ROS_INFO("[VIEWER] Using state: x1 [%f] | x2 [%f] | x3 [%f]", x[0].mid(), x[1].mid(), x[2].mid());
+  ROS_INFO("[VIEWER] Using parameters: y1 [%f] | y2 [%f] | y3 [%f]", y[0].mid(), y[1].mid(), y[2].mid());
+  ROS_INFO("[VIEWER] Using truth: p1 [%f] | p2 [%f] | p3 [%f]", pose_1, pose_2, pose_3);
 
   // ground truth and parameters should have near 0 value in the equivalency equations
   double sim1_eq1 = sin(M_PI*(pose_1-y[0].mid())/TILE_SIZE);
