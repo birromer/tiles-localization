@@ -33,9 +33,9 @@ using namespace codac;
 
 #define MIN_GOOD_LINES 5
 
-#define ERROR_PRED      0.04
-#define ERROR_OBS       0.04
-#define ERROR_OBS_ANGLE 0.03
+#define ERROR_PRED      0.01
+#define ERROR_OBS       0.02
+#define ERROR_OBS_ANGLE 0.02
 
 #define DATASET "centered"
 string path_test;
@@ -71,7 +71,14 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs);
 cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs);
 cv::Mat gen_img(std::vector<double> expected);
 cv::Mat gen_img_rot(std::vector<double> expected);
-cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box);
+/* colors:
+ * pink       -> ground truth
+ * dark green -> predicted state (state equations applied at previous state, before contraction)
+ * light blue -> contracted state
+ * yellow     -> oberved parameters of the image (first set)
+ * orange     -> oberved parameters of the image (second set, x <-> y, 90 deg angle)
+ */
+cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box, std::vector<double> pose);
 
 robot_t rotate_robot(robot_t robot, double theta);
 robot_t translate_robot(robot_t robot, double dx, double dy);
@@ -275,7 +282,6 @@ int main(int argc, char **argv) {
   bool first_pose = true;
   ibex::IntervalVector obs(3, ibex::Interval::ALL_REALS);    // observed parameters from the image
   ibex::IntervalVector state(3, ibex::Interval::ALL_REALS);  // working state from prediction (in this case gt)
-
   // --------- start file with testing data ----------- //
 
   ofstream file_sim(path_test);
@@ -316,6 +322,12 @@ int main(int argc, char **argv) {
       offset_pose_1 = -line_vals[0];
       offset_pose_2 = -line_vals[1];
       first_pose = false;
+
+      state = ibex::IntervalVector({
+          {pose_1, pose_1},
+          {pose_2, pose_2},
+          {pose_3, pose_3}
+      }).inflate(ERROR_PRED);
     }
 
     vector<double> pose{line_vals[0] + offset_pose_1, line_vals[1] + offset_pose_2, line_vals[2]};
@@ -337,11 +349,21 @@ int main(int argc, char **argv) {
     pose_2 = sim_ground_truth[curr_img][1];
     pose_3 = sim_ground_truth[curr_img][2];
 
-    state = ibex::IntervalVector({
-        {pose_1, pose_1},
-        {pose_2, pose_2},
-        {pose_3, pose_3}
-    }).inflate(ERROR_PRED);
+//    state = ibex::IntervalVector({
+//        {pose_1, pose_1},
+//        {pose_2, pose_2},
+//        {pose_3, pose_3}
+//    }).inflate(ERROR_PRED);
+//
+    double dt = 0.5;  // TODO: get real values
+
+    // predict position from state equations, considering that speed and angle are measured
+    double u1 = sqrt(pow(pose_1 - prev_pose_1, 2) + pow(pose_2 - prev_pose_2, 2));  // u1 as the speed
+    double u2 = pose_3 - prev_pose_3;  // u2 as the diff in heading
+
+    state[0] = state[0] + (u1 * ibex::cos(state[2])).inflate(ERROR_PRED) * dt;
+    state[1] = state[1] + (u1 * ibex::cos(state[2])).inflate(ERROR_PRED) * dt;
+    state[2] = state[2] + ibex::Interval(u2).inflate(ERROR_PRED) * dt;
 
     // 1.1.2 gerenate gt parameters
     expected_1 = (pose_1/tile_size - floor(pose_1/tile_size))*tile_size; // modulo(pose_1, tile_size);
@@ -361,13 +383,13 @@ int main(int argc, char **argv) {
     circle(in_dataset, Point2i(frame_width/2, frame_height/2), 3, Scalar(0, 255, 0), 3);
 
     // here we can alternate the methods being compared
-//    Mat in = gen_img_rot(expected);
-    Mat in = gen_img(expected);
+    Mat in = gen_img_rot(expected);
+//    Mat in = gen_img(expected);
 //    Mat in = in_dataset;
 
 //    Mat in_alt = gen_img_rot(expected);
-//    Mat in_alt = gen_img(expected);
-    Mat in_alt = in_dataset;
+    Mat in_alt = gen_img(expected);
+//    Mat in_alt = in_dataset;
 
     // 1.2 convert to greyscale for later computing borders
     Mat grey, grey_rot;
@@ -667,7 +689,8 @@ int main(int argc, char **argv) {
 
 
     printw("\nPOSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
-    printw("POSE diff  ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1-prev_pose_1, pose_2-prev_pose_2, pose_3-prev_pose_3);
+//    printw("POSE diff  ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1-prev_pose_1, pose_2-prev_pose_2, pose_3-prev_pose_3);
+    printw("STATE      ->      x1 = %f |      x2 = %f |    x3 = %f\n", state[0].mid(), state[1].mid(), state[2].mid());
     printw("EXPECTED   -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", expected_1, expected_2, expected_3);
     printw("PARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", obs[0].mid(), obs[1].mid(), obs[2].mid());;
 
@@ -716,13 +739,16 @@ int main(int argc, char **argv) {
     } else {
       printw("CONTRACTION->      x1 = %f |      x2 = %f |    x3 = %f\n", box[0].mid(), box[1].mid(), box[2].mid());
       printw(" Distance from center to truth: %.2f cm\n", sqrt(pow(pose_1 - box[0].mid(), 2) + pow(pose_2 - box[1].mid(), 2))*100);
+      state[0] = box[0];
+      state[1] = box[1];
+      state[2] = box[2];
     }
 
     if (intervals) {
       // draw ground truth
-      vibes::drawVehicle(pose_1, pose_2, pose_3*180./M_PI, 0.3, "pink");  // draw ground truth
+      vibes::drawVehicle(pose_1, pose_2, pose_3/M_PI*180., 0.3, "pink");  // draw ground truth
 
-      // draw the predicted state (in this case is the ground truth, as we're testing only the parameters)
+      // draw the predicted state (when testing only parameters, it's the ground truth)
       vibes::drawBox(state.subvector(0, 1), "green");
       vibes::drawVehicle(state[0].mid(), state[1].mid(), (state[2].mid())*180./M_PI, 0.3, "green");
 
@@ -734,7 +760,8 @@ int main(int argc, char **argv) {
     // EXTRA visual stuff
 
     // global frame with observed parameter, pose and contraction
-    Mat view_global_frame = generate_global_frame(state, obs, box);
+    // state is the prediction without contraction, obs are the parameters, box is the contraction and pose is the ground truth
+    Mat view_global_frame = generate_global_frame(state, obs, box, sim_ground_truth[curr_img]);
 
     // display steps and global frame
     if(display_window) {
@@ -746,13 +773,22 @@ int main(int argc, char **argv) {
     }
 
     // ground truth and parameters should have near 0 value in the equivalency equations
-    double sim1_eq1 = sin(M_PI*(pose_1-obs[0].mid())/tile_size);
-    double sim1_eq2 = sin(M_PI*(pose_2-obs[1].mid())/tile_size);
-    double sim1_eq3 = sin(pose_3-obs[2].mid());
+//    double sim1_eq1 = sin(M_PI*(pose_1-obs[0].mid())/tile_size);
+//    double sim1_eq2 = sin(M_PI*(pose_2-obs[1].mid())/tile_size);
+//    double sim1_eq3 = sin(pose_3-obs[2].mid());
+//
+//    double sim2_eq1 = sin(M_PI*(pose_2-obs[0].mid())/tile_size);
+//    double sim2_eq2 = sin(M_PI*(pose_1-obs[1].mid())/tile_size);
+//    double sim2_eq3 = cos(pose_3-obs[2].mid());
 
-    double sim2_eq1 = sin(M_PI*(pose_2-obs[0].mid())/tile_size);
-    double sim2_eq2 = sin(M_PI*(pose_1-obs[1].mid())/tile_size);
-    double sim2_eq3 = cos(pose_3-obs[2].mid());
+    // comparisson between prediction and parameters, that's what is considered for the contraction
+    double sim1_eq1 = sin(M_PI*(state[0].mid()-obs[0].mid())/tile_size);
+    double sim1_eq2 = sin(M_PI*(state[1].mid()-obs[1].mid())/tile_size);
+    double sim1_eq3 = sin(state[2].mid()-obs[2].mid());
+
+    double sim2_eq1 = sin(M_PI*(state[1].mid()-obs[0].mid())/tile_size);
+    double sim2_eq2 = sin(M_PI*(state[0].mid()-obs[1].mid())/tile_size);
+    double sim2_eq3 = cos(state[2].mid()-obs[2].mid());
 
     file_sim << sim1_eq1 << "," << sim1_eq2 << "," << sim1_eq3 << "," << sim2_eq1 << "," << sim2_eq2 << "," << sim2_eq3 << endl;
 
@@ -826,6 +862,13 @@ int main(int argc, char **argv) {
       }
     } else {
       curr_img += 1;
+    }
+
+    // NOTE : this update has to be after the visualization stuff
+    if(!box[0].is_empty() and !box[1].is_empty()) {
+      state[0] = box[0];
+      state[1] = box[1];
+      state[2] = box[2];
     }
 
     clear();
@@ -1383,10 +1426,14 @@ robot_t translate_robot(robot_t robot, double dx, double dy) {
   return robot_trans;
 }
 
-cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box) {
+cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector obs, ibex::IntervalVector box, std::vector<double> pose) {
   double state_1 = state[0].mid();
   double state_2 = state[1].mid();
   double state_3 = state[2].mid();
+
+  double pose_1 = pose[0];
+  double pose_2 = pose[1];
+  double pose_3 = pose[2];
 
   double d_hat_h = obs[0].mid();
   double d_hat_v = obs[1].mid();
@@ -1504,21 +1551,37 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   line(global_frame, robot_obs_2.p3, robot_obs_2.p1, Scalar(0, 69, 255), 1, LINE_AA);
   circle(global_frame, robot_obs_2.p1/3 + robot_obs_2.p2/3 + robot_obs_2.p3/3, 2, Scalar(0, 69, 255), 1);
 
-  // draw ground truth
-  robot_t robot_state = {
+  // draw state prediction
+  robot_t robot_prediction = {
     .p1     = base_robot.p1,
     .p2     = base_robot.p2,
     .p3     = base_robot.p3,
     .angle  = base_robot.angle,
   };
-  robot_state = rotate_robot(robot_state, state_3);  // rotate already centered at the origin
-  robot_state = translate_robot(robot_state, state_1*view_px_per_m, state_2*view_px_per_m);  // translate according to state
+  robot_prediction = rotate_robot(robot_prediction, state_3);  // rotate already centered at the origin
+  robot_prediction = translate_robot(robot_prediction, state_1*view_px_per_m, state_2*view_px_per_m);  // translate according to state
 
   // dark green
-  line(global_frame, robot_state.p1, robot_state.p2, Scalar(130, 200, 0), 1, LINE_AA);
-  line(global_frame, robot_state.p2, robot_state.p3, Scalar(130, 200, 0), 1, LINE_AA);
-  line(global_frame, robot_state.p3, robot_state.p1, Scalar(130, 200, 0), 1, LINE_AA);
-  circle(global_frame, robot_state.p1/3 + robot_state.p2/3 + robot_state.p3/3, 2, Scalar(130, 200, 0), 1);
+  line(global_frame, robot_prediction.p1, robot_prediction.p2, Scalar(130, 200, 0), 1, LINE_AA);
+  line(global_frame, robot_prediction.p2, robot_prediction.p3, Scalar(130, 200, 0), 1, LINE_AA);
+  line(global_frame, robot_prediction.p3, robot_prediction.p1, Scalar(130, 200, 0), 1, LINE_AA);
+  circle(global_frame, robot_prediction.p1/3 + robot_prediction.p2/3 + robot_prediction.p3/3, 2, Scalar(130, 200, 0), 1);
+
+  // draw ground truth
+  robot_t robot_gt= {
+    .p1     = base_robot.p1,
+    .p2     = base_robot.p2,
+    .p3     = base_robot.p3,
+    .angle  = base_robot.angle,
+  };
+  robot_gt = rotate_robot(robot_gt, pose_3);  // rotate already centered at the origin
+  robot_gt = translate_robot(robot_gt, pose_1*view_px_per_m, pose_2*view_px_per_m);  // translate according to state
+
+  // pink
+  line(global_frame, robot_gt.p1, robot_gt.p2, Scalar(203, 192, 255), 1, LINE_AA);
+  line(global_frame, robot_gt.p2, robot_gt.p3, Scalar(203, 192, 255), 1, LINE_AA);
+  line(global_frame, robot_gt.p3, robot_gt.p1, Scalar(203, 192, 255), 1, LINE_AA);
+  circle(global_frame, robot_gt.p1/3 + robot_gt.p2/3 + robot_gt.p3/3, 2, Scalar(130, 200, 0), 1);
 
   // draw contracted state
   robot_t robot_box = {
