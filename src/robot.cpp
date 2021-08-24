@@ -46,7 +46,7 @@
 using namespace cv;
 
 #define MIN_GOOD_LINES 1
-#define IMG_FOLDER "/home/birromer/ros/data_tiles/metodo/dataset_tiles/"
+#define IMG_FOLDER "/home/birromer/ros/data_tiles/timestamped/dataset_tiles/"
 
 #define ERROR_PRED      0.01  // error should not exceed half the tile (total width smaller than tile)
 #define ERROR_OBS       0.02//0.04
@@ -121,8 +121,8 @@ int main(int argc, char **argv) {
   double dt;
 
   // NOTE: TEMPORARY FOR CREATING DATASET
-  file_gt.open("/home/birromer/ros/data_tiles/metodo/gt.csv", fstream::in | fstream::out | fstream::trunc);
-  file_gt << "x" << "," << "y" << "," << "theta" << endl;
+  file_gt.open("/home/birromer/ros/data_tiles/timestamped/gt.csv", fstream::in | fstream::out | fstream::trunc);
+  file_gt << "time" << "x" << "," << "y" << "," << "theta" << endl;
   // ------------------------------
 
   // read initial values from the launcher
@@ -398,7 +398,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg) {
     img_idx += 1;
 
 //    std::cout << "SAVED IMAGE " << cimg << endl;
-    file_gt << pose_1 << "," << pose_2 << "," << pose_3 << endl;
+    file_gt << sim_time << "," << pose_1 << "," << pose_2 << "," << pose_3 << endl;
     // ------------------------------------
 
     // 1.2 convert to greyscale for later computing borders
