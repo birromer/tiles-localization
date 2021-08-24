@@ -33,11 +33,11 @@ using namespace codac;
 
 #define MIN_GOOD_LINES 5
 
-#define ERROR_PRED      0.01
-#define ERROR_OBS       0.02
+#define ERROR_PRED      0.03
+#define ERROR_OBS       0.03
 #define ERROR_OBS_ANGLE 0.02
 
-#define DATASET "centered"
+#define DATASET "timestamped" // "centered"
 string path_test;
 
 int num_imgs = 13758;
@@ -276,7 +276,7 @@ int main(int argc, char **argv) {
     cv::startWindowThread();
   }
 
-  double pose_1=0.0, pose_2=0.0, pose_3=0.0;
+  double pose_1=0.0, pose_2=0.0, pose_3=0.0, timestamp=0.0;
   double expected_1, expected_2, expected_3;
   double offset_pose_1, offset_pose_2;
   bool first_pose = true;
@@ -312,15 +312,15 @@ int main(int argc, char **argv) {
 
     // extract each value
     while(ss >> val){
-        line_vals.push_back(val);
+        line_vals.push_back(val);  // will always have: timestamp, pose_x, pose_y, pose_th
 
         if(ss.peek() == ',')
           ss.ignore();  // ignore commas
     }
 
     if (first_pose) {
-      offset_pose_1 = -line_vals[0];
-      offset_pose_2 = -line_vals[1];
+      offset_pose_1 = -line_vals[1];
+      offset_pose_2 = -line_vals[2];
       first_pose = false;
 
       state = ibex::IntervalVector({
@@ -328,9 +328,10 @@ int main(int argc, char **argv) {
           {pose_2, pose_2},
           {pose_3, pose_3}
       }).inflate(ERROR_PRED);
+      timestamp = line_vals[0];
     }
 
-    vector<double> pose{line_vals[0] + offset_pose_1, line_vals[1] + offset_pose_2, line_vals[2]};
+    vector<double> pose{line_vals[0], line_vals[1] + offset_pose_1, line_vals[2] + offset_pose_2, line_vals[3]};  // timestamp, x, y, th
     sim_ground_truth.push_back(pose);
   }
   // ------------------------------------------------ //
@@ -341,29 +342,33 @@ int main(int argc, char **argv) {
     // 1.1.1 get the pose from the ground truth
     // access the vector where it is stored
 
+    double prev_timestamp = timestamp;
     double prev_pose_1 = pose_1;
     double prev_pose_2 = pose_2;
     double prev_pose_3 = pose_3;
 
-    pose_1 = sim_ground_truth[curr_img][0];
-    pose_2 = sim_ground_truth[curr_img][1];
-    pose_3 = sim_ground_truth[curr_img][2];
+    timestamp = sim_ground_truth[curr_img][0];
+    pose_1 = sim_ground_truth[curr_img][1];
+    pose_2 = sim_ground_truth[curr_img][2];
+    pose_3 = sim_ground_truth[curr_img][3];
 
 //    state = ibex::IntervalVector({
 //        {pose_1, pose_1},
 //        {pose_2, pose_2},
 //        {pose_3, pose_3}
 //    }).inflate(ERROR_PRED);
-//
-    double dt = 0.5;  // TODO: get real values
+
+    double dt = (timestamp - prev_timestamp)*10;
 
     // predict position from state equations, considering that speed and angle are measured
     double u1 = sqrt(pow(pose_1 - prev_pose_1, 2) + pow(pose_2 - prev_pose_2, 2));  // u1 as the speed
     double u2 = pose_3 - prev_pose_3;  // u2 as the diff in heading
 
+    printw("antes: %f | %f | %f\n", state[0].mid(), state[1].mid(), state[2].mid());
     state[0] = state[0] + (u1 * ibex::cos(state[2])).inflate(ERROR_PRED) * dt;
     state[1] = state[1] + (u1 * ibex::cos(state[2])).inflate(ERROR_PRED) * dt;
     state[2] = state[2] + ibex::Interval(u2).inflate(ERROR_PRED) * dt;
+    printw("depois: %f | %f | %f\n", state[0].mid(), state[1].mid(), state[2].mid());
 
     // 1.1.2 gerenate gt parameters
     expected_1 = (pose_1/tile_size - floor(pose_1/tile_size))*tile_size; // modulo(pose_1, tile_size);
@@ -688,8 +693,10 @@ int main(int argc, char **argv) {
 //    Mat view_param_2 = generate_grid_2(dist_lines, expected_i);
 
 
-    printw("\nPOSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
-//    printw("POSE diff  ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1-prev_pose_1, pose_2-prev_pose_2, pose_3-prev_pose_3);
+    printw("\nTIMESTAMP: %f | dt: %f\n", timestamp, dt);
+    printw("INPUT      ->      u1 = %f |      u2 = %f\n", u1, u2);
+    printw("POSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
+    printw("POSE diff  ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1-prev_pose_1, pose_2-prev_pose_2, pose_3-prev_pose_3);
     printw("STATE      ->      x1 = %f |      x2 = %f |    x3 = %f\n", state[0].mid(), state[1].mid(), state[2].mid());
     printw("EXPECTED   -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", expected_1, expected_2, expected_3);
     printw("PARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", obs[0].mid(), obs[1].mid(), obs[2].mid());;
@@ -739,9 +746,6 @@ int main(int argc, char **argv) {
     } else {
       printw("CONTRACTION->      x1 = %f |      x2 = %f |    x3 = %f\n", box[0].mid(), box[1].mid(), box[2].mid());
       printw(" Distance from center to truth: %.2f cm\n", sqrt(pow(pose_1 - box[0].mid(), 2) + pow(pose_2 - box[1].mid(), 2))*100);
-      state[0] = box[0];
-      state[1] = box[1];
-      state[2] = box[2];
     }
 
     if (intervals) {
@@ -1431,9 +1435,10 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   double state_2 = state[1].mid();
   double state_3 = state[2].mid();
 
-  double pose_1 = pose[0];
-  double pose_2 = pose[1];
-  double pose_3 = pose[2];
+  // pose[0] is the timestamp
+  double pose_1 = pose[1];
+  double pose_2 = pose[2];
+  double pose_3 = pose[3];
 
   double d_hat_h = obs[0].mid();
   double d_hat_v = obs[1].mid();
@@ -1581,7 +1586,7 @@ cv::Mat generate_global_frame(ibex::IntervalVector state, ibex::IntervalVector o
   line(global_frame, robot_gt.p1, robot_gt.p2, Scalar(203, 192, 255), 1, LINE_AA);
   line(global_frame, robot_gt.p2, robot_gt.p3, Scalar(203, 192, 255), 1, LINE_AA);
   line(global_frame, robot_gt.p3, robot_gt.p1, Scalar(203, 192, 255), 1, LINE_AA);
-  circle(global_frame, robot_gt.p1/3 + robot_gt.p2/3 + robot_gt.p3/3, 2, Scalar(130, 200, 0), 1);
+  circle(global_frame, robot_gt.p1/3 + robot_gt.p2/3 + robot_gt.p3/3, 2, Scalar(203, 192, 255), 1);
 
   // draw contracted state
   robot_t robot_box = {
