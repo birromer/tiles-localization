@@ -97,6 +97,7 @@ int main(int argc, char **argv)
     cmd_r = max(min(cmd_r, max_speed), -0);
     cmd_l = max(min(cmd_l, max_speed), -0);
 
+    //TODO: test slower speeds
     cmd_l /= 100;
     cmd_r /= 100;
 

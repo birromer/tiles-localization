@@ -49,8 +49,8 @@ using namespace cv;
 #define IMG_FOLDER "/home/birromer/ros/data_tiles/metodo/dataset_tiles/"
 
 #define ERROR_PRED      0.01  // error should not exceed half the tile (total width smaller than tile)
-#define ERROR_OBS       0.04
-#define ERROR_OBS_ANGLE 0.03
+#define ERROR_OBS       0.02//0.04
+#define ERROR_OBS_ANGLE 0.02//0.03
 
 typedef struct line_struct{
   Point2f p1;     // 1st point of the line
