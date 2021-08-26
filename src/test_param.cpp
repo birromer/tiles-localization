@@ -33,8 +33,8 @@ using namespace codac;
 
 #define MIN_GOOD_LINES 5
 
-#define ERROR_PRED      0.03
-#define ERROR_OBS       0.03
+#define ERROR_PRED      0.04
+#define ERROR_OBS       0.04
 #define ERROR_OBS_ANGLE 0.02
 
 #define DATASET "timestamped" // "centered"
@@ -300,6 +300,14 @@ int main(int argc, char **argv) {
   if(!file_gt.is_open())
     throw std::runtime_error("Could not open GT file");
 
+  char path_error[1000];
+  snprintf(path_error, 1000, "/home/birromer/ros/data_tiles/%s/error.csv", DATASET);
+  ofstream file_error(path_error);
+  file_error << "timestamp" << "," << "error_x" << "," << "error_y" << "," << "error_abs" << endl;
+
+  if(!file_error.is_open())
+    throw std::runtime_error("Could not open error output file");
+
   std::string line_content, colname;
 
   std::getline(file_gt, line_content);  // skip line with column names
@@ -364,11 +372,9 @@ int main(int argc, char **argv) {
     double u1 = sqrt(pow(pose_1 - prev_pose_1, 2) + pow(pose_2 - prev_pose_2, 2));  // u1 as the speed
     double u2 = pose_3 - prev_pose_3;  // u2 as the diff in heading
 
-    printw("antes: %f | %f | %f\n", state[0].mid(), state[1].mid(), state[2].mid());
     state[0] = state[0] + (u1 * ibex::cos(state[2])).inflate(ERROR_PRED) * dt;
     state[1] = state[1] + (u1 * ibex::cos(state[2])).inflate(ERROR_PRED) * dt;
     state[2] = state[2] + ibex::Interval(u2).inflate(ERROR_PRED) * dt;
-    printw("depois: %f | %f | %f\n", state[0].mid(), state[1].mid(), state[2].mid());
 
     // 1.1.2 gerenate gt parameters
     expected_1 = (pose_1/tile_size - floor(pose_1/tile_size))*tile_size; // modulo(pose_1, tile_size);
@@ -388,12 +394,12 @@ int main(int argc, char **argv) {
     circle(in_dataset, Point2i(frame_width/2, frame_height/2), 3, Scalar(0, 255, 0), 3);
 
     // here we can alternate the methods being compared
-    Mat in = gen_img_rot(expected);
+//    Mat in = gen_img_rot(expected);
 //    Mat in = gen_img(expected);
-//    Mat in = in_dataset;
+    Mat in = in_dataset;
 
-//    Mat in_alt = gen_img_rot(expected);
-    Mat in_alt = gen_img(expected);
+    Mat in_alt = gen_img_rot(expected);
+//    Mat in_alt = gen_img(expected);
 //    Mat in_alt = in_dataset;
 
     // 1.2 convert to greyscale for later computing borders
@@ -664,8 +670,8 @@ int main(int argc, char **argv) {
       // for the horizontal displacement, it should consider the offset in the x axis (between vertical lines), and the opposite for vertical
       // displacement however there is no distinction between horizontal and vertical with the robot's knowledge, and the ambiguity is taken
       // into consideration in the equivalence
-      double d_hat_h = tile_size * median(bag_h, 6);  // the median gives a value from 0 to 1 of displacement, multiplying by the tile size positions it in the world
-      double d_hat_v = tile_size * median(bag_v, 6);
+      double d_hat_h = tile_size * median(bag_v, 6);  // the median gives a value from 0 to 1 of displacement, multiplying by the tile size positions it in the world
+      double d_hat_v = tile_size * median(bag_h, 6);
 
       obs = ibex::IntervalVector({
           {d_hat_h, d_hat_h},
@@ -695,11 +701,12 @@ int main(int argc, char **argv) {
 
     printw("\nTIMESTAMP: %f | dt: %f\n", timestamp, dt);
     printw("INPUT      ->      u1 = %f |      u2 = %f\n", u1, u2);
-    printw("POSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
     printw("POSE diff  ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1-prev_pose_1, pose_2-prev_pose_2, pose_3-prev_pose_3);
-    printw("STATE      ->      x1 = %f |      x2 = %f |    x3 = %f\n", state[0].mid(), state[1].mid(), state[2].mid());
+    printw("------------------------------------------------------\n");
+    printw("POSE       ->      x1 = %f |      x2 = %f |    x3 = %f\n", pose_1, pose_2, pose_3);
     printw("EXPECTED   -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", expected_1, expected_2, expected_3);
     printw("PARAMETERS -> d_hat_h = %f | d_hat_v = %f | a_hat = %f\n", obs[0].mid(), obs[1].mid(), obs[2].mid());;
+    printw("STATE      ->      x1 = %f |      x2 = %f |    x3 = %f\n", state[0].mid(), state[1].mid(), state[2].mid());
 
 //    double tsim1_eq1 = sin(M_PI*(expected_1-pose_1));
 //    double tsim1_eq2 = sin(M_PI*(expected_2-pose_2));
@@ -745,7 +752,11 @@ int main(int argc, char **argv) {
       printw("Could not contract the state (!!!).\n");
     } else {
       printw("CONTRACTION->      x1 = %f |      x2 = %f |    x3 = %f\n", box[0].mid(), box[1].mid(), box[2].mid());
+      printw("------------------------------------------------------------------------\n");
+      printw("STATE      ->      x1 = [%f, %f] |      x2 = [%f, %f] |    x3 = [%f, %f]\n", state[0].lb(), state[0].ub(), state[1].lb(), state[1].ub(), state[2].lb(), state[2].ub());
+      printw("CONTRACTION->      x1 = [%f, %f] |      x2 = [%f, %f] |    x3 = [%f, %f]\n", box[0].lb(), box[0].ub(), box[1].lb(), box[1].ub(), box[2].lb(), box[2].ub());
       printw(" Distance from center to truth: %.2f cm\n", sqrt(pow(pose_1 - box[0].mid(), 2) + pow(pose_2 - box[1].mid(), 2))*100);
+      file_error << timestamp << "," << (pose_1 - box[0].mid())*100 << "," << (pose_2 - box[1].mid())*100 << "," << pose_3 - box[2].mid() << "," << sqrt(pow(pose_1 - box[0].mid(), 2) + pow(pose_2 - box[1].mid(), 2))*100 << endl;
     }
 
     if (intervals) {
@@ -882,6 +893,8 @@ int main(int argc, char **argv) {
   if (intervals)
     vibes::endDrawing();  // close vibes drawing
   printw("Exited with success\n");
+  file_error.close();
+//  file_gt.close();
 }
 
 double sawtooth(double x){
