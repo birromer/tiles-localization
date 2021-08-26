@@ -648,7 +648,7 @@ int main(int argc, char **argv) {
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
 
-          if (l.p1.x < frame_width/2.) {
+          if (l.p1.x >= frame_width/2.) {
             l.dd = 1 - l.dd;
           }
 
