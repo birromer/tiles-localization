@@ -109,6 +109,10 @@ double tile_size = 0.166;    // size of the side of the tile, in meters, also se
 double px_per_m = 620.48;     // pixels per meter
 int dist_lines = tile_size * px_per_m;  //pixels between each pair of lines
 
+/* orientations are the quarters of the grid, 1 to 4, starting in the top right, counter-clockwise*/
+double prev_a_hat, a_hat;
+int curr_quart = 1;
+
 namespace po = boost::program_options;  // for argument parsing
 
 int main(int argc, char **argv) {
@@ -336,7 +340,11 @@ int main(int argc, char **argv) {
           {pose_2, pose_2},
           {pose_3, pose_3}
       }).inflate(ERROR_PRED);
+      // get first timestamp
       timestamp = line_vals[0];
+      // initialize a_hat with the truth
+      prev_a_hat = line_vals[3];
+      a_hat = line_vals[3];
     }
 
     vector<double> pose{line_vals[0], line_vals[1] + offset_pose_1, line_vals[2] + offset_pose_2, line_vals[3]};  // timestamp, x, y, th
@@ -360,11 +368,11 @@ int main(int argc, char **argv) {
     pose_2 = sim_ground_truth[curr_img][2];
     pose_3 = sim_ground_truth[curr_img][3];
 
-//    state = ibex::IntervalVector({
-//        {pose_1, pose_1},
-//        {pose_2, pose_2},
-//        {pose_3, pose_3}
-//    }).inflate(ERROR_PRED);
+    state = ibex::IntervalVector({
+        {pose_1, pose_1},
+        {pose_2, pose_2},
+        {pose_3, pose_3}
+    }).inflate(ERROR_PRED);
 
     double dt = (timestamp - prev_timestamp)*10;
 
@@ -398,8 +406,8 @@ int main(int argc, char **argv) {
 //    Mat in = gen_img(expected);
     Mat in = in_dataset;
 
-    Mat in_alt = gen_img_rot(expected);
-//    Mat in_alt = gen_img(expected);
+//    Mat in_alt = gen_img_rot(expected);
+    Mat in_alt = gen_img(expected);
 //    Mat in_alt = in_dataset;
 
     // 1.2 convert to greyscale for later computing borders
@@ -495,7 +503,7 @@ int main(int argc, char **argv) {
 
     // 2.0 extract parameters from the angles of the lines from the hough transform, as said in luc's paper
     // this is done for ease of computation
-    double x_hat, y_hat, a_hat;
+    double x_hat, y_hat;
     double x_hat_rot, y_hat_rot, a_hat_rot;
 
     // structures for storing the lines information
@@ -606,13 +614,27 @@ int main(int argc, char **argv) {
     x_hat = median(lines_good, 3);
     y_hat = median(lines_good, 4);
 
+    prev_a_hat = a_hat;
     a_hat = atan2(y_hat, x_hat) * 1./4.;
 //    a_hat = median(lines_good, 2);
+
+    if (a_hat > 0 and prev_a_hat < 0)
+      curr_quart -= 1;
+    else if (a_hat < 0 and prev_a_hat > 0)
+      curr_quart += 1;
+
+    if (curr_quart > 4)
+      curr_quart = 1;
+    else if (curr_quart < 1)
+      curr_quart = 4;
+
+    printw("\nCurrent quarter is: %d\n", curr_quart);
 
     Mat rot = Mat::zeros(Size(frame_width , frame_height), CV_8UC3);
 
     if(lines_good.size() > MIN_GOOD_LINES) {
       printw("\nFound %d good lines\n", lines_good.size());
+
       std::vector<line_t> bag_h, bag_v;
       double x1, y1, x2, y2;
       double angle_new;
@@ -648,8 +670,14 @@ int main(int argc, char **argv) {
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
 
-          if (l.p1.x >= frame_width/2.) {
-            l.dd = 1 - l.dd;
+          if (curr_quart == 2 or curr_quart == 4) {
+            if (l.p1.y < frame_height/2.) {
+              l.dd = 1 - l.dd;
+            }
+          } else if (curr_quart == 1 or curr_quart == 3) {
+            if (l.p1.y >= frame_height/2.) {
+              l.dd = 1 - l.dd;
+            }
           }
 
           bag_v.push_back(l);
@@ -657,8 +685,14 @@ int main(int argc, char **argv) {
         } else if (abs(sin(angle_new)) < 0.2) {  // horizontal
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
 
-          if (l.p1.y < frame_height/2.) {
-            l.dd = 1 - l.dd;
+          if (curr_quart == 1 or curr_quart == 3) {
+            if (l.p1.y < frame_height/2.) {
+              l.dd = 1 - l.dd;
+            }
+          } else if (curr_quart == 4 or curr_quart == 2) {
+            if (l.p1.y >= frame_height/2.) {
+              l.dd = 1 - l.dd;
+            }
           }
 
           bag_h.push_back(l);
@@ -1023,29 +1057,30 @@ cv::Mat gen_img(std::vector<double> expected) {
   std::vector<line_t> grid_lines = base_img_lines;
 
   for (line_t l : grid_lines) {
-//    // adds displacement
-//    l.p1.x += d_hat_v;
-//    l.p1.y += d_hat_h;
+    // adds displacement
+    l.p1.x += d_hat_v;
+    l.p1.y += d_hat_h;
+
+    l.p2.x += d_hat_v;
+    l.p2.y += d_hat_h;
+
+//    // applies the 2d rotation to the line
+//    cv::Point2f p1_rot = rotate_pt(l.p1, -a_hat, center);
+//    cv::Point2f p2_rot = rotate_pt(l.p2, -a_hat, center);
+
+//    p1_rot.x += d_hat_v;
+//    p1_rot.y += d_hat_h;
 //
-//    l.p2.x += d_hat_v;
-//    l.p2.y += d_hat_h;
+//    p2_rot.x += d_hat_v;
+//    p2_rot.y += d_hat_h;
 
-    // applies the 2d rotation to the line
-    cv::Point2f p1_rot = rotate_pt(l.p1, -a_hat, center);
-    cv::Point2f p2_rot = rotate_pt(l.p2, -a_hat, center);
-
-    p1_rot.x += d_hat_v;
-    p1_rot.y += d_hat_h;
-
-    p2_rot.x += d_hat_v;
-    p2_rot.y += d_hat_h;
-
-    line(img_grid, cv::Point(p1_rot.x, p1_rot.y), cv::Point(p2_rot.x, p2_rot.y), Scalar(0, 0, 0), 2, LINE_AA);
+//    line(img_grid, cv::Point(p1_rot.x, p1_rot.y), cv::Point(p2_rot.x, p2_rot.y), Scalar(0, 0, 0), 2, LINE_AA);
+    line(img_grid, cv::Point(l.p1.x, l.p1.y), cv::Point(l.p2.x, l.p2.y), Scalar(0, 0, 0), 2, LINE_AA);
   }
 
   // using point at tile at position (1,1) as reference
   cv::Point2f ref(center.x + dist_lines, center.y - dist_lines);
-  ref = rotate_pt(ref, -a_hat, center);
+//  ref = rotate_pt(ref, -a_hat, center);
   ref.x += d_hat_v;
   ref.y += d_hat_h;
 
@@ -1263,11 +1298,11 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
     double y2 = l.p2.y - frame_height/2.;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    double x1_temp = x1;// x1 * cos(a_hat) - y1 * sin(a_hat);
-    double y1_temp = y1;// x1 * sin(a_hat) + y1 * cos(a_hat);
-
-    double x2_temp = x2;// x2 * cos(a_hat) - y2 * sin(a_hat);
-    double y2_temp = y2;// x2 * sin(a_hat) + y2 * cos(a_hat);
+    double x1_temp = x1;// x1 * cos(a_hat) - y1 * sin(a_hat);//
+    double y1_temp = y1;// x1 * sin(a_hat) + y1 * cos(a_hat);//
+                                                             //
+    double x2_temp = x2;// x2 * cos(a_hat) - y2 * sin(a_hat);//
+    double y2_temp = y2;// x2 * sin(a_hat) + y2 * cos(a_hat);//
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. + d_hat_h);
