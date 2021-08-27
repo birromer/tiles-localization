@@ -402,13 +402,13 @@ int main(int argc, char **argv) {
     circle(in_dataset, Point2i(frame_width/2, frame_height/2), 3, Scalar(0, 255, 0), 3);
 
     // here we can alternate the methods being compared
-    Mat in = gen_img_rot(expected);
+//    Mat in = gen_img_rot(expected);
 //    Mat in = gen_img(expected);
-//    Mat in = in_dataset;
+    Mat in = in_dataset;
 
-//    Mat in_alt = gen_img_rot(expected);
+    Mat in_alt = gen_img_rot(expected);
 //    Mat in_alt = gen_img(expected);
-    Mat in_alt = in_dataset;
+//    Mat in_alt = in_dataset;
 
     // 1.2 convert to greyscale for later computing borders
     Mat grey, grey_rot;
@@ -670,12 +670,12 @@ int main(int argc, char **argv) {
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
 
-          if (curr_quart == 1 or curr_quart == 4) {
-            if (l.p1.y < frame_width/2.) {
+          if (curr_quart == 4 or curr_quart == 3) {
+            if (l.p1.x < frame_width/2.) {
               l.dd = 1 - l.dd;
             }
-          } else if (curr_quart == 2 or curr_quart == 3) {
-            if (l.p1.y >= frame_width/2.) {
+          } else if (curr_quart == 1 or curr_quart == 2) {
+            if (l.p1.x >= frame_width/2.) {
               l.dd = 1 - l.dd;
             }
           }
@@ -685,11 +685,11 @@ int main(int argc, char **argv) {
         } else if (abs(sin(angle_new)) < 0.2) {  // horizontal lines, may be used to measure the vertical displacement
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
 
-          if (curr_quart == 1 or curr_quart == 2) {
+          if (curr_quart == 1 or curr_quart == 4) {
             if (l.p1.y < frame_height/2.) {
               l.dd = 1 - l.dd;
             }
-          } else if (curr_quart == 3 or curr_quart == 4) {
+          } else if (curr_quart == 2 or curr_quart == 3) {
             if (l.p1.y >= frame_height/2.) {
               l.dd = 1 - l.dd;
             }
