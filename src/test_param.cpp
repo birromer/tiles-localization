@@ -380,9 +380,9 @@ int main(int argc, char **argv) {
     double u1 = sqrt(pow(pose_1 - prev_pose_1, 2) + pow(pose_2 - prev_pose_2, 2));  // u1 as the speed
     double u2 = pose_3 - prev_pose_3;  // u2 as the diff in heading
 
-    state[0] = state[0] + (u1 * ibex::cos(state[2])).inflate(ERROR_PRED) * dt;
-    state[1] = state[1] + (u1 * ibex::cos(state[2])).inflate(ERROR_PRED) * dt;
-    state[2] = state[2] + ibex::Interval(u2).inflate(ERROR_PRED) * dt;
+//    state[0] = state[0] + (u1 * ibex::cos(state[2])).inflate(ERROR_PRED) * dt;
+//    state[1] = state[1] + (u1 * ibex::cos(state[2])).inflate(ERROR_PRED) * dt;
+//    state[2] = state[2] + ibex::Interval(u2).inflate(ERROR_PRED) * dt;
 
     // 1.1.2 gerenate gt parameters
     expected_1 = (pose_1/tile_size - floor(pose_1/tile_size))*tile_size; // modulo(pose_1, tile_size);
@@ -402,13 +402,13 @@ int main(int argc, char **argv) {
     circle(in_dataset, Point2i(frame_width/2, frame_height/2), 3, Scalar(0, 255, 0), 3);
 
     // here we can alternate the methods being compared
-//    Mat in = gen_img_rot(expected);
+    Mat in = gen_img_rot(expected);
 //    Mat in = gen_img(expected);
-    Mat in = in_dataset;
+//    Mat in = in_dataset;
 
 //    Mat in_alt = gen_img_rot(expected);
-    Mat in_alt = gen_img(expected);
-//    Mat in_alt = in_dataset;
+//    Mat in_alt = gen_img(expected);
+    Mat in_alt = in_dataset;
 
     // 1.2 convert to greyscale for later computing borders
     Mat grey, grey_rot;
@@ -666,30 +666,30 @@ int main(int argc, char **argv) {
         angle_new = atan2(y2-y1, x2-x1);
 
         // 2.3.4 determine if the lines are horizontal or vertical
-        if (abs(cos(angle_new)) < 0.2) {  // vertical
+        if (abs(cos(angle_new)) < 0.2) {  // vertical lines, may be used to measure the horizontal displacement
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(255, 255, 255), 1, LINE_AA);
           line(src, l.p1, l.p2, Scalar(255, 0, 0), 3, LINE_AA);
 
-          if (curr_quart == 2 or curr_quart == 4) {
-            if (l.p1.y < frame_height/2.) {
+          if (curr_quart == 1 or curr_quart == 4) {
+            if (l.p1.y < frame_width/2.) {
               l.dd = 1 - l.dd;
             }
-          } else if (curr_quart == 1 or curr_quart == 3) {
-            if (l.p1.y >= frame_height/2.) {
+          } else if (curr_quart == 2 or curr_quart == 3) {
+            if (l.p1.y >= frame_width/2.) {
               l.dd = 1 - l.dd;
             }
           }
 
           bag_v.push_back(l);
 
-        } else if (abs(sin(angle_new)) < 0.2) {  // horizontal
+        } else if (abs(sin(angle_new)) < 0.2) {  // horizontal lines, may be used to measure the vertical displacement
           line(rot, cv::Point(x1, y1), cv::Point(x2, y2), Scalar(0, 0, 255), 1, LINE_AA);
 
-          if (curr_quart == 1 or curr_quart == 3) {
+          if (curr_quart == 1 or curr_quart == 2) {
             if (l.p1.y < frame_height/2.) {
               l.dd = 1 - l.dd;
             }
-          } else if (curr_quart == 4 or curr_quart == 2) {
+          } else if (curr_quart == 3 or curr_quart == 4) {
             if (l.p1.y >= frame_height/2.) {
               l.dd = 1 - l.dd;
             }
