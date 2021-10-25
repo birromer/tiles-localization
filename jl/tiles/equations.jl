@@ -58,9 +58,9 @@ function run_traj(tile_size, t0, tf, dt)
             y = gen_param(z, tile_size)
 
             eq = [
-                min(sin(pi*(y[1]-z[1])/tile_size), sin(pi*(y[1]-z[2])/tile_size)),
-                min(sin(pi*(y[2]-z[2])/tile_size), sin(pi*(y[2]-z[1])/tile_size)),
-                min(sin((y[3]-z[3])/tile_size), cos((y[3]-z[3])/tile_size))
+                min(abs(sin(pi*(y[1]-z[1])/tile_size)), abs(sin(pi*(y[1]-z[2])/tile_size))),
+                min(abs(sin(pi*(y[2]-z[2])/tile_size)), abs(sin(pi*(y[2]-z[1])/tile_size))),
+                min(abs(sin((y[3]-z[3])/tile_size)), abs(cos((y[3]-z[3])/tile_size)))
             ]
 
             errors = [errors; eq']
@@ -129,25 +129,26 @@ function main()
         dt = parsed_args["dt"]
         execution_time  = @elapsed err = run_traj(tile_size, t0, tf, dt)
 
-        t = t0:tf:dt
-        plot(t, err[:,1])
+        display(plot!(err[:,1], label="eq1"))
+        display(plot!(err[:,2], label="eq2"))
+        display(plot!(err[:,3], label="eq3"))
+        title!("Min value at each dimension")
+        xlabel!("time")
+        ylabel!("similarity")
+        readline()
     end
 
     println("Finished in $execution_time sec")
 
     println("\nmax and min values:")
-    println("max error x = ", maximum(abs.(err[:,1])))
-    println("min error x = ", minimum(abs.(err[:,1])))
+    println("max error x = ", maximum(err[:,1]))
+    println("min error x = ", minimum(err[:,1]))
 
-    println("max error y = ", maximum(abs.(err[:,2])))
-    println("min error y = ", minimum(abs.(err[:,2])))
+    println("max error y = ", maximum(err[:,2]))
+    println("min error y = ", minimum(err[:,2]))
 
-    println("max error θ = ", maximum(abs.(err[:,3])))
-    println("min error θ = ", minimum(abs.(err[:,3])))
-
-    x = 1:10
-    y = rand(10)
-    plot(x,y)
+    println("max error θ = ", maximum(err[:,3]))
+    println("min error θ = ", minimum(err[:,3]))
 
     exit(0)
 end
