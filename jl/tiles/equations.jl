@@ -63,7 +63,10 @@ function run_traj(tile_size, t0, tf, dt)
                 min(abs(sin((y[3]-z[3])/tile_size)), abs(cos((y[3]-z[3])/tile_size)))
             ]
 
-            errors = [errors; eq']
+            errors = [
+                errors;
+                eq'
+            ]
 
             t += dt
         end
