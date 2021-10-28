@@ -14,6 +14,10 @@ function read_poses(filename)
         push!(poses, Tuple(parse.(Float64, split(line, ","))))
     end
 
+    for pose in poses
+        println(pose)
+    end
+
     close(io)
     return poses
 end
@@ -143,14 +147,14 @@ function main()
 
     println("Finished in $execution_time sec")
 
-    println("\nmax and min values:")
-    println("max error x = ", maximum(err[:,1]))
+    println("\nmax and min values:\n")
+    println("\nmax error x = ", maximum(err[:,1]))
     println("min error x = ", minimum(err[:,1]))
 
-    println("max error y = ", maximum(err[:,2]))
+    println("\nmax error y = ", maximum(err[:,2]))
     println("min error y = ", minimum(err[:,2]))
 
-    println("max error θ = ", maximum(err[:,3]))
+    println("\nmax error θ = ", maximum(err[:,3]))
     println("min error θ = ", minimum(err[:,3]))
 
     exit(0)

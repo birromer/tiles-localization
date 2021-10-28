@@ -1223,11 +1223,11 @@ cv::Mat generate_grid_1(int dist_lines, ibex::IntervalVector obs) {
     double y2 = l.p2.y - frame_height/2.;// + d_hat_v;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    double x1_temp = x1;//x1 * cos(a_hat) - y1 * sin(a_hat);//
-    double y1_temp = y1;//x1 * sin(a_hat) + y1 * cos(a_hat);//
+    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);//x1;//
+    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);//y1;//
 
-    double x2_temp = x2;//x2 * cos(a_hat) - y2 * sin(a_hat);//
-    double y2_temp = y2;//x2 * sin(a_hat) + y2 * cos(a_hat);//
+    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);//x2;//
+    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);//y2;//
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. + d_hat_h);
@@ -1298,11 +1298,11 @@ cv::Mat generate_grid_2(int dist_lines, ibex::IntervalVector obs) {
     double y2 = l.p2.y - frame_height/2.;
 
     // applies the 2d rotation to the line, making it either horizontal or vertical
-    double x1_temp = x1;// x1 * cos(a_hat) - y1 * sin(a_hat);//
-    double y1_temp = y1;// x1 * sin(a_hat) + y1 * cos(a_hat);//
-                                                             //
-    double x2_temp = x2;// x2 * cos(a_hat) - y2 * sin(a_hat);//
-    double y2_temp = y2;// x2 * sin(a_hat) + y2 * cos(a_hat);//
+    double x1_temp = x1 * cos(a_hat) - y1 * sin(a_hat);//x1;//
+    double y1_temp = x1 * sin(a_hat) + y1 * cos(a_hat);//y1;//
+                                                       //
+    double x2_temp = x2 * cos(a_hat) - y2 * sin(a_hat);//x2;//
+    double y2_temp = x2 * sin(a_hat) + y2 * cos(a_hat);//y2;//
 
     // translates the image back and adds displacement
     x1 = (x1_temp + frame_width/2. + d_hat_h);
