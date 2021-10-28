@@ -174,7 +174,7 @@ int main(int argc, char **argv) {
     printw("Output file specified by user: %c\n", path_test);
   } else {
     char temp[1000];
-    snprintf(temp, 1000, "/home/birromer/ros/data/tiles/%s/test_sim.csv", DATASET);
+    snprintf(temp, 1000, "/home/birromer/robotics/data/tiles_loc/%s/test_sim.csv", DATASET);
     path_test = string(temp);
     printw("Output file default: %s\n", path_test);
   }
@@ -298,14 +298,14 @@ int main(int argc, char **argv) {
 
   // ----------- get ground truth data -------------- //
   char path_gt[1000];
-  snprintf(path_gt, 1000, "/home/birromer/ros/data/tiles/%s/gt.csv", DATASET);
+  snprintf(path_gt, 1000, "/home/birromer/robotics/data/tiles_loc/%s/gt.csv", DATASET);
   ifstream file_gt(path_gt);
 
   if(!file_gt.is_open())
     throw std::runtime_error("Could not open GT file");
 
   char path_error[1000];
-  snprintf(path_error, 1000, "/home/birromer/ros/data/tiles/%s/error.csv", DATASET);
+  snprintf(path_error, 1000, "/home/birromer/robotics/data/tiles_loc/%s/error.csv", DATASET);
   ofstream file_error(path_error);
   file_error << "timestamp" << "," << "error_x" << "," << "error_y" << "," << "error_abs" << endl;
 
@@ -394,7 +394,7 @@ int main(int argc, char **argv) {
 
     // (dataset) 1.1 read the image
     char path_img[1000];
-    snprintf(path_img, 1000, "/home/birromer/ros/data/tiles/%s/dataset_tiles/%06d.png", DATASET, curr_img);
+    snprintf(path_img, 1000, "/home/birromer/robotics/data/tiles_loc/%s/dataset_tiles/%06d.png", DATASET, curr_img);
     string ref_filename(path_img);
     Mat in_dataset = imread(ref_filename);
 //    frame_height = in.size[0];
